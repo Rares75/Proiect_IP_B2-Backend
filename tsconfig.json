@@ -1,7 +1,26 @@
 {
-	"compilerOptions": {
-		"strict": true,
-		"jsx": "react-jsx",
-		"jsxImportSource": "hono/jsx"
-	}
+  "compilerOptions": {
+    "lib": [
+      "ESNext"
+    ],
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    // Types
+    "types": [
+      "bun-types"
+    ],
+    // Output settings
+    "declaration": true,
+    "outDir": "dist",
+    "noEmit": false,
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    // Module resolution
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false
+  }
 }

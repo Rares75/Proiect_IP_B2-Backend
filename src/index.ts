@@ -1,7 +1,10 @@
 import app from "./app";
-import {drizzle} from 'drizzle-orm/node-postgres'
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { parseEnv } from "./env";
+import { loadControllers } from "./utils/Controller";
+import { join } from "path";
 
+await loadControllers(join(import.meta.dir, "controllers"));
 parseEnv();
 
 export const db = drizzle(Bun.env.DATABASE_URL);

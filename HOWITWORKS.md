@@ -47,88 +47,108 @@ They do **not** contain business logic. They do **not** touch the database.
 
 ### Example — `TaskController.ts`
 
+---
+
+## Controllers
+
+Controllers live in `src/controllers/` and are the **entry point for all HTTP requests**. Their only job is to:
+
+1. Parse and validate the raw request (query params, body, etc.)
+2. Call the appropriate service method
+3. Return an HTTP response
+
+They do **not** contain business logic. They do **not** touch the database.
+
+---
+
+## Controller Pattern (Decorator-Based)
+
+Controllers are defined using the `@Controller` decorator. Each controller must expose a static `controller` property, which is an instance of `Hono`.
+
+The decorator automatically registers the controller to the global app, so **no manual `.route()` calls are needed in `app.ts`**.
+
+### Example — `TestController.ts`
+
 ```ts
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { taskService } from "@server/services/TaskService";
-import * as z from "zod";
+import { Controller } from "../utils/Controller";
 
-const createTaskSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().optional(),
-  assigneeId: z.string(),
-});
-
-const updateTaskSchema = z.object({
-  title: z.string().optional(),
-  description: z.string().optional(),
-  status: z.enum(["open", "in_progress", "done"]).optional(),
-});
-
-export const taskController = new Hono()
-  // GET /tasks — list all tasks
-  .get("/", async (c) => {
-    const tasks = await taskService.getAllTasks();
-    return c.json({ data: tasks }, 200);
-  })
-
-  // GET /tasks/:id — get one task by ID
-  .get("/:id", async (c) => {
-    const { id } = c.req.param();
-    const task = await taskService.getTaskById(id);
-    if (!task) return c.json({ message: "Task not found" }, 404);
-    return c.json({ data: task }, 200);
-  })
-
-  // POST /tasks — create a new task
-  .post("/", zValidator("json", createTaskSchema), async (c) => {
-    const body = c.req.valid("json");
-    const task = await taskService.createTask(body);
-    return c.json({ data: task }, 201);
-  })
-
-  // PUT /tasks/:id — full update
-  .put("/:id", zValidator("json", updateTaskSchema), async (c) => {
-    const { id } = c.req.param();
-    const body = c.req.valid("json");
-    const updated = await taskService.updateTask(id, body);
-    return c.json({ data: updated }, 200);
-  })
-
-  // PATCH /tasks/:id — partial update (same structure as PUT here, just semantically different)
-  .patch("/:id", zValidator("json", updateTaskSchema), async (c) => {
-    const { id } = c.req.param();
-    const body = c.req.valid("json");
-    const updated = await taskService.updateTask(id, body);
-    return c.json({ data: updated }, 200);
-  })
-
-  // DELETE /tasks/:id — remove a task
-  .delete("/:id", async (c) => {
-    const { id } = c.req.param();
-    await taskService.deleteTask(id);
-    return c.json({ message: "Task deleted" }, 200);
-  });
+@Controller("/test")
+export class TestController {
+  static controller = new Hono()
+    .get("/1", (c) => {
+      return c.text("test");
+    })
+    .get("/some", (c) => {
+      return c.json("some", 200);
+    });
+}
 ```
 
-### Registering a controller in `app.ts`
+---
 
-Once you create a controller, register it in `app.ts`. **To avoid merge conflicts**, always append your route at the end of the chain rather than inserting it in the middle:
+## How it works
+
+- The global app is stored on `globalThis`
+- When the controller file is imported, the decorator runs
+- The decorator registers the controller using:
+
+```ts
+app.route(basePath, controller);
+```
+
+---
+
+## Important Notes
+
+### 1. Controllers must be imported
+
+Controllers are only registered when their files are executed. This means they must be imported somewhere in your app.
+
+---
+
+### 2. No manual registration in `app.ts`
+
+❌ Do NOT do this anymore:
+
+```ts
+app.route("/test", testController);
+```
+
+✅ The decorator handles everything automatically.
+
+---
+
+### 3. Avoid merge conflicts
+
+To prevent merge conflicts, do **not** maintain a central `index.ts` file with all controllers.
 
 ```ts
 // app.ts
-import { taskController } from "./controllers/TaskController";
+import { readdirSync, statSync } from "fs";
+import { join } from "path";
 
-export const app = new Hono()
-  // ... existing middleware ...
-  .route("/auth", authController)
-  .route("/users", userController)
-  .route("/avatar", avatarController)
-  .route("/pulse", pulseController)
-  .route("/tasks", taskController); // 👈 add yours at the bottom
+async function loadControllers(dir: string) {
+  for (const file of readdirSync(dir)) {
+    const fullPath = join(dir, file);
+
+    if (statSync(fullPath).isDirectory()) {
+      await loadControllers(fullPath);
+    } else if (file.endsWith(".ts")) {
+      await import(fullPath);
+    }
+  }
+}
 ```
 
-Each person adds their controller at the end of the chain. This makes merges almost conflict-free since everyone is appending rather than editing the same lines.
+---
+
+## Summary
+
+- Use `@Controller('/path')` on classes
+- Define routes inside a static `controller: Hono`
+- Do not manually register routes
+- Ensure controller files are imported (prefer auto-loading)
 
 ---
 
