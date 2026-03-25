@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.4
+    environment:
+      POSTGRES_USER: proiectIP
+      POSTGRES_PASSWORD: proiectIP
+      POSTGRES_DB: proiectIP
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data

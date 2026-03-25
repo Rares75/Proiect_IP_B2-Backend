@@ -1,26 +1,36 @@
 {
-	"name": "proiectip",
-	"scripts": {
-		"dev": "bun run --hot src/index.ts",
-		"fmt": "bunx @biomejs/biome check . --write",
-		"lint": "bunx @biomejs/biome lint ."
-	},
-	"dependencies": {
-		"@aws-sdk/client-s3": "^3.1012.0",
-		"@types/nodemailer": "^7.0.11",
-		"better-auth": "^1.5.5",
-		"figures": "^6.1.0",
-		"hono": "^4.12.8",
-		"nodemailer": "^8.0.3",
-		"picocolors": "^1.1.1",
-		"pretty-error": "^4.0.0",
-		"react": "^19.2.4",
-		"react-dom": "^19.2.4",
-		"resend": "^6.9.4",
-		"zod": "^4.3.6"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "2.4.8",
-		"@types/bun": "latest"
-	}
+  "name": "proiectip",
+  "scripts": {
+    "db:setup": "docker compose up -d",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db": "bun db:generate && bun db:migrate",
+    "db:studio": "bunx drizzle-kit studio",
+    "dev": "bun db:setup && bun run --hot src/index.ts",
+    "fmt": "bunx @biomejs/biome check . --write",
+    "lint": "bunx @biomejs/biome lint ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1016.0",
+    "@types/nodemailer": "^7.0.11",
+    "better-auth": "^1.5.6",
+    "drizzle-orm": "^0.45.1",
+    "figures": "^6.1.0",
+    "hono": "^4.12.9",
+    "nodemailer": "^8.0.4",
+    "pg": "^8.20.0",
+    "picocolors": "^1.1.1",
+    "pretty-error": "^4.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "resend": "^6.9.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@types/bun": "latest",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.21.0"
+  }
 }

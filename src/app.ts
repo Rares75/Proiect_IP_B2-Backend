@@ -1,8 +1,7 @@
 import { Hono } from "hono";
-
 import { registerValidation } from "./validation";
 
-const app = new Hono();
+const app = new Hono().basePath("/api");
 
 registerValidation(app);
 
