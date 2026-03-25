@@ -9,6 +9,7 @@ import type {
 import { buildSafeValidationResponse } from "../utils/safeErrorBuilder";
 import { validateRequest } from "../validators/validateRequest";
 
+// Completam configuratia primita din exterior peste valorile implicite ale modulului.
 const mergeConfig = (
 	config?: Partial<ValidationConfig>,
 ): ValidationConfig => ({
@@ -16,6 +17,7 @@ const mergeConfig = (
 	...config,
 });
 
+// Validarea ruleaza doar pe metodele care pot transporta un body relevant.
 const shouldValidateRequest = (
 	method: string,
 	config: ValidationConfig,
@@ -37,12 +39,14 @@ export const createValidationMiddleware: ValidationMiddlewareFactory = (
 			await validateRequest(context, schema);
 		} catch (error) {
 			if (error instanceof RequestValidationError) {
+				// Erorile controlate sunt transformate intr-un raspuns sigur si predictibil pentru client.
 				return context.json(
 					buildSafeValidationResponse(error.errors),
 					error.statusCode,
 				);
 			}
 
+			// Fallback defensiv pentru orice eroare neasteptata aparuta in timpul validarii.
 			return context.json(
 				buildSafeValidationResponse([
 					{

@@ -18,6 +18,7 @@ const parseJsonBody: RequestBodyParser = async (context: Context) => {
 	try {
 		parsedBody = await context.req.json();
 	} catch {
+		// Cererea ajunge aici cand body-ul nu poate fi parse-at ca JSON valid.
 		throw new RequestValidationError([
 			{
 				field: "body",
@@ -27,6 +28,7 @@ const parseJsonBody: RequestBodyParser = async (context: Context) => {
 	}
 
 	if (parsedBody === null || typeof parsedBody !== "object" || Array.isArray(parsedBody)) {
+		// Acceptam doar obiecte JSON, nu null, primitive sau array-uri.
 		throw new RequestValidationError([
 			{
 				field: "body",
@@ -36,6 +38,7 @@ const parseJsonBody: RequestBodyParser = async (context: Context) => {
 	}
 
 	if (Object.keys(parsedBody).length === 0) {
+		// Un obiect gol nu poate satisface o schema care valideaza date de input reale.
 		throw new RequestValidationError([
 			{
 				field: "body",
@@ -57,6 +60,7 @@ export const validateRequest = async (
 		await schema.parseAsync(parsedBody);
 	} catch (error) {
 		if (error instanceof ZodError) {
+			// Standardizam erorile Zod intr-o exceptie aplicativa folosita de middleware.
 			throw new RequestValidationError(formatValidationIssues(error.issues));
 		}
 
