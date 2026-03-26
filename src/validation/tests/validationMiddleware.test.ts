@@ -27,10 +27,8 @@ describe("validationMiddleware", () => {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				name: "",
-				email: "invalid-email",
-				message: "",
-				age: "not-a-number",
+				title: "",
+				description: "",
 			}),
 		});
 
@@ -38,20 +36,12 @@ describe("validationMiddleware", () => {
 		expect(await response.json()).toEqual({
 			errors: [
 				{
-					field: "name",
-					message: "Name is required",
+					field: "title",
+					message: "Title is required",
 				},
 				{
-					field: "email",
-					message: "Email must be valid",
-				},
-				{
-					field: "message",
-					message: "Message is required",
-				},
-				{
-					field: "age",
-					message: "Must be a number",
+					field: "description",
+					message: "Description is required",
 				},
 			],
 		});
@@ -61,10 +51,8 @@ describe("validationMiddleware", () => {
 		const app = createTestApp();
 
 		const payload = {
-			name: "Jane Doe",
-			email: "jane@example.com",
-			message: "Need help with my account",
-			age: 32,
+			title: "Jane Doe",
+			description: "Need help with my account",
 		};
 
 		const response = await app.request("http://localhost/help", {

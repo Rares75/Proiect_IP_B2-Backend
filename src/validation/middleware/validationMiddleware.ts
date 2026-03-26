@@ -2,7 +2,7 @@ import { createMiddleware } from "hono/factory";
 
 import { defaultValidationConfig } from "../config/validation.config";
 import { RequestValidationError } from "../errors/validationError";
-import { helpRequestSchema } from "../schemas/helpRequest.schema";
+import { helpRequestInputSchema } from "../schemas/helpRequest.schema";
 import type {
 	ValidationConfig,
 	ValidationMiddlewareFactory,
@@ -64,4 +64,4 @@ export const createValidationMiddleware: ValidationMiddlewareFactory = (
 };
 
 export const validationMiddleware =
-	createValidationMiddleware(helpRequestSchema);
+	createValidationMiddleware(helpRequestInputSchema);
