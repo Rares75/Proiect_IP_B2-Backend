@@ -11,6 +11,10 @@
     "types": [
       "bun-types"
     ],
+    // Path aliases
+    "paths": {
+      "@server/*": ["./src/*"]
+    },
     // Output settings
     "declaration": true,
     "outDir": "dist",
