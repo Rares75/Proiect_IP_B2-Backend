@@ -1,12 +1,11 @@
+import "./utils/pretty-error";
 import app from "./app";
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { parseEnv } from "./env";
-import { loadControllers } from "./utils/Controller";
-import { join } from "path";
+import { loadControllers } from "./utils/controller";
+import { join } from "node:path";
 
 await loadControllers(join(import.meta.dir, "controllers"));
 parseEnv();
-
 
 const server = Bun.serve({
 	port: Bun.env.PORT || 3001,
