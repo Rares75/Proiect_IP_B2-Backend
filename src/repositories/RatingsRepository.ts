@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, avg, count } from "drizzle-orm";
 import { db } from "../db";
 import { ratings, taskAssignments, volunteers } from "../db/schema";
 
@@ -12,7 +12,10 @@ export type RatingCreateData = {
 
 export class RatingsRepository {
     static async getRatingsByReceivedUserId(userId: string) {
-        return db.select().from(ratings).where(eq(ratings.receivedByUserId, userId));
+        return db
+            .select()
+            .from(ratings)
+            .where(eq(ratings.receivedByUserId, userId));
     }
 
     static async getTaskAssignmentById(taskAssignmentId: number) {
@@ -41,5 +44,15 @@ export class RatingsRepository {
 
     static async createRating(rating: RatingCreateData) {
         return db.insert(ratings).values(rating).returning();
+    }
+
+    static async getRatingsSummaryByUserId(userId: string) {
+        return db
+            .select({
+                averageRating: avg(ratings.stars),
+                ratingsCount: count()
+            })
+            .from(ratings)
+            .where(eq(ratings.receivedByUserId, userId));
     }
 }

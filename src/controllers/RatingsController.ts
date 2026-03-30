@@ -30,7 +30,7 @@ export class RatingsController {
             }
 
             const result = await RatingsService.createRating(parsed.data);
-            return c.json(result.body, result.status);
+            return c.json(result.body, { status: result.status });
         } catch (err) {
             console.error("RATING ERROR:", err);
             return c.json({ error: "Internal server error" }, 500);
@@ -39,11 +39,22 @@ export class RatingsController {
     .get("/user/:userId", async (c) => {
         try {
             const userId = c.req.param("userId");
-            const ratings = await RatingsService.getRatingsForUser(userId);
+            const result = await RatingsService.getRatingsForUser(userId);
 
-            return c.json(ratings, 200);
+            return c.json(result.body, { status: result.status });
         } catch (err) {
             console.error("GET RATINGS ERROR: ", err);
+            return c.json({ error: "Internal server error" }, 500);
+        }
+    })
+    .get("/user/:userId/summary", async (c) => {
+        try {
+            const userId = c.req.param("userId");
+            const result = await RatingsService.getRatingsSummaryForUser(userId);
+
+            return c.json(result.body, { status: result.status });
+        } catch (err) {
+            console.error("GET RATINGS SUMMARY ERROR: ", err);
             return c.json({ error: "Internal server error" }, 500);
         }
     });

@@ -26,6 +26,29 @@ type CreateRatingResponse =
           body: { error: string };
       };
 
+type GetRatingsForUserResponse =
+    | {
+          status: 200;
+          body: Awaited<ReturnType<typeof RatingsRepository.getRatingsByReceivedUserId>>;
+      }
+    | {
+          status: 400;
+          body: { error: string };
+      };
+
+type GetRatingsSummaryForUserResponse =
+    | {
+          status: 200;
+          body: {
+              averageRating: number;
+              ratingsCount: number;
+          };
+      }
+    | {
+          status: 400;
+          body: { error: string };
+      };
+
 export class RatingsService {
     static async createRating(input: CreateRatingInput): Promise<CreateRatingResponse> {
         const { taskAssignmentId, writtenByUserId, receivedByUserId, stars, comment } = input;
@@ -102,7 +125,43 @@ export class RatingsService {
         };
     }
 
-    static async getRatingsForUser(userId: string) {
-        return RatingsRepository.getRatingsByReceivedUserId(userId);
+    static async getRatingsForUser(userId: string): Promise<GetRatingsForUserResponse> {
+        if (!userId) {
+            return {
+                status: 400,
+                body: {
+                    error: "User ID is required.",
+                },
+            };
+        }
+
+        const ratings = await RatingsRepository.getRatingsByReceivedUserId(userId);
+
+        return {
+            status: 200,
+            body: ratings,
+        };
     }
+
+    static async getRatingsSummaryForUser(userId: string): Promise<GetRatingsSummaryForUserResponse> {
+        if (!userId) {
+            return {
+                status: 400,
+                body: {
+                    error: "User ID is required.",
+                },
+            };
+        }
+
+        const [summary] = await RatingsRepository.getRatingsSummaryByUserId(userId);
+
+        return {
+            status: 200,
+            body: {
+                averageRating: summary?.averageRating ? Number(summary.averageRating) : 0,
+                ratingsCount: summary?.ratingsCount ? Number(summary.ratingsCount) : 0,
+            },
+        };
+    }
+
 }
