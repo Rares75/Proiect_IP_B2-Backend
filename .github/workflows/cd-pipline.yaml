@@ -5,7 +5,7 @@ on:
     branches:
       - devops/cd-pipeline
   workflow_dispatch:
-  
+
 
 jobs:
   deploy:
@@ -24,12 +24,12 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run database migrations
-        run: bun db:migrate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      # - name: Run database migrations
+      #   run: bun db:migrate
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+      #     BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
       - name: Install Railway CLI
         run: bun install -g @railway/cli
