@@ -5,6 +5,7 @@ on:
     branches:
       - devops/cd-pipeline
   workflow_dispatch:
+  
 
 jobs:
   deploy:
