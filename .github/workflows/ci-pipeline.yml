@@ -7,12 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     name: Run Tests and Build
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }} # Should be TEST_DATABASE_URL
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
       BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
