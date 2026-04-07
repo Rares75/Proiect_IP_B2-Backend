@@ -1,8 +1,9 @@
 import { z } from "zod";
 
+import { requestDetailsSchema } from "./requestDetails.schema";
+
 export const helpRequestInputSchema = z
 	.object({
-		// trim() evita cazurile in care clientul trimite doar spatii pentru campurile obligatorii.
 		title: z
 			.string({
 				error: "Title is required",
@@ -15,8 +16,33 @@ export const helpRequestInputSchema = z
 			})
 			.trim()
 			.min(1, "Description is required"),
+		urgency: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"], {
+			error: "Urgency is required",
+		}),
+		status: z.enum(
+			[
+				"OPEN",
+				"MATCHED",
+				"IN_PROGRESS",
+				"COMPLETED",
+				"CANCELLED",
+				"REJECTED",
+			],
+			{
+				error: "Status is required",
+			},
+		),
+		anonymousMode: z.boolean({
+			error: "Anonymous mode is required",
+		}),
+		category: z
+			.string({
+				error: "Category is required",
+			})
+			.trim()
+			.min(1, "Category is required"),
+		requestDetails: requestDetailsSchema,
 	})
-	// Pastram eventuale campuri suplimentare in payload, dar validam explicit campurile importante.
-	.passthrough();
+	.strict();
 
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
