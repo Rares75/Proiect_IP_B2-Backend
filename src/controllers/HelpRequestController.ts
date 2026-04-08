@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { Controller } from "../utils/controller";
+import { helpRequestService } from "../services/HelpRequestService";
 import { Controller } from "../utils/Controller";
 import { helpRequestService } from "@server/services/HelpRequestService";
 import {RequestStatus, RequestStatusType} from "@server/db/schema";
@@ -10,6 +12,13 @@ const VALID_STATUSES = new Set<RequestStatusType>(RequestStatus.enumValues);    
 export class HelpRequestController {
   static controller = new Hono()
     .post("/", async (c) => {
+      try {
+        const body = await c.req.json();
+        const result = await helpRequestService.createHelpRequest(body);
+        return c.json(result, 201);
+      } catch (error) {
+        return c.json({ message: "Internal server error" }, 500);
+      }
       const body = await c.req.json();
       const result = await helpRequestService.createHelpRequest(body);
       return c.json(result, 201);

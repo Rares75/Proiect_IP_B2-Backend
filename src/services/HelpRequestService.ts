@@ -1,3 +1,4 @@
+import { helpRequestRepository, type CreateHelpRequestDTO } from "../db/repositories/helpRequests.repository";
 import { helpRequestRepository } from "@server/repositories/HelpRequestRepository";
 import { type HelpRequestType, type RequestStatusType } from "@server/db/schema";
 import {InvalidStatusTransitionError, NotFoundError} from "@server/utils/Errors";
@@ -10,11 +11,17 @@ const VALID_TRANSITIONS: Partial<Record<RequestStatusType, RequestStatusType[]>>
 };
 
 export class HelpRequestService {
-  async createHelpRequest(data: Partial<HelpRequestType>) {
-    return await helpRequestRepository.create({
-      ...data,
-      status: "OPEN",
-    });
+  async createHelpRequest(data: CreateHelpRequestDTO) {
+    try {
+      return await helpRequestRepository.create({
+        ...data,
+        status: "OPEN",
+      });
+    } catch (error) {
+      console.error("Failed to create help request:", error);
+      throw new Error("Could not create help request");
+    }
+
   }
 
   /**
