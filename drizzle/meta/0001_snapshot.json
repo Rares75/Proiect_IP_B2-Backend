@@ -1,6 +1,6 @@
 {
-	"id": "f59ad05f-c727-4178-a5b2-02b788ef1cd2",
-	"prevId": "00000000-0000-0000-0000-000000000000",
+	"id": "28a41212-d38a-4310-b989-03654823e82f",
+	"prevId": "f59ad05f-c727-4178-a5b2-02b788ef1cd2",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -57,6 +57,68 @@
 			"uniqueConstraints": {
 				"profiles_user_id_unique": {
 					"name": "profiles_user_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.user_verifications": {
+			"name": "user_verifications",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "serial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "verification_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PENDING'"
+				},
+				"submitted_at": {
+					"name": "submitted_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"verified_at": {
+					"name": "verified_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"user_verifications_user_id_user_id_fk": {
+					"name": "user_verifications_user_id_user_id_fk",
+					"tableFrom": "user_verifications",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"user_verifications_user_id_unique": {
+					"name": "user_verifications_user_id_unique",
 					"nullsNotDistinct": false,
 					"columns": ["user_id"]
 				}
@@ -1165,6 +1227,27 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"phone": {
+					"name": "phone",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"average_rating": {
+					"name": "average_rating",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"status": {
+					"name": "status",
+					"type": "account_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'ACTIVE'"
+				},
 				"email_verified": {
 					"name": "email_verified",
 					"type": "boolean",
@@ -1323,6 +1406,11 @@
 			"name": "urgency_level",
 			"schema": "public",
 			"values": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+		},
+		"public.verification_status": {
+			"name": "verification_status",
+			"schema": "public",
+			"values": ["PENDING", "VERIFIED", "REJECTED"]
 		}
 	},
 	"schemas": {},
