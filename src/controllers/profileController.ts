@@ -21,7 +21,7 @@ export class ProfileController {
                 const profile = await profileService.getProfileByUserId(session.user.id);
                 return c.json(profile, 200);
             } catch (error) {
-                if (error instanceof Error && error.message === "Profile not found")
+                if (error instanceof Error && error.message.includes("not found"))
                     return c.json({ error: error.message }, 404);
                 return c.json({ error: "Internal server error" }, 500);
             }
@@ -34,7 +34,8 @@ export class ProfileController {
                 const profile = await profileService.getProfileByUserId(userId);
                 return c.json(profile, 200);
             } catch (error) {
-                if (error instanceof Error && error.message === "Profile not found")
+                console.error(error);
+                if (error instanceof Error && error.message.includes("not found"))
                     return c.json({ error: error.message }, 404);
                 return c.json({ error: "Internal server error" }, 500);
             }
