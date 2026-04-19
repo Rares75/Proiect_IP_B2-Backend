@@ -1,29 +1,37 @@
-name: Deploy BE to Railway
+name: CD Pipeline
 
+#Triggered after CI pipeline completes successfully
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
     branches:
-      - devops/cd-pipeline
+      - main
   workflow_dispatch:
 
-#
 jobs:
+  #Deployment job
   deploy:
     name: Deploy BE to Railway
     runs-on: ubuntu-latest
 
     steps:
+      #Moving the workflow on the VM
       - name: Checkout
         uses: actions/checkout@v4
 
+      #Bun setup
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      #Dependecies intalation
       - name: Install dependencies
         run: bun install
 
+      #Database migrations
       - name: Run database migrations
         run: bun db:migrate
         env:
@@ -31,9 +39,11 @@ jobs:
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
+      #Railway CLI on VM for deployment
       - name: Install Railway CLI
         run: bun install -g @railway/cli
 
+      #Deployment
       - name: Deploy to Railway
         run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
         env:
