@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import * as schema from "./db/schema";
 import { openAPI } from "better-auth/plugins";
 
 export const auth = betterAuth({
-	database: drizzleAdapter(db, { provider: "pg" }),
+	database: drizzleAdapter(db, { provider: "pg",  
+		schema: schema, }),
 
 	plugins : [openAPI()],
 	emailAndPassword: {
@@ -45,6 +47,14 @@ export const auth = betterAuth({
 		window: 60 * 1000,
 		max: 10,
 	},
+
+	trustedOrigins: [
+    "http://localhost:5173",
+    "http://localhost:3001",
+    "http://localhost:3000",
+    "null",
+],
+	
 });
 
 export default auth;
