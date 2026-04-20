@@ -11,8 +11,11 @@ export class HelpRequestService {
       console.error("Failed to create help request:", error);
       throw new Error("Could not create help request");
     }
-
   }
+    async getHelpRequestById(id: number) {
+    return await helpRequestRepository.findById(id);
+  }
+
 }
 
 export const helpRequestService = new HelpRequestService();

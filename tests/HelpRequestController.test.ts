@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll, spyOn } from 'bun:test';
 import { join } from 'node:path'; 
 import app from '../src/app';
 import { loadControllers } from '../src/utils/controller';
-import { taskService } from '../src/services/TaskService'; 
+import { helpRequestService } from '../src/services/HelpRequestService'; 
 
 describe('GET /api/tasks/:id', () => {
 
@@ -34,7 +34,7 @@ describe('GET /api/tasks/:id', () => {
     });
 
     it('ar trebui sa returneze 500 daca pica baza de date (Eroare Interna)', async () => {
-        const mockError = spyOn(taskService, 'getTaskById').mockRejectedValue(new Error("Baza de date a picat simulată!"));
+        const mockError = spyOn(helpRequestService, 'getHelpRequestById').mockRejectedValue(new Error("Baza de date a picat simulată!"));
 
         const response = await app.request(`/api/tasks/1`);
         const body: any = await response.json();
@@ -44,5 +44,14 @@ describe('GET /api/tasks/:id', () => {
         expect(body.message).toBe("Eroare interna a serverului.");
 
         mockError.mockRestore();
+    });
+    it('ar trebui sa returneze 400 daca ID-ul nu este un numar', async () => {
+        const invalidId = "abc";
+        const response = await app.request(`/api/tasks/${invalidId}`);
+        const body: any = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(body.success).toBe(false);
+        expect(body.message).toBe("Eroare: ID-ul furnizat trebuie sa fie un numar.");
     });
 });
