@@ -54,4 +54,3 @@ export const requireAuth = async (c: Context, next: Next) => {
 (globalThis as any).app = app;
 
 export default app;
-

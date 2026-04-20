@@ -1,4 +1,4 @@
-import postgres from "postgres";
+﻿import postgres from "postgres";
 import chalk from "chalk";
 import figures from 'figures'
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -7,18 +7,18 @@ import PrettyError from "pretty-error";
 const pe = new PrettyError();
 
 try {
-	const connection = postgres(Bun.env.DATABASE_URL, { max: 1 });
-	const db = drizzle(connection);
+    const connection = postgres(Bun.env.DATABASE_URL, { max: 1 });
+    const db = drizzle(connection);
 
-	await migrate(db, { migrationsFolder: "drizzle" });
-	await connection.end();
+    await migrate(db, { migrationsFolder: "drizzle" });
+    await connection.end();
 } catch (error) {
-	if (error instanceof Error) {
-		console.error(pe.render(error));
-	} else {
-		console.log(error);
-	}
-	process.exit(1);
+    if (error instanceof Error) {
+        console.error(pe.render(error));
+    } else {
+        console.log(error);
+    }
+    process.exit(1);
 }
 
 console.log(chalk.magentaBright(`${figures.tick} Migrations applied successfully!`));
