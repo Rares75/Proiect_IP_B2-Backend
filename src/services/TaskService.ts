@@ -1,13 +1,8 @@
-import { taskRepository } from "../repositories/TaskRepository";
+import { helpRequestRepository } from "../db/repositories/helpRequests.repository";
 
 export class TaskService {
   async getTaskById(id: number) {
-    try {
-      return await taskRepository.findById(id); 
-    } catch (error) {
-      console.error("Eroare la DB:", error);
-      return null;
-    }
+    return await helpRequestRepository.findById(id); 
   }
 }
 export const taskService = new TaskService();

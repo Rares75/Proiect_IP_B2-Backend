@@ -13,12 +13,18 @@ export class TaskController {
                  return c.json({ success: false, message: "Eroare: ID-ul furnizat trebuie sa fie un numar." }, 400);
             }
 
-            const foundTask = await taskService.getTaskById(requestedId);
+            try {
+                const foundTask = await taskService.getTaskById(requestedId);
 
-            if (!foundTask) {
-                return c.json({ success: false, message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu a fost gasit` }, 404);
+                if (!foundTask) {
+                    return c.json({ success: false, message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu a fost gasit` }, 404);
+                }
+                
+                return c.json({ success: true, data: foundTask }, 200);
+
+            } catch (error) {
+                console.error("Eroare interna de server:", error);
+                return c.json({ success: false, message: "Eroare interna a serverului." }, 500);
             }
-            
-            return c.json({ success: true, data: foundTask }, 200);
         });
 }
