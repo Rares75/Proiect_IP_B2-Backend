@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { Controller } from "../utils/Controller";
+import { Controller } from "../utils/controller";
 import { validationMiddleware } from "../validation";
 
 @Controller("/help")
