@@ -6,7 +6,8 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"ignoreUnknown": false
+		"ignoreUnknown": false,
+		"includes": ["**", "!node_modules/**/*", "!dist/**/*"]
 	},
 	"formatter": {
 		"enabled": true,
@@ -36,6 +37,6 @@
 				"organizeImports": "on"
 			}
 		},
-		"includes": ["!package.json", "!node_modules/**/*"]
+		"includes": ["!package.json", "!node_modules/**/*", "!dist/*"]
 	}
 }

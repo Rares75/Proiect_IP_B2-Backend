@@ -5,8 +5,19 @@ import { openAPI } from "better-auth/plugins";
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: "pg" }),
+	user: {
+		additionalFields: {
+			userName: {
+				type: "string",
+			},
+			phone: {
+				type: "string",
+				required: false,
+			},
+		},
+	},
 
-	plugins : [openAPI()],
+	plugins: [openAPI()],
 	emailAndPassword: {
 		enabled: true,
 	},
