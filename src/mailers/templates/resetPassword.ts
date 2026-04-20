@@ -8,7 +8,6 @@ export function resetPasswordTemplate(otp: string, expiresInMinutes: number = 10
       <p>Acest cod expiră în <strong>${expiresInMinutes} minute</strong>.</p>
       <p>Dacă nu ai solicitat resetarea parolei, ignoră acest email.</p>
       <hr style="margin: 20px 0;">
-      <small>My App • Toate drepturile rezervate</small>
     </div>
   `;
 }

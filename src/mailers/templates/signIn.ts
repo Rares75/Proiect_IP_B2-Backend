@@ -7,7 +7,6 @@ export function signInTemplate(otp: string, expiresInMinutes: number = 10) {
       <p>Valabil <strong>${expiresInMinutes} minute</strong>.</p>
       <p>Dacă nu ai solicitat autentificarea, ignoră acest email.</p>
       <hr style="margin: 20px 0;">
-      <small>My App • Toate drepturile rezervate</small>
     </div>
   `;
 }

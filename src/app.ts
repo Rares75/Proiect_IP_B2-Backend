@@ -20,7 +20,6 @@ app.use(
 app.post("/auth/email-otp/check-verification-otp", async (c) => {
   const body = await c.req.json();
   
-  // clonăm request-ul cu body-ul deja citit
   const clonedRequest = new Request(c.req.raw.url, {
     method: c.req.raw.method,
     headers: c.req.raw.headers,
@@ -36,9 +35,6 @@ app.post("/auth/email-otp/check-verification-otp", async (c) => {
   }
   
   return response;
-});
-app.on(["GET", "POST"], "/auth/*", (c) => {
-  return auth.handler(c.req.raw);
 });
 
 export const requireAuth = async (c: Context, next: Next) => {
