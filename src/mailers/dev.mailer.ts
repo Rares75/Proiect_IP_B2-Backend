@@ -1,7 +1,20 @@
+import { Mailer as MailerDecorator } from "../di/decorators/mailer";
 import type { Mailer } from "./mailer.interface";
-import { transporter } from "./transporter";
+import { createTransport } from "nodemailer";
 
+@MailerDecorator()
 export class DevMailer implements Mailer {
+	private mailer: ReturnType<typeof createTransport>;
+	constructor() {
+		this.mailer = createTransport({
+			host: "gmail",
+			port: 587,
+			auth: {
+				user: process.env.GMAIL_USER,
+				pass: process.env.GMAIL_APP_PASSWORD,
+			},
+		});
+	}
 	async send({
 		to,
 		subject,
@@ -11,7 +24,7 @@ export class DevMailer implements Mailer {
 		subject: string;
 		html: string;
 	}) {
-		await transporter.sendMail({
+		this.mailer.sendMail({
 			from: process.env.EMAIL_FROM,
 			to,
 			subject,

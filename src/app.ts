@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 
+import { container } from "./di/container";
 import type { AuthUserType, SessionType } from "./types";
 
 export type AppEnv = {
@@ -11,6 +12,6 @@ export type AppEnv = {
 
 const app = new Hono<AppEnv>().basePath("/api");
 
-(globalThis as any).app = app;
+container.addConstant("app", app);
 
 export default app;

@@ -4,14 +4,18 @@ import {
 	createProfileSchema,
 	updateProfileSchema,
 } from "../utils/validators/profileValidator";
-import { profileService } from "../services/profileService";
 import { authMiddlware } from "../middlware/authMiddleware";
 import { sendApiResponse } from "../utils/apiReponse";
 import { logger } from "../utils/logger";
+import { ProfileService } from "../services/profileService";
+import { inject } from "../di";
 
 @Controller("/profile")
 export class ProfileController {
-	static controller = new Hono()
+	constructor(
+		@inject(ProfileService) private readonly profileService: ProfileService,
+	) {}
+	controller = new Hono()
 		.use(authMiddlware)
 		.get("/", async (c) => {
 			const session = c.get("session");
@@ -21,7 +25,7 @@ export class ProfileController {
 			}
 
 			try {
-				const profile = await profileService.getProfileByUserId(user.id);
+				const profile = await this.profileService.getProfileByUserId(user.id);
 				return sendApiResponse(c, profile);
 			} catch (error) {
 				logger.exception(error);
@@ -33,7 +37,7 @@ export class ProfileController {
 			const { userId } = c.req.param();
 
 			try {
-				const profile = await profileService.getProfileByUserId(userId);
+				const profile = await this.profileService.getProfileByUserId(userId);
 				return sendApiResponse(c, profile);
 			} catch (error) {
 				logger.exception(error);
@@ -56,7 +60,7 @@ export class ProfileController {
 				});
 
 			try {
-				const profile = await profileService.createProfile(
+				const profile = await this.profileService.createProfile(
 					session.userId,
 					parsed.data,
 				);
@@ -82,7 +86,7 @@ export class ProfileController {
 				});
 
 			try {
-				const updated = await profileService.updateProfile(
+				const updated = await this.profileService.updateProfile(
 					session.userId,
 					parsed.data,
 				);
@@ -100,7 +104,7 @@ export class ProfileController {
 			}
 
 			try {
-				await profileService.deleteProfile(session.userId);
+				await this.profileService.deleteProfile(session.userId);
 				return sendApiResponse(
 					c,
 					{ deleted: true },

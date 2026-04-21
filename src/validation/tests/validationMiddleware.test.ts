@@ -184,7 +184,7 @@ describe("validationMiddleware", () => {
 			errors: [
 				{
 					field: "body",
-					message: "Unrecognized key: \"extraField\"",
+					message: 'Unrecognized key: "extraField"',
 				},
 			],
 		});

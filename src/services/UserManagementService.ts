@@ -1,25 +1,18 @@
-import {
-	accountRepository,
-	type AccountRepository,
-} from "../db/repositories/account.repository";
-import {
-	userRepository,
-	type UserRepository,
-} from "../db/repositories/user.repository";
+import { AccountRepository } from "../db/repositories/account.repository";
+import { UserRepository } from "../db/repositories/user.repository";
 import { UsermanagementException as UserManagementException } from "../exceptions/user.management/UserManagementException";
 import { logger } from "../utils/logger";
-import { ratingService, type RatingsService } from "./RatingsService";
+import { Service } from "../di/decorators/service";
+import { inject } from "../di";
+import { RatingsService } from "./RatingsService";
 
+@Service()
 export class UserManagementService {
-	private readonly ratingService: RatingsService;
-	private readonly userRepo: UserRepository;
-	private readonly accountRepo: AccountRepository;
-
-	constructor() {
-		this.ratingService = ratingService;
-		this.userRepo = userRepository;
-		this.accountRepo = accountRepository;
-	}
+	constructor(
+		@inject(RatingsService) private readonly ratingService: RatingsService,
+		@inject(UserRepository) private readonly userRepo: UserRepository,
+		@inject(AccountRepository) private readonly accountRepo: AccountRepository,
+	) {}
 
 	/**
 	 *

@@ -1,9 +1,15 @@
 import "./utils/pretty-error";
 import app from "./app";
 import { parseEnv } from "./env";
+import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
 import { join } from "node:path";
 
+await loadDiModules(
+	join(import.meta.dir, "db", "repositories"),
+	join(import.meta.dir, "services"),
+	join(import.meta.dir, "mailers"),
+);
 await loadControllers(join(import.meta.dir, "controllers"));
 parseEnv();
 

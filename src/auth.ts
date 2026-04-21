@@ -2,19 +2,29 @@ import { betterAuth } from "better-auth";
 import { emailOTP, openAPI } from "better-auth/plugins";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { getMailer } from "./mailers";
-const mailer = getMailer();
 import { verifyEmailTemplate } from "./mailers/templates/verifyEmail";
 import { signInTemplate } from "./mailers/templates/signIn";
 import { resetPasswordTemplate } from "./mailers/templates/resetPassword";
 import { logger } from "./utils/logger";
 import * as schema from "./db/schema";
+import { getMailer } from "./mailers/getMailer";
 
 const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {
-		level: "error",
-		log: (message) => logger.error(message),
+		disableColors: false,
+		disabled: false,
+		level: "debug",
+		log: (level, message, ...args) => {
+			if (level === "error") {
+				logger.error(
+					`[AUTH_ERROR] ${message},
+						${args.length ? JSON.stringify(args, null, 2) : ""}`,
+				);
+			} else {
+				logger.info(`[AUTH_${level.toUpperCase()}] ${message}`);
+			}
+		},
 	},
 	user: {
 		additionalFields: {
@@ -74,6 +84,7 @@ const auth = betterAuth({
 		openAPI(),
 		emailOTP({
 			async sendVerificationOTP({ email, otp, type }) {
+				const mailer = getMailer();
 				try {
 					if (type === "email-verification") {
 						await mailer.send({

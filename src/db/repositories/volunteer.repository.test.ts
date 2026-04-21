@@ -1,91 +1,201 @@
-import { expect, test, describe } from "bun:test";
-
-import { volunteerRepository } from "./volunteer.repository";
-import { userRepository } from "./user.repository";
+import { afterEach, describe, expect, test } from "bun:test";
+import { db } from "../../db";
+import { container } from "../../di/container";
+import { volunteers } from "../profile";
+import { UserRepository } from "./user.repository";
+import { VolunteerRepository } from "./volunteer.repository";
 
 describe("VolunteerRepository tests", () => {
-	let testUserId: string;
-	let testVolunteerId: number;
+	const userRepository = container.get(UserRepository);
+	const volunteerRepository = container.get(VolunteerRepository);
+	const originalSelect = (db as any).select;
+	const originalInsert = (db as any).insert;
+	const originalUpdate = (db as any).update;
+	const originalDelete = (db as any).delete;
+	const originalFindById = volunteerRepository.findById;
+
+	afterEach(() => {
+		(db as any).select = originalSelect;
+		(db as any).insert = originalInsert;
+		(db as any).update = originalUpdate;
+		(db as any).delete = originalDelete;
+		volunteerRepository.findById = originalFindById;
+	});
 
 	test("should create a test user and volunteer", async () => {
-		const newUser = await userRepository.create({
-			id: crypto.randomUUID(),
+		const createdUser = {
+			id: "user-1",
 			name: "test volunteer user",
-			email: `volunteer_${Date.now()}@example.com`,
+			email: "volunteer@example.com",
 			phone: "0744000000",
-		});
+		};
+		const createdVolunteer = {
+			id: 1,
+			userId: createdUser.id,
+			availability: true,
+			trustScore: 0,
+			completedTasks: 0,
+		};
+		const insertedTables: unknown[] = [];
 
-		expect(newUser).toBeDefined();
-		testUserId = newUser.id;
+		(db as any).insert = (table: unknown) => {
+			insertedTables.push(table);
+			return {
+				values: () => ({
+					returning: async () =>
+						insertedTables.length === 1 ? [createdUser] : [createdVolunteer],
+				}),
+			};
+		};
 
+		const newUser = await userRepository.create(createdUser as any);
 		const newVolunteer = await volunteerRepository.create({
-			userId: testUserId,
+			userId: newUser.id,
 			availability: true,
 			trustScore: 0,
 			completedTasks: 0,
 		});
 
-		expect(newVolunteer).toBeDefined();
-		expect(newVolunteer.userId).toBe(testUserId);
-		expect(newVolunteer.availability).toBe(true);
-
-		testVolunteerId = newVolunteer.id;
+		expect(newUser).toMatchObject(createdUser);
+		expect(newVolunteer).toMatchObject(createdVolunteer);
+		expect(newVolunteer.userId).toBe(newUser.id);
 	});
 
 	test("should find volunteer by id", async () => {
-		const found = await volunteerRepository.findById(testVolunteerId);
-		expect(found).toBeDefined();
-		expect(found?.userId).toBe(testUserId);
+		const expectedVolunteer = { id: 2, userId: "user-2" };
+		let fromTable: unknown;
+
+		(db as any).select = () => ({
+			from: (table: unknown) => {
+				fromTable = table;
+				return {
+					where: async () => [expectedVolunteer],
+				};
+			},
+		});
+
+		const found = await volunteerRepository.findById(2);
+
+		expect(found).toMatchObject(expectedVolunteer);
+		expect(fromTable).toBe(volunteers);
 	});
 
 	test("should find volunteer by userId", async () => {
-		const found = await volunteerRepository.findByUserId(testUserId);
-		expect(found).toBeDefined();
-		expect(found?.id).toBe(testVolunteerId);
+		const expectedVolunteer = { id: 3, userId: "user-3" };
+		let fromTable: unknown;
+
+		(db as any).select = () => ({
+			from: (table: unknown) => {
+				fromTable = table;
+				return {
+					where: async () => [expectedVolunteer],
+				};
+			},
+		});
+
+		const found = await volunteerRepository.findByUserId("user-3");
+
+		expect(found).toMatchObject(expectedVolunteer);
+		expect(fromTable).toBe(volunteers);
 	});
 
-	// test("should return volunteer profile with aggregated data", async () => {
-	// 	const profile = await volunteerRepository.findProfileById(testVolunteerId);
-	// 	expect(profile).toBeDefined();
-	// 	expect(profile?.volunteerId).toBe(testVolunteerId);
-	// 	expect(profile?.name).toBe("test volunteer user");
-	// 	expect(profile?.email).toContain("volunteer_");
-	// });
-
 	test("should return empty ratings for new volunteer", async () => {
+		volunteerRepository.findById = async () =>
+			({ id: 4, userId: "user-4" }) as any;
+
+		(db as any).select = () => ({
+			from: () => ({
+				where: async () => [],
+			}),
+		});
+
 		const { ratings, averageStars } =
-			await volunteerRepository.findRatingsById(testVolunteerId);
-		expect(ratings).toBeDefined();
-		expect(ratings.length).toBe(0);
+			await volunteerRepository.findRatingsById(4);
+
+		expect(ratings).toEqual([]);
 		expect(averageStars).toBeNull();
 	});
 
 	test("should update volunteer availability", async () => {
-		const updated = await volunteerRepository.update(testVolunteerId, {
+		const expectedVolunteer = { id: 5, availability: false };
+		let updatedTable: unknown;
+		let updatedValues: unknown;
+
+		(db as any).update = (table: unknown) => {
+			updatedTable = table;
+			return {
+				set: (values: unknown) => {
+					updatedValues = values;
+					return {
+						where: () => ({
+							returning: async () => [expectedVolunteer],
+						}),
+					};
+				},
+			};
+		};
+
+		const updated = await volunteerRepository.update(5, {
 			availability: false,
 		});
-		expect(updated).toBeDefined();
-		expect(updated?.availability).toBe(false);
+
+		expect(updated).toMatchObject(expectedVolunteer);
+		expect(updatedTable).toBe(volunteers);
+		expect(updatedValues).toEqual({ availability: false });
 	});
 
 	test("should confirm volunteer exists", async () => {
-		const exists = await volunteerRepository.exists(testVolunteerId);
+		(db as any).select = () => ({
+			from: () => ({
+				where: async () => [{ value: 1 }],
+			}),
+		});
+
+		const exists = await volunteerRepository.exists(6);
+
 		expect(exists).toBe(true);
 	});
 
 	test("should count volunteers successfully", async () => {
+		(db as any).select = () => ({
+			from: async () => [{ value: 2 }],
+		});
+
 		const total = await volunteerRepository.count();
-		expect(total).toBeGreaterThan(0);
+
+		expect(total).toBe(2);
 	});
 
 	test("should delete volunteer and user", async () => {
-		const isDeleted = await volunteerRepository.delete(testVolunteerId);
+		let deletedVolunteerTable: unknown;
+		let deletedUser = false;
+
+		(db as any).delete = (table: unknown) => {
+			if (table === volunteers) {
+				deletedVolunteerTable = table;
+			} else {
+				deletedUser = true;
+			}
+
+			return {
+				where: () => ({
+					returning: async () => [{ id: "deleted-id" }],
+				}),
+			};
+		};
+		(db as any).select = () => ({
+			from: () => ({
+				where: async () => [{ value: 0 }],
+			}),
+		});
+
+		const isDeleted = await volunteerRepository.delete(7);
+		const exists = await volunteerRepository.exists(7);
+		await userRepository.delete("user-7");
+
 		expect(isDeleted).toBe(true);
-
-		const exists = await volunteerRepository.exists(testVolunteerId);
 		expect(exists).toBe(false);
-
-		// cleanup user
-		await userRepository.delete(testUserId);
+		expect(deletedVolunteerTable).toBe(volunteers);
+		expect(deletedUser).toBe(true);
 	});
 });

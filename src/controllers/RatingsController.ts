@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { Controller } from "../utils/controller";
-import { ratingService } from "../services/RatingsService";
+import { inject } from "../di";
+import { RatingsService } from "../services/RatingsService";
 
 const createRatingSchema = z.object({
 	taskAssignmentId: z.number().int().positive(),
@@ -17,7 +18,10 @@ const createRatingSchema = z.object({
 
 @Controller("/ratings")
 export class RatingsController {
-	static controller = new Hono()
+	constructor(
+		@inject(RatingsService) private readonly ratingService: RatingsService,
+	) {}
+	controller = new Hono()
 		.post("/", async (c) => {
 			try {
 				const body = await c.req.json<{
@@ -37,7 +41,7 @@ export class RatingsController {
 					);
 				}
 
-				const result = await ratingService.createRating(parsed.data);
+				const result = await this.ratingService.createRating(parsed.data);
 				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("RATING ERROR:", err);
@@ -47,7 +51,7 @@ export class RatingsController {
 		.get("/user/:userId", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await ratingService.getRatingsForUser(userId);
+				const result = await this.ratingService.getRatingsForUser(userId);
 
 				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
@@ -58,7 +62,8 @@ export class RatingsController {
 		.get("/user/:userId/summary", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await ratingService.getRatingsSummaryForUser(userId);
+				const result =
+					await this.ratingService.getRatingsSummaryForUser(userId);
 
 				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {

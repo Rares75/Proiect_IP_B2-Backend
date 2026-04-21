@@ -16,6 +16,7 @@
 		"emitDecoratorMetadata": true,
 		"strictPropertyInitialization": false,
 		"esModuleInterop": true,
+		"noUnusedParameters": false,
 		// Module resolution
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": false

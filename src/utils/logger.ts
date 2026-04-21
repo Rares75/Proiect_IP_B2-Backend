@@ -9,7 +9,7 @@ const pe = new PrettyError();
 export type Logger = {
 	error: (message: string) => void;
 	success: (message: string) => void;
-	exception: (error: unknown) => void;
+	exception: (error: unknown | Error) => void;
 	warn: (message: string) => void;
 	info: (message: string) => void;
 };
@@ -21,7 +21,7 @@ export const logger: Logger = {
 	success: (message: string): void => {
 		console.log(p.green(`${mainSymbols.tick} ${message}`));
 	},
-	exception: (error: unknown): void => {
+	exception: (error: unknown | Error): void => {
 		if (error instanceof Error) {
 			console.error(pe.render(error));
 		} else {

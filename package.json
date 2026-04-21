@@ -1,52 +1,55 @@
 {
-  "name": "proiectip",
-  "files": [
-    "dist"
-  ],
-  "module": "./dist/index.mjs",
-  "exports": {
-    ".": {
-      "import": "./dist/index.mjs"
-    },
-    "./package.json": "./package.json"
-  },
-  "scripts": {
-    "prepare": "husky",
-    "db:setup": "docker compose up -d",
-    "db:generate": "bunx drizzle-kit generate",
-    "db:migrate": "bun run ./commands/migration-command.ts",
-    "db": "bun db:generate && bun db:migrate",
-    "db:studio": "bunx drizzle-kit studio",
-    "dev": "bun run --hot src/index.ts",
-    "fmt": "bunx @biomejs/biome check . --write",
-    "lint": "bunx @biomejs/biome lint .",
-    "test": "bun test",
-    "build": "bunup"
-  },
-  "dependencies": {
-    "@aws-sdk/client-s3": "^3.1019.0",
-    "@better-auth/drizzle-adapter": "^1.5.6",
-    "better-auth": "1.5.5",
-    "bunup": "^0.16.31",
-    "drizzle-orm": "^0.45.2",
-    "figures": "^6.1.0",
-    "hono": "^4.12.9",
-    "nodemailer": "^8.0.4",
-    "pg": "^8.20.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "resend": "^6.9.4",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "@better-auth/cli": "^1.4.21",
-    "@biomejs/biome": "^2.4.9",
-    "@types/bun": "latest",
-    "@types/nodemailer": "^8.0.0",
-    "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10",
-    "husky": "^9.1.7",
-    "pretty-error": "^4.0.0",
-    "tsx": "^4.21.0"
-  }
+	"name": "proiectip",
+	"files": [
+		"dist"
+	],
+	"module": "./dist/index.mjs",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"prepare": "husky",
+		"db:setup": "docker compose up -d",
+		"db:seed": "bun run ./commands/seed-command.ts",
+		"db:generate": "bunx drizzle-kit generate",
+		"db:migrate": "bun run ./commands/migration-command.ts",
+		"db": "bun db:generate && bun db:migrate",
+		"db:studio": "bunx drizzle-kit studio",
+		"dev": "bun run --hot src/index.ts",
+		"fmt": "bunx @biomejs/biome check . --write",
+		"lint": "bunx @biomejs/biome lint .",
+		"test": "bun test",
+		"build": "bunup"
+	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1033.0",
+		"@better-auth/drizzle-adapter": "^1.6.5",
+		"better-auth": "1.5.5",
+		"bunup": "^0.16.31",
+		"drizzle-orm": "^0.45.2",
+		"drizzle-seed": "^0.3.1",
+		"figures": "^6.1.0",
+		"hono": "^4.12.14",
+		"inversify": "^8.1.0",
+		"nodemailer": "^8.0.5",
+		"pg": "^8.20.0",
+		"react": "^19.2.5",
+		"react-dom": "^19.2.5",
+		"resend": "^6.12.2",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@better-auth/cli": "^1.4.21",
+		"@biomejs/biome": "^2.4.12",
+		"@types/bun": "latest",
+		"@types/nodemailer": "^8.0.0",
+		"@types/pg": "^8.20.0",
+		"drizzle-kit": "^0.31.10",
+		"husky": "^9.1.7",
+		"pretty-error": "^4.0.0",
+		"tsx": "^4.21.0"
+	}
 }

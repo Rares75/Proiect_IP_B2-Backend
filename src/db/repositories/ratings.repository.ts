@@ -1,5 +1,6 @@
 import { and, eq, avg, count, desc } from "drizzle-orm";
 import { db } from "../../db";
+import { repository } from "../../di/decorators/repository";
 import {
 	ratings,
 	type RatingType,
@@ -15,6 +16,7 @@ export type RatingCreateData = {
 	comment: string;
 };
 
+@repository()
 export class RatingsRepository {
 	async getRatingsByReceivedUserId(userId: string): Promise<RatingType[]> {
 		return db
@@ -76,5 +78,3 @@ export class RatingsRepository {
 			.limit(5);
 	}
 }
-
-export const ratingRepository = new RatingsRepository();

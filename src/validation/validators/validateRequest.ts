@@ -27,7 +27,11 @@ const parseJsonBody: RequestBodyParser = async (context: Context) => {
 		]);
 	}
 
-	if (parsedBody === null || typeof parsedBody !== "object" || Array.isArray(parsedBody)) {
+	if (
+		parsedBody === null ||
+		typeof parsedBody !== "object" ||
+		Array.isArray(parsedBody)
+	) {
 		// Acceptam doar obiecte JSON, nu null, primitive sau array-uri.
 		throw new RequestValidationError([
 			{
