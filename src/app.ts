@@ -1,7 +1,5 @@
 import { Hono } from "hono";
-import { logger } from "hono/logger";
-import { authMiddleware } from "./middlware/authMiddleware";
-import { checkStatus } from "./middlware/checkStatusMiddleware";
+
 import type { AuthUserType, SessionType } from "./types";
 
 export type AppEnv = {
@@ -11,11 +9,7 @@ export type AppEnv = {
 	};
 };
 
-const app = new Hono<AppEnv>()
-	.basePath("/api")
-	.use(logger())
-	.use("/*", authMiddleware)
-	.use("/*", checkStatus);
+const app = new Hono<AppEnv>().basePath("/api");
 
 (globalThis as any).app = app;
 
