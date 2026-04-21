@@ -16,6 +16,7 @@ export class ProdMailer implements Mailer {
 		html: string;
 	}) {
 		await this.resend.emails.send({
+			// biome-ignore lint/style/noNonNullAssertion: <for now>
 			from: process.env.EMAIL_FROM!,
 			to,
 			subject,
