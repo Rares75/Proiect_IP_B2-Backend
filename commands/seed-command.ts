@@ -16,7 +16,7 @@ const seedSchema = Object.fromEntries(
 ) as Record<string, PgTable>;
 
 try {
-	const connection = postgres(Bun.env.DATABASE_URL, { max: 1 });
+	const connection = postgres(Bun.env.DATABASE_URL!, { max: 1 });
 	const db = drizzle(connection);
 	const context = createSeedContext();
 

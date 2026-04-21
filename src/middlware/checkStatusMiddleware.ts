@@ -1,9 +1,11 @@
 import { createMiddleware } from "hono/factory";
 import type { Context, Next } from "hono";
-import { accountService } from "../services/AccountService";
 import type { AppEnv } from "../app";
+import { container } from "../di";
+import { AccountService } from "../services/AccountService";
 
 export const checkStatusMiddlware = async (c: Context<AppEnv>, next: Next) => {
+	const accountService = container.get<AccountService>(AccountService);
 	const user = c.get("user");
 
 	if (!user) {

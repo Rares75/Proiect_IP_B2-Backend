@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { logger } from "../../src/utils/logger";
 
-const { AccountService } = await import(
-	"../../src/services/AccountService.ts?actual"
-);
+const { AccountService } = await import("../../src/services/AccountService");
 
 describe("AccountService", () => {
 	const originalException = logger.exception;
@@ -11,8 +9,8 @@ describe("AccountService", () => {
 
 	beforeEach(() => {
 		loggedExceptions = [];
-		logger.exception = (error: Error) => {
-			loggedExceptions.push(error);
+		logger.exception = (error: Error | unknown) => {
+			loggedExceptions.push(error as Error);
 		};
 	});
 

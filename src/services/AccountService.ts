@@ -9,6 +9,7 @@ import { UsermanagementException as UserManagementException } from "../exception
 import type { AccountStatusType } from "../types";
 import { logger } from "../utils/logger";
 import { inject } from "../di";
+
 @Service()
 export class AccountService {
 	constructor(
