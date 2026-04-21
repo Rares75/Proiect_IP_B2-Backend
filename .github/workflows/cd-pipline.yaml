@@ -45,7 +45,7 @@ jobs:
 
       #Database migrations
       - name: Run database migrations via CLI
-        run: railway run bun db:migrate
+        run: railway run --service ${{ secrets.RAILWAY_SERVICE_ID }} bun db:migrate
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
