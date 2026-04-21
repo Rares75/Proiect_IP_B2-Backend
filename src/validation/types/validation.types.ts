@@ -19,7 +19,9 @@ export type ValidationConfig = {
 	validateMethods: readonly ValidationMethod[];
 };
 
-export type ValidationErrorFormatter = (issues: ZodIssue[]) => ValidationErrorItem[];
+export type ValidationErrorFormatter = (
+	issues: ZodIssue[],
+) => ValidationErrorItem[];
 
 export type ValidationMiddlewareFactory = (
 	schema: ValidationSchema,

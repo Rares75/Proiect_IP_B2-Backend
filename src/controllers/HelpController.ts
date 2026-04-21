@@ -5,7 +5,7 @@ import { validationMiddleware } from "../validation";
 
 @Controller("/help")
 export class HelpController {
-	static controller = new Hono()
+	controller = new Hono()
 		.use("*", validationMiddleware)
 		.post("/", async (c) => {
 			const body = await c.req.json();

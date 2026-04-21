@@ -11,9 +11,7 @@ import { buildSafeValidationResponse } from "../utils/safeErrorBuilder";
 import { validateRequest } from "../validators/validateRequest";
 
 // Completam configuratia primita din exterior peste valorile implicite ale modulului.
-const mergeConfig = (
-	config?: Partial<ValidationConfig>,
-): ValidationConfig => ({
+const mergeConfig = (config?: Partial<ValidationConfig>): ValidationConfig => ({
 	...defaultValidationConfig,
 	...config,
 });
@@ -63,5 +61,6 @@ export const createValidationMiddleware: ValidationMiddlewareFactory = (
 	});
 };
 
-export const validationMiddleware =
-	createValidationMiddleware(helpRequestInputSchema);
+export const validationMiddleware = createValidationMiddleware(
+	helpRequestInputSchema,
+);
