@@ -1,20 +1,37 @@
-import { Chalk } from "chalk";
-import figures from "figures";
-import pe from "./pretty-error";
-const chalk = new Chalk();
+/** biome-ignore-all lint/suspicious/noConsole: <logger utility> */
 
-export const logger = {
-	info: (message: string) => {
-		console.log(chalk.blue(`${figures.info} ${message}`));
+import { mainSymbols } from "figures";
+import * as p from "picocolors";
+import PrettyError from "pretty-error";
+
+const pe = new PrettyError();
+
+export type Logger = {
+	error: (message: string) => void;
+	success: (message: string) => void;
+	exception: (error: unknown | Error) => void;
+	warn: (message: string) => void;
+	info: (message: string) => void;
+};
+
+export const logger: Logger = {
+	error: (message: string): void => {
+		console.error(p.redBright(`${mainSymbols.cross} ${message}`));
 	},
-	success: (message: string) => {
-		console.log(chalk.magentaBright(`${figures.tick} ${message}`));
+	success: (message: string): void => {
+		console.log(p.green(`${mainSymbols.tick} ${message}`));
 	},
-	error: (message: string) => {
-		console.error(chalk.redBright(`${figures.cross} ${message}`));
+	exception: (error: unknown | Error): void => {
+		if (error instanceof Error) {
+			console.error(pe.render(error));
+		} else {
+			console.error(error);
+		}
 	},
-	exception: (error: Error) => {
-		console.error(pe.render(error));
+	warn: (message: string): void => {
+		console.warn(p.yellowBright(`${mainSymbols.warning} ${message}`));
+	},
+	info: (message: string): void => {
+		console.log(p.blueBright(`${mainSymbols.info} ${message}`));
 	},
 };
-//logger to use in the whole application, with different levels of logging and pretty error rendering
