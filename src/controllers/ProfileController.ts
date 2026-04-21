@@ -6,22 +6,27 @@ import {
 	updateProfileSchema,
 } from "../utils/validators/profileValidator";
 import { profileService } from "../services/profileService";
+import { authMiddlware } from "../middlware/authMiddleware";
+import { createApiResponse } from "../utils/apiReponse";
 
 @Controller("/profile")
 export class ProfileController {
 	static controller = new Hono()
-
+		.use(authMiddlware)
 		.get("/me", async (c) => {
-			const session = await auth.api.getSession({
-				headers: c.req.raw.headers,
-			});
-			if (!session) return c.json({ error: "Unauthorized" }, 401);
+			const session = c.get("session");
+			const user = c.get("user");
+			if (!session || !user) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
 
 			try {
-				const profile = await profileService.getProfileByUserId(
-					session.user.id,
-				);
-				return c.json(profile, 200);
+				const profile = await profileService.getProfileByUserId(user.id);
+				const response = createApiResponse(profile, { url: c.req.url });
+				if (response.statusCode === 204) {
+					return c.body(null, 204);
+				}
+				return c.json(response, response.statusCode);
 			} catch (error) {
 				if (error instanceof Error && error.message.includes("not found"))
 					return c.json({ error: error.message }, 404);

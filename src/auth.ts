@@ -7,9 +7,15 @@ const mailer = getMailer();
 import { verifyEmailTemplate } from "./mailers/templates/verifyEmail";
 import { signInTemplate } from "./mailers/templates/signIn";
 import { resetPasswordTemplate } from "./mailers/templates/resetPassword";
+import { logger } from "./utils/logger";
+import * as schema from "./db/schema";
 
 const auth = betterAuth({
-	database: drizzleAdapter(db, { provider: "pg" }),
+	database: drizzleAdapter(db, { provider: "pg", schema }),
+	logger: {
+		level: "error",
+		log: (message) => logger.error(message),
+	},
 	user: {
 		additionalFields: {
 			userName: {
@@ -49,7 +55,7 @@ const auth = betterAuth({
 	rateLimit: {
 		enabled: true,
 		window: 60 * 1000,
-		max: 10,
+		max: 100,
 	},
 
 	emailVerification: {

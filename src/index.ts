@@ -13,4 +13,5 @@ const server = Bun.serve({
 	fetch: app.fetch,
 });
 
-console.log(`Server running on http://localhost:${server.port}`);
+const hostname = server.hostname === "0.0.0.0" ? "localhost" : server.hostname;
+console.log(`Server running on http://${hostname}:${server.port}`);
