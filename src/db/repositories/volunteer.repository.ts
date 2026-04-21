@@ -1,5 +1,6 @@
 import { eq, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
+import { repository } from "../../di/decorators/repository";
 import { volunteers, volunteerProfiles, profiles } from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
@@ -8,6 +9,7 @@ export type Volunteer = typeof volunteers.$inferSelect;
 export type CreateVolunteerDTO = typeof volunteers.$inferInsert;
 export type UpdateVolunteerDTO = Partial<CreateVolunteerDTO>;
 
+@repository()
 export class VolunteerRepository {
 	/**
 	 * @param data Volunteer object (CreateVolunteerDTO)
@@ -175,8 +177,3 @@ export class VolunteerRepository {
 		return value;
 	}
 }
-
-/**
- * Singleton
- */
-export const volunteerRepository = new VolunteerRepository();

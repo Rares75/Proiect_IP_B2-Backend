@@ -2,9 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { db } from "../../src/db";
 import { user } from "../../src/db/auth-schema";
 import { UserRepository } from "../../src/db/repositories/user.repository";
+import { container } from "../../src/di/container";
 
 describe("UserRepository tests", () => {
-	const userRepository = new UserRepository();
+	const userRepository = container.get(UserRepository);
 	const originalSelect = (db as any).select;
 	const originalInsert = (db as any).insert;
 	const originalDelete = (db as any).delete;

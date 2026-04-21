@@ -1,9 +1,10 @@
+import { container } from "../di";
 import { DevMailer } from "./dev.mailer";
 import { ProdMailer } from "./prod.mailer";
 
 export function getMailer() {
 	if (Bun.env.NODE_ENV === "production") {
-		return new ProdMailer();
+		return container.get<ProdMailer>(ProdMailer);
 	}
-	return new DevMailer();
+	return container.get<DevMailer>(DevMailer);
 }

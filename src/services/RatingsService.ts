@@ -1,12 +1,10 @@
 import type { RatingType } from "../db/social";
+import { Service } from "../di/decorators/service";
 import { RatingException } from "../exceptions/ratings/RatingException";
-import {
-	ratingRepository,
-	type RatingsRepository,
-} from "../db/repositories/ratings.repository";
+import { RatingsRepository } from "../db/repositories/ratings.repository";
 import type { RatingSummaryType } from "../types";
 import { logger } from "../utils/logger";
-
+import { inject } from "../di";
 export type CreateRatingInput = {
 	taskAssignmentId: number;
 	writtenByUserId: string;
@@ -15,12 +13,12 @@ export type CreateRatingInput = {
 	comment: string;
 };
 
+@Service()
 export class RatingsService {
-	private ratingRepo: RatingsRepository;
-
-	constructor() {
-		this.ratingRepo = ratingRepository;
-	}
+	constructor(
+		@inject(RatingsRepository)
+		private readonly ratingRepo: RatingsRepository,
+	) {}
 
 	async createRating(input: CreateRatingInput): Promise<RatingType | null> {
 		try {
@@ -181,5 +179,3 @@ export class RatingsService {
 		}
 	}
 }
-
-export const ratingService = new RatingsService();

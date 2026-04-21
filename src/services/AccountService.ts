@@ -1,20 +1,19 @@
 import {
-	accountRepository,
+	AccountRepository,
 	type Account,
-	type AccountRepository,
 	type CreateAccountDTO,
 	type UpdateAccountDTO,
 } from "../db/repositories/account.repository";
+import { Service } from "../di/decorators/service";
 import { UsermanagementException as UserManagementException } from "../exceptions/user.management/UserManagementException";
 import type { AccountStatusType } from "../types";
 import { logger } from "../utils/logger";
-
+import { inject } from "../di";
+@Service()
 export class AccountService {
-	private readonly accountRepo: AccountRepository;
-
-	constructor() {
-		this.accountRepo = accountRepository;
-	}
+	constructor(
+		@inject(AccountRepository) private readonly accountRepo: AccountRepository,
+	) {}
 
 	async createAccount(data: CreateAccountDTO): Promise<Account | null> {
 		try {
@@ -185,5 +184,3 @@ export class AccountService {
 		return account.status;
 	}
 }
-
-export const accountService = new AccountService();

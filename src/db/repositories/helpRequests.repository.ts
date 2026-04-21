@@ -1,5 +1,6 @@
 import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { db } from "../";
+import { repository } from "../../di/decorators/repository";
 import { helpRequests } from "../requests";
 import type { IRepository } from "../repositories/base.repository";
 
@@ -9,6 +10,7 @@ export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
 
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
+@repository()
 export class HelpRequestRepository
 	implements
 		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
@@ -94,5 +96,3 @@ export class HelpRequestRepository
 		return value;
 	}
 }
-
-export const helpRequestRepository = new HelpRequestRepository();

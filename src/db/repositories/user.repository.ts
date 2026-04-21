@@ -3,6 +3,7 @@ import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
 import { user } from "../auth-schema";
 import type { IRepository } from "./base.repository";
+import { repository } from "../../di/decorators/repository";
 
 export type User = typeof user.$inferSelect;
 
@@ -30,6 +31,7 @@ export type CreateUserDTO = typeof user.$inferInsert;
  */
 export type UpdateUserDTO = Partial<CreateUserDTO>;
 
+@repository()
 export class UserRepository
 	implements IRepository<User, CreateUserDTO, UpdateUserDTO, string>
 {
@@ -133,8 +135,3 @@ export class UserRepository
 		return value;
 	}
 }
-
-/**
- * Singleton
- */
-export const userRepository = new UserRepository();

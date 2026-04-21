@@ -1,5 +1,8 @@
-export function verifyEmailTemplate(otp: string, expiresInMinutes: number = 10) {
-  return `
+export function verifyEmailTemplate(
+	otp: string,
+	expiresInMinutes: number = 10,
+) {
+	return `
     <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
       <h2 style="color: #333;">Confirmare cont</h2>
       <p>Salut!</p>

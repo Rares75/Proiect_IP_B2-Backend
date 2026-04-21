@@ -1,6 +1,8 @@
 import { Resend } from "resend";
+import { Mailer as MailerDecorator } from "../di/decorators/mailer";
 import type { Mailer } from "./mailer.interface";
 
+@MailerDecorator()
 export class ProdMailer implements Mailer {
 	private resend: Resend;
 	constructor() {
