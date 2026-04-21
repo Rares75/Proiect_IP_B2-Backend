@@ -1,15 +1,26 @@
 import { Resend } from "resend";
-import { Mailer } from "./mailer.interface";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import type { Mailer } from "./mailer.interface";
 
 export class ProdMailer implements Mailer {
-  async send({ to, subject, html }: { to: string; subject: string; html: string }) {
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
-      to,
-      subject,
-      html,
-    });
-  }
+	private resend: Resend;
+	constructor() {
+		this.resend = new Resend(Bun.env.RESEND_API_KEY);
+	}
+	async send({
+		to,
+		subject,
+		html,
+	}: {
+		to: string;
+		subject: string;
+		html: string;
+	}) {
+		await this.resend.emails.send({
+			// biome-ignore lint/style/noNonNullAssertion: <for now>
+			from: process.env.EMAIL_FROM!,
+			to,
+			subject,
+			html,
+		});
+	}
 }
