@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { Controller } from "../utils/controller";
-import { RatingsService } from "../services/RatingsService";
+import { ratingService } from "../services/RatingsService";
 
 const createRatingSchema = z.object({
 	taskAssignmentId: z.number().int().positive(),
@@ -37,8 +37,8 @@ export class RatingsController {
 					);
 				}
 
-				const result = await RatingsService.createRating(parsed.data);
-				return c.json(result.body, { status: result.status });
+				const result = await ratingService.createRating(parsed.data);
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("RATING ERROR:", err);
 				return c.json({ error: "Internal server error" }, 500);
@@ -47,9 +47,9 @@ export class RatingsController {
 		.get("/user/:userId", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await RatingsService.getRatingsForUser(userId);
+				const result = await ratingService.getRatingsForUser(userId);
 
-				return c.json(result.body, { status: result.status });
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("GET RATINGS ERROR: ", err);
 				return c.json({ error: "Internal server error" }, 500);
@@ -58,9 +58,9 @@ export class RatingsController {
 		.get("/user/:userId/summary", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await RatingsService.getRatingsSummaryForUser(userId);
+				const result = await ratingService.getRatingsSummaryForUser(userId);
 
-				return c.json(result.body, { status: result.status });
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("GET RATINGS SUMMARY ERROR: ", err);
 				return c.json({ error: "Internal server error" }, 500);

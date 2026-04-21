@@ -9,7 +9,6 @@ describe("UserRepository tests", () => {
 		const newUser = await userRepository.create({
 			id: crypto.randomUUID(),
 			name: "example user",
-			userName: `example_${Date.now()}`,
 			email: `example_${Date.now()}@example.com`,
 			phone: "0744123456",
 		});

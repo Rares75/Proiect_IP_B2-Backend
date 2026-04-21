@@ -5,6 +5,10 @@ export const envSchema = z.object({
 	DATABASE_URL: z.string(),
 	BETTER_AUTH_URL: z.string(),
 	BETTER_AUTH_SECRET: z.string(),
+	GMAIL_USER: z.string().optional(),
+	GMAIL_APP_PASSWORD: z.string().optional(),
+	EMAIL_FROM: z.string().optional(),
+	NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
 export function parseEnv() {

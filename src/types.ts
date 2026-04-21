@@ -1,5 +1,5 @@
 import type { accountStatusEnum } from "./db/enums";
-import type { auth } from "./auth";
+import type auth from "./auth";
 
 export type RatingSummaryType = {
 	averageRating: string | null;
