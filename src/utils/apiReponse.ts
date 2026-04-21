@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 type ApiResponseKind =
@@ -9,7 +10,7 @@ type ApiResponseKind =
 	| "clientError"
 	| "serverError";
 
-type CreateApiResponseOptions = {
+export type CreateApiResponseOptions = {
 	message?: string;
 	url?: string;
 	kind?: ApiResponseKind;
@@ -100,4 +101,20 @@ export const createApiResponse = <T>(
 		},
 		statusCode,
 	};
+};
+
+export const sendApiResponse = <T>(
+	c: Context,
+	data: T | null,
+	options: CreateApiResponseOptions = {},
+) => {
+	const response = createApiResponse(data, {
+		...options,
+	});
+
+	if (response.statusCode === 204) {
+		return c.body(null, 204);
+	}
+
+	return c.json(response, response.statusCode);
 };

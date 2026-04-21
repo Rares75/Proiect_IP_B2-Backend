@@ -1,36 +1,31 @@
 import { Hono } from "hono";
 import { Controller } from "../utils/controller";
-import auth from "../auth";
 import {
 	createProfileSchema,
 	updateProfileSchema,
 } from "../utils/validators/profileValidator";
 import { profileService } from "../services/profileService";
 import { authMiddlware } from "../middlware/authMiddleware";
-import { createApiResponse } from "../utils/apiReponse";
+import { sendApiResponse } from "../utils/apiReponse";
+import { logger } from "../utils/logger";
 
 @Controller("/profile")
 export class ProfileController {
 	static controller = new Hono()
 		.use(authMiddlware)
-		.get("/me", async (c) => {
+		.get("/", async (c) => {
 			const session = c.get("session");
 			const user = c.get("user");
 			if (!session || !user) {
-				return c.json({ error: "Unauthorized" }, 401);
+				return sendApiResponse(c, null, { kind: "unauthorized" });
 			}
 
 			try {
 				const profile = await profileService.getProfileByUserId(user.id);
-				const response = createApiResponse(profile, { url: c.req.url });
-				if (response.statusCode === 204) {
-					return c.body(null, 204);
-				}
-				return c.json(response, response.statusCode);
+				return sendApiResponse(c, profile);
 			} catch (error) {
-				if (error instanceof Error && error.message.includes("not found"))
-					return c.json({ error: error.message }, 404);
-				return c.json({ error: "Internal server error" }, 500);
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		})
 
@@ -39,79 +34,83 @@ export class ProfileController {
 
 			try {
 				const profile = await profileService.getProfileByUserId(userId);
-				return c.json(profile, 200);
+				return sendApiResponse(c, profile);
 			} catch (error) {
-				console.error(error);
-				if (error instanceof Error && error.message.includes("not found"))
-					return c.json({ error: error.message }, 404);
-				return c.json({ error: "Internal server error" }, 500);
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		})
 
 		.post("/", async (c) => {
-			const session = await auth.api.getSession({
-				headers: c.req.raw.headers,
-			});
-			if (!session) return c.json({ error: "Unauthorized" }, 401);
+			const session = c.get("session");
+			if (!session) {
+				return sendApiResponse(c, null, { kind: "unauthorized" });
+			}
 
 			const body = await c.req.json();
 			const parsed = createProfileSchema.safeParse(body);
 			if (!parsed.success)
-				return c.json({ error: parsed.error.flatten() }, 400);
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "Failed to validate input",
+				});
 
 			try {
 				const profile = await profileService.createProfile(
-					session.user.id,
+					session.userId,
 					parsed.data,
 				);
-				return c.json(profile, 201);
+				return sendApiResponse(c, profile, { kind: "created" });
 			} catch (error) {
-				if (
-					error instanceof Error &&
-					error.message === "Profile already exists"
-				)
-					return c.json({ error: error.message }, 409);
-				return c.json({ error: "Internal server error" }, 500);
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		})
 
 		.put("/me", async (c) => {
-			const session = await auth.api.getSession({
-				headers: c.req.raw.headers,
-			});
-			if (!session) return c.json({ error: "Unauthorized" }, 401);
+			const session = c.get("session");
+			if (!session) {
+				return sendApiResponse(c, null, { kind: "unauthorized" });
+			}
 
 			const body = await c.req.json();
 			const parsed = updateProfileSchema.safeParse(body);
 			if (!parsed.success)
-				return c.json({ error: parsed.error.flatten() }, 400);
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "Failed to validate input",
+				});
 
 			try {
 				const updated = await profileService.updateProfile(
-					session.user.id,
+					session.userId,
 					parsed.data,
 				);
-				return c.json(updated, 200);
+				return sendApiResponse(c, updated);
 			} catch (error) {
-				if (error instanceof Error && error.message === "Profile not found")
-					return c.json({ error: error.message }, 404);
-				return c.json({ error: "Internal server error" }, 500);
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		})
 
 		.delete("/me", async (c) => {
-			const session = await auth.api.getSession({
-				headers: c.req.raw.headers,
-			});
-			if (!session) return c.json({ error: "Unauthorized" }, 401);
+			const session = c.get("session");
+			if (!session) {
+				return sendApiResponse(c, null, { kind: "unauthorized" });
+			}
 
 			try {
-				await profileService.deleteProfile(session.user.id);
-				return c.json({ message: "Profile deleted successfully" }, 200);
+				await profileService.deleteProfile(session.userId);
+				return sendApiResponse(
+					c,
+					{ deleted: true },
+					{
+						message: "Profile deleted successfully",
+					},
+				);
 			} catch (error) {
-				if (error instanceof Error && error.message === "Profile not found")
-					return c.json({ error: error.message }, 404);
-				return c.json({ error: "Internal server error" }, 500);
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		});
 }
