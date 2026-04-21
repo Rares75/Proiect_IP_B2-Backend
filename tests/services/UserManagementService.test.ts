@@ -11,8 +11,8 @@ describe("UserManagementService", () => {
 	beforeEach(() => {
 		loggedExceptions = [];
 		infoMessages = [];
-		logger.exception = (error: Error) => {
-			loggedExceptions.push(error);
+		logger.exception = (error: Error | unknown) => {
+			loggedExceptions.push(error as Error);
 		};
 		logger.info = (message: string) => {
 			infoMessages.push(message);
@@ -24,18 +24,33 @@ describe("UserManagementService", () => {
 		logger.info = originalInfo;
 	});
 
-	test("returns false when the user or account cannot be found", async () => {
-		const service = new UserManagementService();
+	const createService = ({
+		ratingService,
+		userRepo,
+		accountRepo,
+	}: {
+		ratingService: unknown;
+		userRepo: unknown;
+		accountRepo: unknown;
+	}) =>
+		new UserManagementService(
+			ratingService as any,
+			userRepo as any,
+			accountRepo as any,
+		);
 
-		(service as any).userRepo = {
-			findById: async () => undefined,
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-1" }),
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => [],
-		};
+	test("returns false when the user or account cannot be found", async () => {
+		const service = createService({
+			userRepo: {
+				findById: async () => undefined,
+			},
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-1" }),
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => [],
+			},
+		});
 
 		const result = await service.banUser("missing-user", "abuse");
 
@@ -45,17 +60,17 @@ describe("UserManagementService", () => {
 	});
 
 	test("returns false when recent ratings cannot be fetched", async () => {
-		const service = new UserManagementService();
-
-		(service as any).userRepo = {
-			findById: async () => ({ id: "user-1" }),
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-1", userId: "user-1" }),
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => null,
-		};
+		const service = createService({
+			userRepo: {
+				findById: async () => ({ id: "user-1" }),
+			},
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-1", userId: "user-1" }),
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => null,
+			},
+		});
 
 		const result = await service.banUser("user-1", "abuse");
 
@@ -65,27 +80,28 @@ describe("UserManagementService", () => {
 	});
 
 	test("does not ban a user with fewer than five recent ratings", async () => {
-		const service = new UserManagementService();
 		let updateCalled = false;
 
-		(service as any).userRepo = {
-			findById: async () => ({ id: "user-2" }),
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-2", userId: "user-2" }),
-			update: async () => {
-				updateCalled = true;
-				return undefined;
+		const service = createService({
+			userRepo: {
+				findById: async () => ({ id: "user-2" }),
 			},
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => [
-				{ stars: 1 },
-				{ stars: 2 },
-				{ stars: 2 },
-				{ stars: 1 },
-			],
-		};
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-2", userId: "user-2" }),
+				update: async () => {
+					updateCalled = true;
+					return undefined;
+				},
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => [
+					{ stars: 1 },
+					{ stars: 2 },
+					{ stars: 2 },
+					{ stars: 1 },
+				],
+			},
+		});
 
 		const result = await service.banUser("user-2", "abuse");
 
@@ -95,28 +111,29 @@ describe("UserManagementService", () => {
 	});
 
 	test("does not ban a user when one of the last five ratings is not below three stars", async () => {
-		const service = new UserManagementService();
 		let updateCalled = false;
 
-		(service as any).userRepo = {
-			findById: async () => ({ id: "user-3" }),
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-3", userId: "user-3" }),
-			update: async () => {
-				updateCalled = true;
-				return undefined;
+		const service = createService({
+			userRepo: {
+				findById: async () => ({ id: "user-3" }),
 			},
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => [
-				{ stars: 1 },
-				{ stars: 2 },
-				{ stars: 2 },
-				{ stars: 3 },
-				{ stars: 1 },
-			],
-		};
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-3", userId: "user-3" }),
+				update: async () => {
+					updateCalled = true;
+					return undefined;
+				},
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => [
+					{ stars: 1 },
+					{ stars: 2 },
+					{ stars: 2 },
+					{ stars: 3 },
+					{ stars: 1 },
+				],
+			},
+		});
 
 		const result = await service.banUser("user-3", "abuse");
 
@@ -126,24 +143,24 @@ describe("UserManagementService", () => {
 	});
 
 	test("returns false and logs when the account update fails", async () => {
-		const service = new UserManagementService();
-
-		(service as any).userRepo = {
-			findById: async () => ({ id: "user-4" }),
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-4", userId: "user-4" }),
-			update: async () => undefined,
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => [
-				{ stars: 1 },
-				{ stars: 2 },
-				{ stars: 2 },
-				{ stars: 1 },
-				{ stars: 2 },
-			],
-		};
+		const service = createService({
+			userRepo: {
+				findById: async () => ({ id: "user-4" }),
+			},
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-4", userId: "user-4" }),
+				update: async () => undefined,
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => [
+					{ stars: 1 },
+					{ stars: 2 },
+					{ stars: 2 },
+					{ stars: 1 },
+					{ stars: 2 },
+				],
+			},
+		});
 
 		const result = await service.banUser("user-4", "abuse");
 
@@ -156,31 +173,32 @@ describe("UserManagementService", () => {
 	});
 
 	test("blocks the account when the last five ratings are all below three stars", async () => {
-		const service = new UserManagementService();
 		const updateCalls: Array<{
 			accountId: string;
 			data: Record<string, unknown>;
 		}> = [];
 
-		(service as any).userRepo = {
-			findById: async () => ({ id: "user-5" }),
-		};
-		(service as any).accountRepo = {
-			findFirstBy: async () => ({ id: "account-5", userId: "user-5" }),
-			update: async (accountId: string, data: Record<string, unknown>) => {
-				updateCalls.push({ accountId, data });
-				return { id: accountId, ...data };
+		const service = createService({
+			userRepo: {
+				findById: async () => ({ id: "user-5" }),
 			},
-		};
-		(service as any).ratingService = {
-			getRecentRatingsForUser: async () => [
-				{ stars: 1 },
-				{ stars: 2 },
-				{ stars: 1 },
-				{ stars: 2 },
-				{ stars: 1 },
-			],
-		};
+			accountRepo: {
+				findFirstBy: async () => ({ id: "account-5", userId: "user-5" }),
+				update: async (accountId: string, data: Record<string, unknown>) => {
+					updateCalls.push({ accountId, data });
+					return { id: accountId, ...data };
+				},
+			},
+			ratingService: {
+				getRecentRatingsForUser: async () => [
+					{ stars: 1 },
+					{ stars: 2 },
+					{ stars: 1 },
+					{ stars: 2 },
+					{ stars: 1 },
+				],
+			},
+		});
 
 		const result = await service.banUser("user-5", "multiple bad ratings");
 

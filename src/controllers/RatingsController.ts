@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { Controller } from "../utils/controller";
+import { inject } from "../di";
 import { RatingsService } from "../services/RatingsService";
 
 const createRatingSchema = z.object({
@@ -17,7 +18,10 @@ const createRatingSchema = z.object({
 
 @Controller("/ratings")
 export class RatingsController {
-	static controller = new Hono()
+	constructor(
+		@inject(RatingsService) private readonly ratingService: RatingsService,
+	) {}
+	controller = new Hono()
 		.post("/", async (c) => {
 			try {
 				const body = await c.req.json<{
@@ -37,8 +41,8 @@ export class RatingsController {
 					);
 				}
 
-				const result = await RatingsService.createRating(parsed.data);
-				return c.json(result.body, { status: result.status });
+				const result = await this.ratingService.createRating(parsed.data);
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("RATING ERROR:", err);
 				return c.json({ error: "Internal server error" }, 500);
@@ -47,9 +51,9 @@ export class RatingsController {
 		.get("/user/:userId", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await RatingsService.getRatingsForUser(userId);
+				const result = await this.ratingService.getRatingsForUser(userId);
 
-				return c.json(result.body, { status: result.status });
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("GET RATINGS ERROR: ", err);
 				return c.json({ error: "Internal server error" }, 500);
@@ -58,9 +62,10 @@ export class RatingsController {
 		.get("/user/:userId/summary", async (c) => {
 			try {
 				const userId = c.req.param("userId");
-				const result = await RatingsService.getRatingsSummaryForUser(userId);
+				const result =
+					await this.ratingService.getRatingsSummaryForUser(userId);
 
-				return c.json(result.body, { status: result.status });
+				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
 			} catch (err) {
 				console.error("GET RATINGS SUMMARY ERROR: ", err);
 				return c.json({ error: "Internal server error" }, 500);

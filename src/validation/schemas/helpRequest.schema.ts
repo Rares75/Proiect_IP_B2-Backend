@@ -20,14 +20,7 @@ export const helpRequestInputSchema = z
 			error: "Urgency is required",
 		}),
 		status: z.enum(
-			[
-				"OPEN",
-				"MATCHED",
-				"IN_PROGRESS",
-				"COMPLETED",
-				"CANCELLED",
-				"REJECTED",
-			],
+			["OPEN", "MATCHED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "REJECTED"],
 			{
 				error: "Status is required",
 			},

@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { db } from "../../db";
+import { container } from "../../di/container";
 import { volunteers } from "../profile";
 import { UserRepository } from "./user.repository";
 import { VolunteerRepository } from "./volunteer.repository";
 
 describe("VolunteerRepository tests", () => {
-	const userRepository = new UserRepository();
-	const volunteerRepository = new VolunteerRepository();
+	const userRepository = container.get(UserRepository);
+	const volunteerRepository = container.get(VolunteerRepository);
 	const originalSelect = (db as any).select;
 	const originalInsert = (db as any).insert;
 	const originalUpdate = (db as any).update;

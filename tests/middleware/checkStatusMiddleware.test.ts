@@ -1,19 +1,31 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { accountService } from "../../src/services/AccountService";
-import { checkStatusMiddlware } from "../../src/middlware/checkStatusMiddleware";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+
+type AccountStatus = "ACTIVE" | "BLOCKED" | null;
+
+let checkUserStatus = async (_userId: string): Promise<AccountStatus> =>
+	"ACTIVE";
+
+mock.module("../../src/services/AccountService", () => ({
+	AccountService: class AccountService {},
+	accountService: {
+		checkUserStatus: (userId: string) => checkUserStatus(userId),
+	},
+}));
+
+const { checkStatusMiddlware } = await import(
+	"../../src/middlware/checkStatusMiddleware"
+);
 
 describe("checkStatusMiddleware", () => {
-	const originalCheckUserStatus = accountService.checkUserStatus;
-
 	afterEach(() => {
-		accountService.checkUserStatus = originalCheckUserStatus;
+		checkUserStatus = async () => "ACTIVE";
 	});
 
 	test("returns 401 when the context does not contain a user", async () => {
 		let nextCalled = false;
 		let statusChecked = false;
 
-		accountService.checkUserStatus = async () => {
+		checkUserStatus = async () => {
 			statusChecked = true;
 			return "ACTIVE";
 		};
@@ -38,7 +50,7 @@ describe("checkStatusMiddleware", () => {
 	test("returns 403 when the user account is blocked", async () => {
 		let nextCalled = false;
 
-		accountService.checkUserStatus = async () => "BLOCKED";
+		checkUserStatus = async () => "BLOCKED";
 
 		const response = await checkStatusMiddlware(
 			{
@@ -61,7 +73,7 @@ describe("checkStatusMiddleware", () => {
 	test("continues to the next middleware when the account is not blocked", async () => {
 		let nextCalled = false;
 
-		accountService.checkUserStatus = async () => "ACTIVE";
+		checkUserStatus = async () => "ACTIVE";
 
 		const response = await checkStatusMiddlware(
 			{

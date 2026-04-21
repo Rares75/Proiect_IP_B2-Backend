@@ -1,6 +1,7 @@
 import { eq, and, count as drizzleCount } from "drizzle-orm";
 
 import { db } from "../../db";
+import { repository } from "../../di/decorators/repository";
 import { account } from "../auth-schema";
 import type { IRepository } from "./base.repository";
 
@@ -26,6 +27,7 @@ export type CreateAccountDTO = typeof account.$inferInsert;
  */
 export type UpdateAccountDTO = Partial<CreateAccountDTO>;
 
+@repository()
 export class AccountRepository
 	implements IRepository<Account, CreateAccountDTO, UpdateAccountDTO, string>
 {
@@ -134,8 +136,3 @@ export class AccountRepository
 		return value;
 	}
 }
-
-/**
- * Singleton
- */
-export const accountRepository = new AccountRepository();
