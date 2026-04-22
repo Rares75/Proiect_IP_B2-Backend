@@ -1,8 +1,10 @@
 import {
-  helpRequestRepository,
-  type CreateHelpRequestDTO,
-  type HelpRequest,
+	HelpRequestRepository,
+	type CreateHelpRequestDTO,
+    type HelpRequest,
 } from "../db/repositories/helpRequests.repository";
+import { inject } from "../di";
+import { Service } from "../di/decorators/service";
 import { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 
@@ -10,24 +12,28 @@ import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
-  OPEN: ["MATCHED"],
-  MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
-  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+    OPEN: ["MATCHED"],
+    MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
+    IN_PROGRESS: ["COMPLETED", "CANCELLED"],
 };
 
+@Service()
 export class HelpRequestService {
-  async createHelpRequest(data: CreateHelpRequestDTO) {
-    try {
-      return await helpRequestRepository.create({
-        ...data,
-        status: "OPEN",
-      });
-    } catch (error) {
-      console.error("Failed to create help request:", error);
-      throw new Error("Could not create help request");
-    }
-
-  }
+	constructor(
+		@inject(HelpRequestRepository)
+		private readonly helpRequestRepo: HelpRequestRepository,
+	) {}
+	async createHelpRequest(data: CreateHelpRequestDTO) {
+		try {
+			return await this.helpRequestRepo.create({
+				...data,
+				status: "OPEN",
+			});
+		} catch (error) {
+			console.error("Failed to create help request:", error);
+			throw new Error("Could not create help request");
+		}
+	}
 
   /**
    * Updates a HelpRequest status according to the allowed transitions
@@ -59,5 +65,3 @@ export class HelpRequestService {
 
   }
 }
-
-export const helpRequestService = new HelpRequestService();

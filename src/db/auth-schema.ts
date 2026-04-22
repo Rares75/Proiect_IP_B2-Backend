@@ -1,21 +1,13 @@
 import { relations } from "drizzle-orm";
-import {
-	pgTable,
-	text,
-	timestamp,
-	boolean,
-	index,
-	real,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { accountStatusEnum } from "./enums";
 
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
+	// userName: text("userName").notNull().unique(),
 	email: text("email").notNull().unique(),
 	phone: text("phone"),
-	averageRating: real("average_rating").notNull().default(0),
-	status: accountStatusEnum("status").notNull().default("ACTIVE"),
 	emailVerified: boolean("email_verified").default(false).notNull(),
 	image: text("image"),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -60,6 +52,9 @@ export const account = pgTable(
 		refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
 		scope: text("scope"),
 		password: text("password"),
+		status: accountStatusEnum("status").notNull().default("ACTIVE"),
+		banned_at: timestamp("banned_at").defaultNow(),
+		bannedReason: text("banned_reason"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.$onUpdate(() => /* @__PURE__ */ new Date())
