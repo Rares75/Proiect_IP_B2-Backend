@@ -44,7 +44,7 @@ export class HelpRequestService {
    * @throws {InvalidStatusTransitionError} If the transition is forbidden (400)
    */
   async updateHelpRequestStatus(id: number, newStatus: RequestStatus): Promise<HelpRequest> {
-    const current = await helpRequestRepository.findById(id);
+    const current = await this.helpRequestRepo.findById(id);
     if (!current) {
       throw new NotFoundError("HelpRequest", String(id));
     }
@@ -56,7 +56,7 @@ export class HelpRequestService {
       throw new InvalidStatusTransitionError(currentStatus, newStatus);
     }
 
-    const updated = await helpRequestRepository.updateStatus(id, newStatus);
+    const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
     if (!updated) {
       throw new NotFoundError("HelpRequest", String(id));
     }

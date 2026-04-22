@@ -25,12 +25,11 @@ export class HelpRequestController {
 		} catch {
 			return c.json({ message: "Internal server error" }, 500);
 		}
-	});
-    static controller = new Hono()
+	})
         .post("/", async (c) => {
             try {
                 const body = await c.req.json();
-                const result = await helpRequestService.createHelpRequest(body);
+                const result = await this.helpRequestService.createHelpRequest(body);
                 return c.json(result, 201);
             } catch (error) {
                 return c.json({ message: "Internal server error" }, 500);
@@ -56,7 +55,7 @@ export class HelpRequestController {
       }
 
       try {
-        const updated = await helpRequestService.updateHelpRequestStatus(requestId, status as RequestStatus);
+        const updated = await this.helpRequestService.updateHelpRequestStatus(requestId, status as RequestStatus);
         return c.json(updated, 200);
       } catch (error) {
         if (error instanceof NotFoundError) {
