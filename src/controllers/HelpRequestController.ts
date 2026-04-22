@@ -26,15 +26,6 @@ export class HelpRequestController {
 			return c.json({ message: "Internal server error" }, 500);
 		}
 	})
-        .post("/", async (c) => {
-            try {
-                const body = await c.req.json();
-                const result = await this.helpRequestService.createHelpRequest(body);
-                return c.json(result, 201);
-            } catch (error) {
-                return c.json({ message: "Internal server error" }, 500);
-            }
-        })
     .post("/:id/status", async (c) => {
       const requestId = Number(c.req.param("id"));
       if (!Number.isInteger(requestId)) {
