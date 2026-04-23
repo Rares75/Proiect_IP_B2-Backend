@@ -1,6 +1,6 @@
 import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { db } from "../";
-import { helpRequests } from "../requests";
+import { helpRequests, requestDetails } from "../requests";
 import { IRepository } from "../repositories/base.repository";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
@@ -66,6 +66,24 @@ export class HelpRequestRepository
             .delete(helpRequests)
             .where(eq(helpRequests.id, id))
             .returning({ id: helpRequests.id });
+        return result.length > 0;
+    }
+
+    async findDetailsByHelpRequestId(
+        helpRequestId: number,
+    ): Promise<typeof requestDetails.$inferSelect | undefined> {
+        const [details] = await db
+            .select()
+            .from(requestDetails)
+            .where(eq(requestDetails.helpRequestId, helpRequestId));
+        return details;
+    }
+
+    async deleteDetailsByHelpRequestId(helpRequestId: number): Promise<boolean> {
+        const result = await db
+            .delete(requestDetails)
+            .where(eq(requestDetails.helpRequestId, helpRequestId))
+            .returning({ id: requestDetails.id });
         return result.length > 0;
     }
 

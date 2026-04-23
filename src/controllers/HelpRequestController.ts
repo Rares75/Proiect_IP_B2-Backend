@@ -13,5 +13,19 @@ export class HelpRequestController {
       } catch (error) {
         return c.json({ message: "Internal server error" }, 500);
       }
+    })
+    .delete("/:id/details", async (c) => {
+      try {
+        const id = Number(c.req.param("id"));
+        const result = await helpRequestService.deleteHelpRequestDetails(id);
+
+        if (result.status === 204) {
+          return c.body(null, 204);
+        }
+
+        return c.json(result.body, result.status);
+      } catch (error) {
+        return c.json({ message: "Internal server error" }, 500);
+      }
     });
 }
