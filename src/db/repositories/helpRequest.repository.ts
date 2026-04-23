@@ -1,4 +1,3 @@
-import { repository } from "../../di/decorators/repository";
 import { db } from "../";
 import type { IRepository } from "../repositories/base.repository";
 import { helpRequests, requestDetails } from "../requests";
@@ -10,7 +9,6 @@ export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
 
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
-@repository()
 export class HelpRequestRepository
 	implements
 		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
@@ -114,3 +112,5 @@ export class HelpRequestRepository
 		return value;
 	}
 }
+
+export const helpRequestRepository = new HelpRequestRepository();

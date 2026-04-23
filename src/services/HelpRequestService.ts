@@ -1,9 +1,7 @@
 import {
-	HelpRequestRepository,
 	type CreateHelpRequestDTO,
+	helpRequestRepository,
 } from "../db/repositories/helpRequest.repository";
-import { inject } from "../di";
-import { Service } from "../di/decorators/service";
 
 type DeleteHelpRequestDetailsResponse =
 	| {
@@ -14,16 +12,10 @@ type DeleteHelpRequestDetailsResponse =
 			body: { error: string };
 	  };
 
-@Service()
 export class HelpRequestService {
-	constructor(
-		@inject(HelpRequestRepository)
-		private readonly helpRequestRepo: HelpRequestRepository,
-	) {}
-
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		try {
-			return await this.helpRequestRepo.create({
+			return await helpRequestRepository.create({
 				...data,
 				status: "OPEN",
 			});
@@ -36,7 +28,7 @@ export class HelpRequestService {
 	async deleteHelpRequestDetails(
 		id: number,
 	): Promise<DeleteHelpRequestDetailsResponse> {
-		const task = await this.helpRequestRepo.findById(id);
+		const task = await helpRequestRepository.findById(id);
 
 		if (!task) {
 			return {
@@ -59,7 +51,7 @@ export class HelpRequestService {
 			};
 		}
 
-		const details = await this.helpRequestRepo.findDetailsByHelpRequestId(id);
+		const details = await helpRequestRepository.findDetailsByHelpRequestId(id);
 
 		if (!details) {
 			return {
@@ -68,10 +60,12 @@ export class HelpRequestService {
 			};
 		}
 
-		await this.helpRequestRepo.deleteDetailsByHelpRequestId(id);
+		await helpRequestRepository.deleteDetailsByHelpRequestId(id);
 
 		return {
 			status: 204,
 		};
 	}
 }
+
+export const helpRequestService = new HelpRequestService();
