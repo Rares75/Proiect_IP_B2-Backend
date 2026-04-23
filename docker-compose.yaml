@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgis/postgis:17-3.4
+    container_name: postgres_postgis
+    restart: always
     environment:
       POSTGRES_USER: proiectIP
       POSTGRES_PASSWORD: proiectIP
