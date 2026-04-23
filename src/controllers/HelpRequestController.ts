@@ -47,7 +47,7 @@ export class HelpRequestController {
         }
 
         const dataToReturn = Array.isArray(foundTask) ? foundTask[0] : foundTask;
-        return c.json({ success: true, data: dataToReturn }, 200);
+        return c.json(dataToReturn , 200);
 
       } catch (error) {
         console.error(`Eroare critica la GET /tasks/${c.req.param("id")} :`, error);
