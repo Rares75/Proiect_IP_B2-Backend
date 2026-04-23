@@ -16,30 +16,60 @@ export class HelpRequestController {
     })
 
     .get("/:id", async (c) => {
-      const idParam = c.req.param("id");
-      const requestedId = parseInt(idParam, 10);
-
-      if (Number.isNaN(requestedId)) {
-        return c.json(
-          { success: false, message: "Eroare: ID-ul furnizat trebuie sa fie un numar." },
-          400
-        );
-      }
-
       try {
+        const idParam = c.req.param("id");
+        
+        // Folosim Number() în loc de parseInt() pentru a nu transforma "1.5" în "1" pe ascuns
+        const requestedId = Number(idParam);
+
+        // --- SCUTUL 1: Erorile de input (400 Bad Request) ---
+        // Verificăm dacă:
+        // - nu este număr întreg (ex: "abc" sau "1.5")
+        // - este mai mic sau egal cu 0
+        // - depășește limita maximă de siguranță a bazei de date (previne SQL Overflow)
+        if (!Number.isInteger(requestedId) || requestedId <= 0 || requestedId > Number.MAX_SAFE_INTEGER) {
+          return c.json(
+            { 
+              success: false, 
+              message: "Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv." 
+            },
+            400
+          );
+        }
+
+        // --- SCUTUL 2: Căutarea în Baza de Date ---
         const foundTask = await helpRequestService.getHelpRequestById(requestedId);
 
-        if (!foundTask) {
+        // --- SCUTUL 3: Erorile de negăsire (404 Not Found) ---
+        // Drizzle poate returna null, undefined, sau un array gol []. Le verificăm pe toate.
+        if (!foundTask || (Array.isArray(foundTask) && foundTask.length === 0)) {
           return c.json(
-            { success: false, message: `Eroare: Task-ul cu ID-ul '${idParam}' nu a fost gasit` },
+            { 
+              success: false, 
+              message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu exista in sistem.` 
+            },
             404
           );
         }
 
-        return c.json({ success: true, data: foundTask }, 200);
+        // Extragem obiectul curat (dacă Drizzle a returnat un array de un element)
+        const dataToReturn = Array.isArray(foundTask) ? foundTask[0] : foundTask;
+
+        // --- SCUTUL 4: Succes (200 OK) ---
+        return c.json({ success: true, data: dataToReturn }, 200);
+
       } catch (error) {
-        console.error("Eroare interna de server:", error);
-        return c.json({ success: false, message: "Eroare interna a serverului." }, 500);
+        // --- SCUTUL 5: Erorile Serverului (500 Internal Server Error) ---
+        // Aici ajung doar "tragediile" (ex: a căzut serverul de baze de date)
+        console.error(`Eroare critica la GET /tasks/${c.req.param("id")} :`, error);
+        
+        return c.json(
+          { 
+            success: false, 
+            message: "Eroare interna a serverului. Va rugam incercati mai tarziu." 
+          }, 
+          500
+        );
       }
     });
 
