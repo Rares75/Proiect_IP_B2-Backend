@@ -1,4 +1,7 @@
-import { InteractionsRepository } from "../repositories/InteractionsRepository";
+import { rateLimitSchema } from "better-auth";
+import { InteractionsRepository } from "../db/repositories/interactions.repository";
+import { inject } from "../di";
+import { Service } from "../di/decorators/service";
 
 export type InteractionWithRating = {
     interactionId: number;
@@ -19,7 +22,13 @@ export type InteractionWithRating = {
 type GetInteractionsForUserResponse =
     | {
         status: 200;
-        body: InteractionWithRating[];
+        body: {
+            data: InteractionWithRating[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }
     | {
         status: 400;
@@ -28,8 +37,14 @@ type GetInteractionsForUserResponse =
         };
     }
 
+@Service()
 export class InteractionsService {
-    static async getInteractionsForUser(userId: string): Promise<GetInteractionsForUserResponse> {
+    constructor(
+        @inject(InteractionsRepository)
+        private readonly ratingRepo: InteractionsRepository,
+    ) {}
+
+    async getInteractionsForUser(userId: string, page: number = 1, limit: number = 10): Promise<GetInteractionsForUserResponse> {
         if (!userId) {
             return {
                 status: 400,
@@ -39,11 +54,16 @@ export class InteractionsService {
             };
         }
 
-        const interactions = await InteractionsRepository.getInteractionsByUserId(userId);
+        const offset = (page - 1) * limit;
 
-        const result = await Promise.all(
+        const [interactions, total] = await Promise.all([
+            this.ratingRepo.getInteractionsByUserId(userId, limit, offset),
+            this.ratingRepo.countInteractionsByUserId(userId),
+        ]);
+
+        const data = await Promise.all(
             interactions.map(async (interaction) => {
-                const ratings = await InteractionsRepository.getRatingsByTaskAssignmentId(interaction.taskAssignmentId);
+                const ratings = await this.ratingRepo.getRatingsByTaskAssignmentId(interaction.taskAssignmentId);
                 const receivedRating = ratings.find((rating) => rating.receivedByUserId == userId) ?? null;
                 return {
                     interactionId: interaction.id,
@@ -57,7 +77,13 @@ export class InteractionsService {
 
         return {
             status: 200,
-            body: result
+            body: {
+                data,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         };
     }
 }
