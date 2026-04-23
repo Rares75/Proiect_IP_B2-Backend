@@ -1,12 +1,14 @@
-import { eq, and, count as drizzleCount } from "drizzle-orm";
-import { db } from "../../db";
-import { requestDetails } from "../requests";
-import { IRepository } from "./base.repository";
+import {eq, and, count as drizzleCount} from "drizzle-orm";
+import {db} from "../../db";
+import {repository} from "../../di/decorators/repository";
+import {requestDetails} from "../requests";
+import type {IRepository} from "./base.repository";
 
 export type HelpRequestDetails = typeof requestDetails.$inferSelect;
 export type CreateHelpRequestDetailsDTO = typeof requestDetails.$inferInsert;
 export type UpdateHelpRequestDetailsDTO = Partial<CreateHelpRequestDetailsDTO>;
 
+@repository()
 export class HelpRequestDetailsRepository
     implements IRepository<HelpRequestDetails, CreateHelpRequestDetailsDTO, UpdateHelpRequestDetailsDTO, number> {
     async create(data: CreateHelpRequestDetailsDTO): Promise<HelpRequestDetails> {
@@ -37,7 +39,7 @@ export class HelpRequestDetailsRepository
     async findFirstBy(criteria: Partial<HelpRequestDetails>): Promise<HelpRequestDetails | undefined> {
         const conditions = [];
         for (const [key, value] of Object.entries(criteria)) {
-            if (value != undefined) {
+            if (value !== undefined) {
                 const column = requestDetails[key as keyof typeof requestDetails];
                 conditions.push(eq(column as any, value));
             }
@@ -73,24 +75,22 @@ export class HelpRequestDetailsRepository
         const result = await db
             .delete(requestDetails)
             .where(eq(requestDetails.id, id))
-            .returning({ id: requestDetails.id });
+            .returning({id: requestDetails.id});
         return result.length > 0;
     }
 
     async exists(id: number): Promise<boolean> {
-        const [{ value }] = await db
-            .select({ value: drizzleCount() })
+        const [{value}] = await db
+            .select({value: drizzleCount()})
             .from(requestDetails)
             .where(eq(requestDetails.id, id));
         return value > 0;
     }
 
     async count(): Promise<number> {
-        const [{ value }] = await db
-            .select({ value: drizzleCount() })
+        const [{value}] = await db
+            .select({value: drizzleCount()})
             .from(requestDetails);
         return value;
     }
 }
-
-export const helpRequestDetailsRepository = new HelpRequestDetailsRepository();
