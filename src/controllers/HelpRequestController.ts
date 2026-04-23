@@ -30,7 +30,7 @@ export class HelpRequestController {
       
         if (!Number.isInteger(requestedId) || requestedId <= 0 || requestedId > Number.MAX_SAFE_INTEGER) {
           return c.json(
-            { success: false, message: "Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv." },
+            { message: "Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv." },
             400
           );
         }
@@ -41,7 +41,7 @@ export class HelpRequestController {
         
         if (!foundTask || (Array.isArray(foundTask) && foundTask.length === 0)) {
           return c.json(
-            { success: false, message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu exista in sistem.` },
+            { message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu exista in sistem.` },
             404
           );
         }
@@ -52,7 +52,7 @@ export class HelpRequestController {
       } catch (error) {
         console.error(`Eroare critica la GET /tasks/${c.req.param("id")} :`, error);
         return c.json(
-          { success: false, message: "Eroare interna a serverului. Va rugam incercati mai tarziu." },
+          { message: "Eroare interna a serverului. Va rugam incercati mai tarziu." },
           500
         );
       }
