@@ -1,17 +1,25 @@
-import { helpRequestRepository, type CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
+import {
+	HelpRequestRepository,
+	type CreateHelpRequestDTO,
+} from "../db/repositories/helpRequest.repository";
+import { inject } from "../di";
+import { Service } from "../di/decorators/service";
 
+@Service()
 export class HelpRequestService {
-  async createHelpRequest(data: CreateHelpRequestDTO) {
-    try {
-      return await helpRequestRepository.create({
-        ...data,
-        status: "OPEN",
-      });
-    } catch (error) {
-      console.error("Failed to create help request:", error);
-      throw new Error("Could not create help request");
-    }
-  }
+	constructor(
+		@inject(HelpRequestRepository)
+		private readonly helpRequestRepo: HelpRequestRepository,
+	) {}
+	async createHelpRequest(data: CreateHelpRequestDTO) {
+		try {
+			return await this.helpRequestRepo.create({
+				...data,
+				status: "OPEN",
+			});
+		} catch (error) {
+			console.error("Failed to create help request:", error);
+			throw new Error("Could not create help request");
+		}
+	}
 }
-
-export const helpRequestService = new HelpRequestService();
