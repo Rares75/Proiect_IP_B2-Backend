@@ -2,6 +2,13 @@ import { Hono } from "hono";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
+import { requestStatusEnum } from "../db/enums";
+import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+
+
+type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
+
+const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 
 @Controller("/tasks")
 export class HelpRequestController {
@@ -18,5 +25,39 @@ export class HelpRequestController {
 		} catch {
 			return c.json({ message: "Internal server error" }, 500);
 		}
-	});
+	})
+    .post("/:id/status", async (c) => {
+      const requestId = Number(c.req.param("id"));
+      if (!Number.isInteger(requestId)) {
+        return c.json({ message: "'id' must be a valid numeric request identifier" }, 400);
+      }
+
+      let body: { status?: unknown };
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ message: "Request body must be valid JSON" }, 400);
+      }
+
+      const { status } = body;
+
+      if (typeof status !== "string" || !VALID_STATUSES.has(status as RequestStatus)) {
+        return c.json({ message: `'status' must be one of: ${[...VALID_STATUSES].join(", ")}` }, 400);
+      }
+
+      try {
+        const updated = await this.helpRequestService.updateHelpRequestStatus(requestId, status as RequestStatus);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return c.json({ message: error.message }, 404);
+        }
+
+        if (error instanceof InvalidStatusTransitionError) {
+          return c.json({ message: error.message }, 400);
+        }
+
+        throw error;
+      }
+    });
 }

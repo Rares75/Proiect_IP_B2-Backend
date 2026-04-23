@@ -2,7 +2,8 @@ import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests } from "../requests";
-import type { IRepository } from "../repositories/base.repository";
+import type { IRepository } from "./base.repository";
+import type {requestStatusEnum} from "../enums";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 
@@ -95,4 +96,16 @@ export class HelpRequestRepository
 			.from(helpRequests);
 		return value;
 	}
+
+    async updateStatus(
+        id: number,
+        newStatus: (typeof requestStatusEnum.enumValues)[number],
+    ): Promise<HelpRequest | undefined> {
+        const [updated] = await db
+            .update(helpRequests)
+            .set({ status: newStatus })
+            .where(eq(helpRequests.id, id))
+            .returning();
+        return updated;
+    }
 }
