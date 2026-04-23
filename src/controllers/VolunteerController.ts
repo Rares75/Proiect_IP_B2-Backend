@@ -43,7 +43,6 @@ export class VolunteerController {
 				email: volunteer.hiddenIdentity ? null : volunteer.email,
 				phone: volunteer.hiddenIdentity ? null : volunteer.phone,
 				image: volunteer.image,
-				status: volunteer.status,
 			},
 			profile: {
 				bio: volunteer.bio ?? null,
