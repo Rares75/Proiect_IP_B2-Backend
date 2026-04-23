@@ -1,167 +1,181 @@
-import { RatingsRepository } from "../repositories/RatingsRepository";
-
+import type { RatingType } from "../db/social";
+import { Service } from "../di/decorators/service";
+import { RatingException } from "../exceptions/ratings/RatingException";
+import { RatingsRepository } from "../db/repositories/ratings.repository";
+import type { RatingSummaryType } from "../types";
+import { logger } from "../utils/logger";
+import { inject } from "../di";
 export type CreateRatingInput = {
-    taskAssignmentId: number;
-    writtenByUserId: string;
-    receivedByUserId: string;
-    stars: number;
-    comment: string;
+	taskAssignmentId: number;
+	writtenByUserId: string;
+	receivedByUserId: string;
+	stars: number;
+	comment: string;
 };
 
-type CreateRatingResponse =
-    | {
-          status: 201;
-          body: {
-              id: number;
-              createdAt: Date;
-              taskAssignmentId: number;
-              writtenByUserId: string;
-              receivedByUserId: string;
-              stars: number;
-              comment: string | null;
-          };
-      }
-    | {
-          status: 400 | 404 | 409;
-          body: { error: string };
-      };
-
-type GetRatingsForUserResponse =
-    | {
-          status: 200;
-          body: Awaited<ReturnType<typeof RatingsRepository.getRatingsByReceivedUserId>>;
-      }
-    | {
-          status: 400;
-          body: { error: string };
-      };
-
-type GetRatingsSummaryForUserResponse =
-    | {
-          status: 200;
-          body: {
-              averageRating: number;
-              ratingsCount: number;
-          };
-      }
-    | {
-          status: 400;
-          body: { error: string };
-      };
-
+@Service()
 export class RatingsService {
-    static async createRating(input: CreateRatingInput): Promise<CreateRatingResponse> {
-        const { taskAssignmentId, writtenByUserId, receivedByUserId, stars, comment } = input;
+	constructor(
+		@inject(RatingsRepository)
+		private readonly ratingRepo: RatingsRepository,
+	) {}
 
-        if (writtenByUserId === receivedByUserId) {
-            return {
-                status: 400,
-                body: { error: "You cannot rate yourself." },
-            };
-        }
+	async createRating(input: CreateRatingInput): Promise<RatingType | null> {
+		try {
+			const {
+				taskAssignmentId,
+				writtenByUserId,
+				receivedByUserId,
+				stars,
+				comment,
+			} = input;
 
-        const [taskData] = await RatingsRepository.getTaskAssignmentById(taskAssignmentId);
+			if (writtenByUserId === receivedByUserId) {
+				logger.exception(new RatingException("You cannot rate yourself."));
+				return null;
+			}
 
-        if (!taskData) {
-            return {
-                status: 404,
-                body: { error: "Task assignment not found." },
-            };
-        }
+			const [taskData] =
+				await this.ratingRepo.getTaskAssignmentById(taskAssignmentId);
 
-        if (taskData.status !== "COMPLETED") {
-            return {
-                status: 400,
-                body: { error: "Rating can only be given after task completion." },
-            };
-        }
+			if (!taskData) {
+				logger.exception(new RatingException("Task assignment not found."));
+				return null;
+			}
 
-        const [volunteer] = await RatingsRepository.getVolunteerById(taskData.handledByVolunteerId);
+			if (taskData.status !== "COMPLETED") {
+				logger.exception(
+					new RatingException(
+						"Rating can only be given after task completion.",
+					),
+				);
+				return null;
+			}
 
-        if (!volunteer) {
-            return {
-                status: 404,
-                body: { error: "Volunteer not found." },
-            };
-        }
+			const [volunteer] = await this.ratingRepo.getVolunteerById(
+				taskData.handledByVolunteerId,
+			);
 
-        const requesterId = taskData.requestedByUserId;
-        const volunteerUserId = volunteer.userId;
+			if (!volunteer) {
+				logger.exception(new RatingException("Volunteer not found."));
+				return null;
+			}
 
-        const requesterRatesVolunteer = writtenByUserId === requesterId && receivedByUserId === volunteerUserId;
-        const volunteerRatesRequester = writtenByUserId === volunteerUserId && receivedByUserId === requesterId;
+			const requesterId = taskData.requestedByUserId;
+			const volunteerUserId = volunteer.userId;
 
-        if (!requesterRatesVolunteer && !volunteerRatesRequester) {
-            return {
-                status: 400,
-                body: { error: "Invalid rating participants for this task." },
-            };
-        }
+			const requesterRatesVolunteer =
+				writtenByUserId === requesterId && receivedByUserId === volunteerUserId;
+			const volunteerRatesRequester =
+				writtenByUserId === volunteerUserId && receivedByUserId === requesterId;
 
-        const [existingRating] = await RatingsRepository.findRating(
-            taskAssignmentId,
-            writtenByUserId,
-            receivedByUserId
-        );
+			if (!requesterRatesVolunteer && !volunteerRatesRequester) {
+				logger.exception(
+					new RatingException("Invalid rating participants for this task."),
+				);
+				return null;
+			}
 
-        if (existingRating) {
-            return {
-                status: 409,
-                body: { error: "Rating already exists for this task." },
-            };
-        }
+			const [existingRating] = await this.ratingRepo.findRating(
+				taskAssignmentId,
+				writtenByUserId,
+				receivedByUserId,
+			);
 
-        const [createdRating] = await RatingsRepository.createRating({
-            taskAssignmentId,
-            writtenByUserId,
-            receivedByUserId,
-            stars,
-            comment: comment.trim(),
-        });
+			if (existingRating) {
+				logger.exception(
+					new RatingException("Rating already exists for this task."),
+				);
+				return null;
+			}
 
-        return {
-            status: 201,
-            body: createdRating,
-        };
-    }
+			const [createdRating] = await this.ratingRepo.createRating({
+				taskAssignmentId,
+				writtenByUserId,
+				receivedByUserId,
+				stars,
+				comment: comment.trim(),
+			});
 
-    static async getRatingsForUser(userId: string): Promise<GetRatingsForUserResponse> {
-        if (!userId) {
-            return {
-                status: 400,
-                body: {
-                    error: "User ID is required.",
-                },
-            };
-        }
+			return createdRating ?? null;
+		} catch (error) {
+			logger.exception(
+				new RatingException(
+					`Failed to create rating: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				),
+			);
+			return null;
+		}
+	}
 
-        const ratings = await RatingsRepository.getRatingsByReceivedUserId(userId);
+	async getRatingsForUser(userId: string): Promise<RatingType[] | null> {
+		try {
+			if (!userId) {
+				logger.exception(
+					new RatingException("User ID is required to fetch ratings."),
+				);
+				return null;
+			}
 
-        return {
-            status: 200,
-            body: ratings,
-        };
-    }
+			return await this.ratingRepo.getRatingsByReceivedUserId(userId);
+		} catch (error) {
+			logger.exception(
+				new RatingException(
+					`Failed to fetch ratings for user: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				),
+			);
+			return null;
+		}
+	}
 
-    static async getRatingsSummaryForUser(userId: string): Promise<GetRatingsSummaryForUserResponse> {
-        if (!userId) {
-            return {
-                status: 400,
-                body: {
-                    error: "User ID is required.",
-                },
-            };
-        }
+	async getRatingsSummaryForUser(
+		userId: string,
+	): Promise<RatingSummaryType | null> {
+		try {
+			if (!userId) {
+				logger.exception(
+					new RatingException("User ID is required for ratings summary."),
+				);
+				return null;
+			}
 
-        const [summary] = await RatingsRepository.getRatingsSummaryByUserId(userId);
+			const ratings = await this.ratingRepo.getRatingsSummaryByUserId(userId);
+			return ratings[0] ?? null;
+		} catch (error) {
+			logger.exception(
+				new RatingException(
+					`Failed to fetch ratings summary: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				),
+			);
+			return null;
+		}
+	}
 
-        return {
-            status: 200,
-            body: {
-                averageRating: summary?.averageRating ? Number(summary.averageRating) : 0,
-                ratingsCount: summary?.ratingsCount ? Number(summary.ratingsCount) : 0,
-            },
-        };
-    }
+	async getRecentRatingsForUser(userId: string): Promise<RatingType[] | null> {
+		try {
+			if (!userId) {
+				logger.exception(
+					new RatingException("User ID is required to fetch recent ratings."),
+				);
+				return null;
+			}
 
+			return await this.ratingRepo.getRecentRatingsByReceivedUserId(userId);
+		} catch (error) {
+			logger.exception(
+				new RatingException(
+					`Failed to fetch recent ratings for user: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				),
+			);
+			return null;
+		}
+	}
 }

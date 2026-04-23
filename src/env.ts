@@ -2,12 +2,13 @@ import * as z from "zod";
 import pe from "./utils/pretty-error";
 
 export const envSchema = z.object({
+	SERVER_URL: z.string().optional(),
 	DATABASE_URL: z.string(),
 	BETTER_AUTH_URL: z.string(),
 	BETTER_AUTH_SECRET: z.string(),
-	GMAIL_USER: z.string(),
-	GMAIL_APP_PASSWORD: z.string(),
-	EMAIL_FROM: z.string(),
+	GMAIL_USER: z.string().optional(),
+	GMAIL_APP_PASSWORD: z.string().optional(),
+	EMAIL_FROM: z.string().optional(),
 	NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 

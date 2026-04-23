@@ -1,5 +1,5 @@
 import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { type InferSelectModel, relations } from "drizzle-orm";
 import { conversationStatusEnum, notificationTypeEnum } from "./enums";
 import { taskAssignments } from "./requests";
 import { user } from "./auth-schema";
@@ -102,3 +102,11 @@ export const interactionHistoriesRelations = relations(
 		}),
 	}),
 );
+
+export type RatingType = InferSelectModel<typeof ratings>;
+export type ConversationType = InferSelectModel<typeof conversations>;
+export type MessageType = InferSelectModel<typeof messages>;
+export type InteractionHistoryType = InferSelectModel<
+	typeof interactionHistories
+>;
+export type NotificationType = InferSelectModel<typeof notifications>;
