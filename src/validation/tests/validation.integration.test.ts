@@ -16,11 +16,6 @@ const validPayload = {
 	status: "OPEN",
 	anonymousMode: false,
 	category: "Transport",
-	requestDetails: {
-		notes: "Pickup at the main entrance.",
-		languageNeeded: "Romanian",
-		safetyNotes: "Wheelchair assistance needed.",
-	},
 };
 
 const createApp = (): Hono => {
@@ -48,7 +43,6 @@ describe("validation middleware integration", () => {
 			body: JSON.stringify({
 				title: "",
 				description: "",
-				requestDetails: null,
 			}),
 		});
 

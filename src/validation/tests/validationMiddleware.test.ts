@@ -12,11 +12,6 @@ const validPayload = {
 	status: "OPEN",
 	anonymousMode: false,
 	category: "Transport",
-	requestDetails: {
-		notes: "Pickup at the main entrance.",
-		languageNeeded: "Romanian",
-		safetyNotes: "Wheelchair assistance needed.",
-	},
 };
 
 const createTestApp = (): Hono => {
@@ -87,10 +82,6 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
-				{
-					field: "requestDetails",
-					message: "Invalid input: expected object, received undefined",
-				},
 			],
 		});
 	});
@@ -110,11 +101,6 @@ describe("validationMiddleware", () => {
 				status: "PENDING",
 				anonymousMode: "no",
 				category: 999,
-				requestDetails: {
-					notes: 1,
-					languageNeeded: true,
-					safetyNotes: null,
-				},
 			}),
 		});
 
@@ -145,18 +131,6 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
-				{
-					field: "requestDetails.notes",
-					message: "Notes is required",
-				},
-				{
-					field: "requestDetails.languageNeeded",
-					message: "Language needed is required",
-				},
-				{
-					field: "requestDetails.safetyNotes",
-					message: "Safety notes is required",
-				},
 			],
 		});
 	});
@@ -186,7 +160,7 @@ describe("validationMiddleware", () => {
 		});
 	});
 
-	it("returns 400 for invalid nested requestDetails", async () => {
+	it("returns 400 for unknown nested requestDetails", async () => {
 		const app = createTestApp();
 
 		const response = await app.request("http://localhost/help", {
@@ -208,16 +182,8 @@ describe("validationMiddleware", () => {
 		expect(await response.json()).toEqual({
 			errors: [
 				{
-					field: "requestDetails.notes",
-					message: "Notes is required",
-				},
-				{
-					field: "requestDetails.languageNeeded",
-					message: "Language needed is required",
-				},
-				{
-					field: "requestDetails.safetyNotes",
-					message: "Safety notes is required",
+					field: "body",
+					message: 'Unrecognized key: "requestDetails"',
 				},
 			],
 		});

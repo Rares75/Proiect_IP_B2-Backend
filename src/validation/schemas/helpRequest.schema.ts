@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { requestDetailsSchema } from "./requestDetails.schema";
-
 export const helpRequestInputSchema = z
 	.object({
 		title: z
@@ -34,8 +32,8 @@ export const helpRequestInputSchema = z
 			})
 			.trim()
 			.min(1, "Category is required"),
-		requestDetails: requestDetailsSchema,
 	})
 	.strict();
 
+export const HelpRequestSchema = helpRequestInputSchema;
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;

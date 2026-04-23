@@ -21,4 +21,5 @@ export const requestDetailsSchema = z.object({
 		.min(1, "Safety notes is required"),
 });
 
+export const RequestDetailsSchema = requestDetailsSchema;
 export type RequestDetailsInput = z.infer<typeof requestDetailsSchema>;

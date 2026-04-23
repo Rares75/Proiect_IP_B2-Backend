@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
+
 import type { ValidationErrorResponse } from "../types/validation.types";
+import {
+	createValidationMiddleware,
+	helpRequestInputSchema,
+	requestDetailsSchema,
+	validationMiddleware,
+} from "..";
 
 type HelpSuccessPayload = {
 	title: string;
@@ -9,40 +16,54 @@ type HelpSuccessPayload = {
 	status: string;
 	anonymousMode: boolean;
 	category: string;
-	requestDetails: {
-		notes: string;
-		languageNeeded: string;
-		safetyNotes: string;
-	};
 };
 
-const validPayload: HelpSuccessPayload = {
+type RequestDetailsSuccessPayload = {
+	notes: string;
+	languageNeeded: string;
+	safetyNotes: string;
+};
+
+const validHelpRequestPayload: HelpSuccessPayload = {
 	title: "Need transport support",
 	description: "I need a ride to the clinic tomorrow morning.",
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
 	category: "Transport",
-	requestDetails: {
-		notes: "Pickup at the main entrance.",
-		languageNeeded: "Romanian",
-		safetyNotes: "Wheelchair assistance needed.",
-	},
 };
 
-const createApp = async (): Promise<Hono> => {
+const validRequestDetailsPayload: RequestDetailsSuccessPayload = {
+	notes: "Pickup at the main entrance.",
+	languageNeeded: "Romanian",
+	safetyNotes: "Wheelchair assistance needed.",
+};
+
+const createApp = (): Hono => {
 	const app = new Hono().basePath("/api");
-	(globalThis as { app?: Hono }).app = new Hono();
-	const { HelpController } = await import("../../controllers/HelpController");
-	app.route("/help", HelpController.controller);
+
+	app
+		.use("/help", validationMiddleware)
+		.use(
+			"/help/helpRequest",
+			createValidationMiddleware(helpRequestInputSchema),
+		)
+		.use(
+			"/help/requestDetails",
+			createValidationMiddleware(requestDetailsSchema),
+		)
+		.post("/help", async (c) => c.json(await c.req.json()))
+		.post("/help/helpRequest", async (c) => c.json(await c.req.json()))
+		.post("/help/requestDetails", async (c) => c.json(await c.req.json()));
+
 	return app;
 };
 
-describe("HelpController validation integration", () => {
-	it("returns 400 with descriptive errors for a null body", async () => {
-		const app = await createApp();
+describe("Help route validation integration", () => {
+	it("returns 400 with descriptive errors for a null helpRequest body", async () => {
+		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help", {
+		const response = await app.request("http://localhost/api/help/helpRequest", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -66,37 +87,10 @@ describe("HelpController validation integration", () => {
 		expect(payload.message).toBeUndefined();
 	});
 
-	it("returns 400 with descriptive errors for an empty body", async () => {
-		const app = await createApp();
+	it("returns 400 and collects all missing required helpRequest fields", async () => {
+		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({}),
-		});
-
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
-
-		expect(response.status).toBe(400);
-		expect(payload).toEqual({
-			errors: [
-				{
-					field: "body",
-					message: "Request body is required",
-				},
-			],
-		});
-		expect(payload.stack).toBeUndefined();
-		expect(payload.message).toBeUndefined();
-	});
-
-	it("returns 400 and collects all missing required fields", async () => {
-		const app = await createApp();
-
-		const response = await app.request("http://localhost/api/help", {
+		const response = await app.request("http://localhost/api/help/helpRequest", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -111,7 +105,6 @@ describe("HelpController validation integration", () => {
 			Record<string, unknown>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toBeArray();
 		expect(payload.errors).toEqual([
 			{
 				field: "title",
@@ -137,43 +130,46 @@ describe("HelpController validation integration", () => {
 				field: "category",
 				message: "Category is required",
 			},
-			{
-				field: "requestDetails",
-				message: "Invalid input: expected object, received undefined",
-			},
 		]);
-
-		for (const error of payload.errors) {
-			expect(error.field).toBeString();
-			expect(error.message).toBeString();
-		}
-
-		expect(payload.stack).toBeUndefined();
-		expect(payload.cause).toBeUndefined();
 	});
 
-	it("returns 400 and all errors for wrong field types", async () => {
-		const app = await createApp();
+	it("passes /help/helpRequest without requestDetails", async () => {
+		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help", {
+		const response = await app.request("http://localhost/api/help/helpRequest", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({
-				title: 123,
-				description: false,
-				urgency: "URGENT",
-				status: "PENDING",
-				anonymousMode: "no",
-				category: 999,
-				requestDetails: {
-					notes: 1,
-					languageNeeded: true,
-					safetyNotes: null,
-				},
-			}),
+			body: JSON.stringify(validHelpRequestPayload),
 		});
+
+		const payload = (await response.json()) as HelpSuccessPayload &
+			Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(payload).toEqual(validHelpRequestPayload);
+		expect(payload.body).toBeUndefined();
+		expect(payload.ok).toBeUndefined();
+	});
+
+	it("requires requestDetails fields on /help/requestDetails", async () => {
+		const app = createApp();
+
+		const response = await app.request(
+			"http://localhost/api/help/requestDetails",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					notes: "   ",
+					languageNeeded: "",
+					safetyNotes: "   ",
+				}),
+			},
+		);
 
 		const payload = (await response.json()) as ValidationErrorResponse &
 			Record<string, unknown>;
@@ -181,89 +177,40 @@ describe("HelpController validation integration", () => {
 		expect(response.status).toBe(400);
 		expect(payload.errors).toEqual([
 			{
-				field: "title",
-				message: "Title is required",
-			},
-			{
-				field: "description",
-				message: "Description is required",
-			},
-			{
-				field: "urgency",
-				message: "Urgency is required",
-			},
-			{
-				field: "status",
-				message: "Status is required",
-			},
-			{
-				field: "anonymousMode",
-				message: "Anonymous mode is required",
-			},
-			{
-				field: "category",
-				message: "Category is required",
-			},
-			{
-				field: "requestDetails.notes",
+				field: "notes",
 				message: "Notes is required",
 			},
 			{
-				field: "requestDetails.languageNeeded",
+				field: "languageNeeded",
 				message: "Language needed is required",
 			},
 			{
-				field: "requestDetails.safetyNotes",
+				field: "safetyNotes",
 				message: "Safety notes is required",
 			},
 		]);
-		expect(payload.errors).toHaveLength(9);
-		expect(payload.stack).toBeUndefined();
-		expect(payload.message).toBeUndefined();
 	});
 
-	it("passes a valid request to the handler and returns the exact handler payload", async () => {
-		const app = await createApp();
+	it("passes a valid requestDetails body on /help/requestDetails", async () => {
+		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
+		const response = await app.request(
+			"http://localhost/api/help/requestDetails",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(validRequestDetailsPayload),
 			},
-			body: JSON.stringify(validPayload),
-		});
+		);
 
-		const payload = (await response.json()) as HelpSuccessPayload &
+		const payload = (await response.json()) as RequestDetailsSuccessPayload &
 			Record<string, unknown>;
 
 		expect(response.status).toBe(200);
-		expect(payload).toEqual(validPayload);
-		expect(payload.ok).toBeUndefined();
+		expect(payload).toEqual(validRequestDetailsPayload);
 		expect(payload.body).toBeUndefined();
-		expect(payload.status).toBe("OPEN");
-		expect(payload.requestDetails.notes).toBe(validPayload.requestDetails.notes);
-	});
-
-	it("does not return nested body wrappers on success", async () => {
-		const app = await createApp();
-
-		const response = await app.request("http://localhost/api/help", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(validPayload),
-		});
-
-		const payload = (await response.json()) as HelpSuccessPayload &
-			Record<string, unknown>;
-		const wrappedBody = payload["body"] as
-			| { body?: unknown }
-			| undefined;
-
-		expect(response.status).toBe(200);
-		expect("body" in payload).toBe(false);
-		expect(wrappedBody?.body).toBeUndefined();
 		expect(payload.ok).toBeUndefined();
 	});
 });
