@@ -1,4 +1,4 @@
-import { eq, and, count as drizzleCount, SQL } from "drizzle-orm";  
+import { eq, and, count as drizzleCount, type SQL } from "drizzle-orm";  
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests } from "../requests";
