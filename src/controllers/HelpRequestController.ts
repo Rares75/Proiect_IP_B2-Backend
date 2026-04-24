@@ -8,6 +8,10 @@ import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
+import {
+	createValidationMiddleware,
+	helpRequestInputSchema,
+} from "../validation";
 
 @Controller("/tasks")
 export class HelpRequestController {
@@ -17,13 +21,15 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
+		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		
 		.post("/", async (c) => {
-			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
-				return c.json(result, 201);
-			} catch {
-				return c.json({ message: "Internal server error" }, 500);
+				try {
+					const body = await c.req.json();
+					const result = await this.helpRequestService.createHelpRequest(body);
+					return c.json(result, 201);
+				} catch {
+					return c.json({ message: "Internal server error" }, 500);
 			}
 		})
 
@@ -125,7 +131,7 @@ export class HelpRequestController {
 					return c.json({ message: error.message }, 400);
 				}
 
-				throw error;
-			}
-		});
+        throw error;
+	      }
+	    });
 }

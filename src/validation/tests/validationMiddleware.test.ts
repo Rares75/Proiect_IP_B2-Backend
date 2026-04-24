@@ -1,3 +1,5 @@
+/// <reference types="bun-types" />
+
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 
@@ -10,11 +12,6 @@ const validPayload = {
 	status: "OPEN",
 	anonymousMode: false,
 	category: "Transport",
-	requestDetails: {
-		notes: "Pickup at the main entrance.",
-		languageNeeded: "Romanian",
-		safetyNotes: "Wheelchair assistance needed.",
-	},
 };
 
 const createTestApp = (): Hono => {
@@ -22,10 +19,7 @@ const createTestApp = (): Hono => {
 
 	app.use("*", validationMiddleware).post("/help", async (context) => {
 		const body = await context.req.json();
-		return context.json({
-			ok: true,
-			body,
-		});
+		return context.json(body);
 	});
 
 	return app;
@@ -44,10 +38,7 @@ describe("validationMiddleware", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({
-			ok: true,
-			body: validPayload,
-		});
+		expect(await response.json()).toEqual(validPayload);
 	});
 
 	it("returns 400 for missing required fields", async () => {
@@ -91,10 +82,6 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
-				{
-					field: "requestDetails",
-					message: "Invalid input: expected object, received undefined",
-				},
 			],
 		});
 	});
@@ -114,11 +101,6 @@ describe("validationMiddleware", () => {
 				status: "PENDING",
 				anonymousMode: "no",
 				category: 999,
-				requestDetails: {
-					notes: 1,
-					languageNeeded: true,
-					safetyNotes: null,
-				},
 			}),
 		});
 
@@ -149,18 +131,6 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
-				{
-					field: "requestDetails.notes",
-					message: "Notes is required",
-				},
-				{
-					field: "requestDetails.languageNeeded",
-					message: "Language needed is required",
-				},
-				{
-					field: "requestDetails.safetyNotes",
-					message: "Safety notes is required",
-				},
 			],
 		});
 	});
@@ -190,7 +160,7 @@ describe("validationMiddleware", () => {
 		});
 	});
 
-	it("returns 400 for invalid nested requestDetails", async () => {
+	it("returns 400 for unknown nested requestDetails", async () => {
 		const app = createTestApp();
 
 		const response = await app.request("http://localhost/help", {
@@ -212,18 +182,57 @@ describe("validationMiddleware", () => {
 		expect(await response.json()).toEqual({
 			errors: [
 				{
-					field: "requestDetails.notes",
-					message: "Notes is required",
-				},
-				{
-					field: "requestDetails.languageNeeded",
-					message: "Language needed is required",
-				},
-				{
-					field: "requestDetails.safetyNotes",
-					message: "Safety notes is required",
+					field: "body",
+					message: 'Unrecognized key: "requestDetails"',
 				},
 			],
+		});
+	});
+
+	it("returns 400 for a null body", async () => {
+		const app = createTestApp();
+
+		const response = await app.request("http://localhost/help", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: "null",
+		});
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "body",
+					message: "Request body is required",
+				},
+			],
+		});
+	});
+
+	it("does not add extra fields to the handler response", async () => {
+		const app = new Hono();
+
+		app.use("*", validationMiddleware).post("/help", (context) =>
+			context.json({
+				id: "req_123",
+				created: true,
+			}),
+		);
+
+		const response = await app.request("http://localhost/help", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(validPayload),
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			id: "req_123",
+			created: true,
 		});
 	});
 });
