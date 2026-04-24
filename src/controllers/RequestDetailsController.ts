@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
+import { z } from "zod";
 import { RequestDetailsService } from "../services/RequestDetailsService";
+
+const requestDetailsSchema = z.object({
+	notes: z.string().min(1, "notes is required"),
+	languageNeeded: z.string().min(1, "language needed is required"),
+	safetyNotes: z.string().min(1, "safety notes is required"),
+});
 
 @Controller("/tasks")
 export class RequestDetailsController {
@@ -12,11 +19,30 @@ export class RequestDetailsController {
 
 	controller = new Hono()
 		.post("/:id/details", async (c) => {
-			try {
-				const id = Number(c.req.param("id"));
-				const body = await c.req.json();
+			const id = Number(c.req.param("id"));
+			if (!Number.isInteger(id) || id <= 0) {
+				return c.json({ message: "Invalid id" }, 400);
+			}
 
-				const result = await this.requestDetailsService.upsertDetails(id, body);
+			const body = await c.req.json().catch(() => null);
+			const parsedBody = requestDetailsSchema.safeParse(body);
+			if (!parsedBody.success) {
+				return c.json(
+					{
+						errors: parsedBody.error.issues.map((issue) => ({
+							field: issue.path.join("."),
+							message: issue.message,
+						})),
+					},
+					400,
+				);
+			}
+
+			try {
+				const result = await this.requestDetailsService.upsertDetails(
+					id,
+					parsedBody.data,
+				);
 
 				if (result.notFound) {
 					return c.json({ message: "Task not found" }, 404);
