@@ -12,6 +12,6 @@ export class UserAccessService {
 
 	async checkUserStatus(userId: string): Promise<AccountStatusType | null> {
 		const userAccess = await this.userAccessRepo.findFirstBy({ userId });
-		return userAccess?.status ?? "ACTIVE";
+		return userAccess?.status ?? "LIMITED";
 	}
 }
