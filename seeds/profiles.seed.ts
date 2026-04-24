@@ -1,4 +1,4 @@
-import { profiles } from "../src/db/schema";
+import { userProfiles } from "../src/db/schema";
 import type { EntitySeed } from "./types";
 
 const languages = [
@@ -13,7 +13,7 @@ export const profilesSeed: EntitySeed = {
 	name: "profiles",
 	run: async (db, context) => {
 		context.profiles = await db
-			.insert(profiles)
+			.insert(userProfiles)
 			.values(
 				context.users.map((user, index) => ({
 					userId: user.id,

@@ -2,12 +2,12 @@ import { eq, and, count as drizzleCount } from "drizzle-orm";
 
 import { db } from "../../db";
 import { repository } from "../../di/decorators/repository";
-import { profiles } from "../profile";
+import { userProfiles } from "../profile";
 import type { IRepository } from "./base.repository";
 
-export type Profile = typeof profiles.$inferSelect;
+export type Profile = typeof userProfiles.$inferSelect;
 
-export type CreateProfileDTO = typeof profiles.$inferInsert;
+export type CreateProfileDTO = typeof userProfiles.$inferInsert;
 
 export type UpdateProfileDTO = Partial<CreateProfileDTO>;
 
@@ -16,7 +16,7 @@ export class ProfileRepository
 	implements IRepository<Profile, CreateProfileDTO, UpdateProfileDTO, number>
 {
 	async create(data: CreateProfileDTO): Promise<Profile> {
-		const [newProfile] = await db.insert(profiles).values(data).returning();
+		const [newProfile] = await db.insert(userProfiles).values(data).returning();
 		return newProfile;
 	}
 
@@ -25,17 +25,17 @@ export class ProfileRepository
 		data: UpdateProfileDTO,
 	): Promise<Profile | undefined> {
 		const [updatedProfile] = await db
-			.update(profiles)
+			.update(userProfiles)
 			.set(data)
-			.where(eq(profiles.id, id))
+			.where(eq(userProfiles.id, id))
 			.returning();
 		return updatedProfile;
 	}
 
 	async delete(id: number): Promise<boolean> {
 		const result = await db
-			.delete(profiles)
-			.where(eq(profiles.id, id))
+			.delete(userProfiles)
+			.where(eq(userProfiles.id, id))
 			.returning();
 		return result.length > 0;
 	}
@@ -43,16 +43,16 @@ export class ProfileRepository
 	async exists(id: number): Promise<boolean> {
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })
-			.from(profiles)
-			.where(eq(profiles.id, id));
+			.from(userProfiles)
+			.where(eq(userProfiles.id, id));
 		return value > 0;
 	}
 
 	async findById(id: number): Promise<Profile | undefined> {
 		const [foundProfile] = await db
 			.select()
-			.from(profiles)
-			.where(eq(profiles.id, id));
+			.from(userProfiles)
+			.where(eq(userProfiles.id, id));
 		return foundProfile;
 	}
 
@@ -61,7 +61,7 @@ export class ProfileRepository
 
 		for (const [key, value] of Object.entries(criteria)) {
 			if (value !== undefined) {
-				const column = profiles[key as keyof typeof profiles];
+				const column = userProfiles[key as keyof typeof userProfiles];
 				conditions.push(eq(column as any, value));
 			}
 		}
@@ -72,20 +72,20 @@ export class ProfileRepository
 
 		const [foundProfile] = await db
 			.select()
-			.from(profiles)
+			.from(userProfiles)
 			.where(and(...conditions))
 			.limit(1);
 
 		return foundProfile;
 	}
 	async findMany(limit: number = 50, offset: number = 0): Promise<Profile[]> {
-		return await db.select().from(profiles).limit(limit).offset(offset);
+		return await db.select().from(userProfiles).limit(limit).offset(offset);
 	}
 
 	async count(): Promise<number> {
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })
-			.from(profiles);
+			.from(userProfiles);
 		return value;
 	}
 }

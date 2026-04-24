@@ -12,7 +12,6 @@ export class VolunteerController {
 	controller = new Hono().get("/:id", async (c) => {
 		const idParam = c.req.param("id");
 		const volunteerId = Number(idParam);
-
 		if (!Number.isInteger(volunteerId) || volunteerId <= 0) {
 			return c.json(
 				{ error: "Invalid volunteer ID. Must be a positive integer." },
@@ -44,7 +43,6 @@ export class VolunteerController {
 				email: volunteer.hiddenIdentity ? null : volunteer.email,
 				phone: volunteer.hiddenIdentity ? null : volunteer.phone,
 				image: volunteer.image,
-				status: volunteer.status,
 			},
 			profile: {
 				bio: volunteer.bio ?? null,

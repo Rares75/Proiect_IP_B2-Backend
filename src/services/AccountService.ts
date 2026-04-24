@@ -6,7 +6,6 @@ import {
 } from "../db/repositories/account.repository";
 import { Service } from "../di/decorators/service";
 import { UsermanagementException as UserManagementException } from "../exceptions/user.management/UserManagementException";
-import type { AccountStatusType } from "../types";
 import { logger } from "../utils/logger";
 import { inject } from "../di";
 
@@ -172,16 +171,5 @@ export class AccountService {
 			);
 			return [];
 		}
-	}
-
-	async checkUserStatus(userId: string): Promise<AccountStatusType | null> {
-		const account = await this.accountRepo.findFirstBy({ userId });
-		if (!account) {
-			logger.exception(
-				new UserManagementException("Account not found for user"),
-			);
-			return null;
-		}
-		return account.status;
 	}
 }
