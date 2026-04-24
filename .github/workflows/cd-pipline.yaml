@@ -32,15 +32,15 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      #Railway CLI on VM for deployment
+      - name: Install Railway CLI
+        run: bun install -g @railway/cli
+
       #  Database migrations folosind tunelul CLI
       - name: Run database migrations
         run: railway run --service ${{ secrets.RAILWAY_SERVICE_ID }} bun db:migrate
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      #Railway CLI on VM for deployment
-      - name: Install Railway CLI
-        run: bun install -g @railway/cli
 
       #Deployment
       - name: Deploy to Railway
