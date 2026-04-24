@@ -47,8 +47,3 @@ jobs:
         run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      # - name: Wait for deployment
-      #   run:                                                                     
-      #     sleep 30                                                                     
-      #     curl -f https://proiectipb2-backend-production-b346.up.railway.app/api/health || exit 1
