@@ -7,7 +7,7 @@ import {
 import { authMiddlware } from "../middlware/authMiddleware";
 import { sendApiResponse } from "../utils/apiReponse";
 import { logger } from "../utils/logger";
-import { ProfileService } from "../services/profileService";
+import { ProfileService } from "../services/ProfileService";
 import { inject } from "../di";
 
 @Controller("/profile")

@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { emailOTP, openAPI } from "better-auth/plugins";
+import { emailOTP, openAPI, phoneNumber } from "better-auth/plugins";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { verifyEmailTemplate } from "./mailers/templates/verifyEmail";
@@ -25,30 +25,6 @@ const auth = betterAuth({
 			} else {
 				logger.info(`[AUTH_${level.toUpperCase()}] ${message}`);
 			}
-		},
-	},
-
-	user: {
-		additionalFields: {
-			userName: {
-				type: "string",
-			},
-			phoneNumber: {
-				type: "string",
-				required: false,
-			},
-			bio: {
-				type: "string",
-				required: false,
-			},
-			languages: {
-				type: "string[]",
-				required: false,
-			},
-			hiddenIdentity: {
-				type: "boolean",
-				required: false,
-			},
 		},
 	},
 
@@ -95,12 +71,9 @@ const auth = betterAuth({
 	},
 
 	plugins: [
-		openAPI({
-			disableDefaultReference: false,
-		}),
-		username({
-			minUsernameLength: 5,
-		}),
+		username(),
+		openAPI(),
+		phoneNumber(),
 		emailOTP({
 			async sendVerificationOTP({ email, otp, type }) {
 				const mailer = getMailer();

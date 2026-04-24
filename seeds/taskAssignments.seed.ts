@@ -13,7 +13,7 @@ export const taskAssignmentsSeed: EntitySeed = {
 				context.helpRequests.slice(0, 24).map((request, index) => {
 					const volunteer = pick(context.volunteers, index + 2);
 					const requestedByUserId =
-						request.userId ?? pick(context.users, index).id;
+						request.requestedByUserId ?? pick(context.users, index).id;
 					const status = pick(statuses, index);
 
 					return {

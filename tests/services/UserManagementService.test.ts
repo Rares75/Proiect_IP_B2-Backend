@@ -27,25 +27,25 @@ describe("UserManagementService", () => {
 	const createService = ({
 		ratingService,
 		userRepo,
-		accountRepo,
+		userAccessRepo,
 	}: {
 		ratingService: unknown;
 		userRepo: unknown;
-		accountRepo: unknown;
+		userAccessRepo: unknown;
 	}) =>
 		new UserManagementService(
 			ratingService as any,
 			userRepo as any,
-			accountRepo as any,
+			userAccessRepo as any,
 		);
 
-	test("returns false when the user or account cannot be found", async () => {
+	test("returns false when the user cannot be found", async () => {
 		const service = createService({
 			userRepo: {
 				findById: async () => undefined,
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-1" }),
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 1 }),
 			},
 			ratingService: {
 				getRecentRatingsForUser: async () => [],
@@ -56,7 +56,7 @@ describe("UserManagementService", () => {
 
 		expect(result).toBe(false);
 		expect(loggedExceptions).toHaveLength(1);
-		expect(loggedExceptions[0]?.message).toBe("User or account not found");
+		expect(loggedExceptions[0]?.message).toBe("User not found");
 	});
 
 	test("returns false when recent ratings cannot be fetched", async () => {
@@ -64,8 +64,8 @@ describe("UserManagementService", () => {
 			userRepo: {
 				findById: async () => ({ id: "user-1" }),
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-1", userId: "user-1" }),
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 1, userId: "user-1" }),
 			},
 			ratingService: {
 				getRecentRatingsForUser: async () => null,
@@ -86,8 +86,8 @@ describe("UserManagementService", () => {
 			userRepo: {
 				findById: async () => ({ id: "user-2" }),
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-2", userId: "user-2" }),
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 2, userId: "user-2" }),
 				update: async () => {
 					updateCalled = true;
 					return undefined;
@@ -117,8 +117,8 @@ describe("UserManagementService", () => {
 			userRepo: {
 				findById: async () => ({ id: "user-3" }),
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-3", userId: "user-3" }),
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 3, userId: "user-3" }),
 				update: async () => {
 					updateCalled = true;
 					return undefined;
@@ -142,13 +142,13 @@ describe("UserManagementService", () => {
 		expect(loggedExceptions).toHaveLength(0);
 	});
 
-	test("returns false and logs when the account update fails", async () => {
+	test("returns false and logs when the user access update fails", async () => {
 		const service = createService({
 			userRepo: {
 				findById: async () => ({ id: "user-4" }),
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-4", userId: "user-4" }),
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 4, userId: "user-4" }),
 				update: async () => undefined,
 			},
 			ratingService: {
@@ -168,13 +168,13 @@ describe("UserManagementService", () => {
 		expect(infoMessages).toHaveLength(1);
 		expect(loggedExceptions).toHaveLength(1);
 		expect(loggedExceptions[0]?.message).toBe(
-			"Failed to update account status to BLOCKED",
+			"Failed to update user access status to BLOCKED",
 		);
 	});
 
-	test("blocks the account when the last five ratings are all below three stars", async () => {
+	test("blocks the user when the last five ratings are all below three stars", async () => {
 		const updateCalls: Array<{
-			accountId: string;
+			accessId: number;
 			data: Record<string, unknown>;
 		}> = [];
 
@@ -182,11 +182,11 @@ describe("UserManagementService", () => {
 			userRepo: {
 				findById: async () => ({ id: "user-5" }),
 			},
-			accountRepo: {
-				findFirstBy: async () => ({ id: "account-5", userId: "user-5" }),
-				update: async (accountId: string, data: Record<string, unknown>) => {
-					updateCalls.push({ accountId, data });
-					return { id: accountId, ...data };
+			userAccessRepo: {
+				findFirstBy: async () => ({ id: 5, userId: "user-5" }),
+				update: async (accessId: number, data: Record<string, unknown>) => {
+					updateCalls.push({ accessId, data });
+					return { id: accessId, ...data };
 				},
 			},
 			ratingService: {
@@ -204,10 +204,10 @@ describe("UserManagementService", () => {
 
 		expect(result).toBe(true);
 		expect(updateCalls).toHaveLength(1);
-		expect(updateCalls[0]?.accountId).toBe("account-5");
+		expect(updateCalls[0]?.accessId).toBe(5);
 		expect(updateCalls[0]?.data.status).toBe("BLOCKED");
 		expect(updateCalls[0]?.data.bannedReason).toBe("multiple bad ratings");
-		expect(updateCalls[0]?.data.banned_at).toBeInstanceOf(Date);
+		expect(updateCalls[0]?.data.bannedAt).toBeInstanceOf(Date);
 		expect(infoMessages).toEqual([
 			"Banning user user-5 because last 5 ratings are below 3 stars",
 		]);

@@ -1,21 +1,21 @@
+import { relations } from "drizzle-orm";
 import {
-	pgTable,
-	serial,
-	text,
 	boolean,
-	real,
-	integer,
-	varchar,
-	jsonb,
 	geometry,
 	index,
+	integer,
+	jsonb,
+	pgTable,
+	real,
+	serial,
+	text,
 	timestamp,
+	varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 import { user } from "./auth-schema";
-import { verificationStatusEnum } from "./enums";
+import { accountStatusEnum, verificationStatusEnum } from "./enums";
 
-export const profiles = pgTable("profiles", {
+export const userProfiles = pgTable("user_profiles", {
 	id: serial("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -24,8 +24,33 @@ export const profiles = pgTable("profiles", {
 			onDelete: "cascade",
 		}),
 	bio: text("bio"),
-	languages: jsonb("languages").$type<string[]>().default([]),
+	languages: jsonb("languages").$type<string[]>().notNull().default([]),
 	hiddenIdentity: boolean("hidden_identity").notNull().default(false),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => /* @__PURE__ */ new Date()),
+});
+
+export const userAccesses = pgTable("user_accesses", {
+	id: serial("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: "cascade" }),
+	status: accountStatusEnum("status").notNull().default("ACTIVE"),
+	bannedReason: text("banned_reason"),
+	bannedAt: timestamp("banned_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => /* @__PURE__ */ new Date()),
 });
 
 export const volunteers = pgTable("volunteers", {
@@ -37,6 +62,13 @@ export const volunteers = pgTable("volunteers", {
 	availability: boolean("availability").notNull().default(false),
 	trustScore: real("trust_score").notNull().default(0),
 	completedTasks: integer("completed_tasks").notNull().default(0),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => /* @__PURE__ */ new Date()),
 });
 
 export const volunteerProfiles = pgTable(
@@ -47,13 +79,20 @@ export const volunteerProfiles = pgTable(
 			.notNull()
 			.unique()
 			.references(() => volunteers.id, { onDelete: "cascade" }),
-		skills: jsonb("skills").$type<string[]>().default([]),
+		skills: jsonb("skills").$type<string[]>().notNull().default([]),
 		maxDistanceKm: real("max_distance_km"),
 		currentLocation: geometry("current_location", {
 			type: "point",
 			mode: "xy",
 			srid: 4326,
 		}),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date()),
 	},
 	(t) => [
 		index("idx_volunteer_profiles_location").using("gist", t.currentLocation),
@@ -74,13 +113,16 @@ export const volunteerKnownLocations = pgTable(
 			mode: "xy",
 			srid: 4326,
 		}).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(t) => [
 		index("idx_volunteer_known_locations_location").using("gist", t.location),
 	],
 );
 
-export const userVerifications = pgTable("user_verifications", {
+export const volunteerVerifications = pgTable("volunteer_verifications", {
 	id: serial("id").primaryKey(),
 	userId: text("user_id")
 		.notNull()
@@ -91,11 +133,25 @@ export const userVerifications = pgTable("user_verifications", {
 		.notNull()
 		.defaultNow(),
 	verifiedAt: timestamp("verified_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow()
+		.$onUpdate(() => /* @__PURE__ */ new Date()),
 });
 
-export const profilesRelations = relations(profiles, ({ one }) => ({
+export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
 	user: one(user, {
-		fields: [profiles.userId],
+		fields: [userProfiles.userId],
+		references: [user.id],
+	}),
+}));
+
+export const userAccessesRelations = relations(userAccesses, ({ one }) => ({
+	user: one(user, {
+		fields: [userAccesses.userId],
 		references: [user.id],
 	}),
 }));
@@ -132,11 +188,11 @@ export const volunteerKnownLocationsRelations = relations(
 	}),
 );
 
-export const userVerificationsRelations = relations(
-	userVerifications,
+export const volunteerVerificationsRelations = relations(
+	volunteerVerifications,
 	({ one }) => ({
 		user: one(user, {
-			fields: [userVerifications.userId],
+			fields: [volunteerVerifications.userId],
 			references: [user.id],
 		}),
 	}),

@@ -3,11 +3,11 @@ import { injectable } from "..";
 import { container } from "../container";
 import { type Constructor, EContainerScope } from "../types";
 
-type ControllerConstructor = Constructor & {
+type ControllerInstance = {
 	controller?: Hono<any, any, any>;
 };
 
-type ControllerInstance = {
+type ControllerConstructor = Constructor<ControllerInstance> & {
 	controller?: Hono<any, any, any>;
 };
 

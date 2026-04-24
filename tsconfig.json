@@ -20,5 +20,5 @@
 		// Module resolution
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": false
-	},
+	}
 }

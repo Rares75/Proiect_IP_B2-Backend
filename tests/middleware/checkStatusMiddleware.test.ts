@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { AccountService } from "../../src/services/AccountService";
+import { container } from "../../src/di";
 
 type AccountStatus = "ACTIVE" | "BLOCKED" | null;
 
 let checkUserStatus = async (_userId: string): Promise<AccountStatus> =>
 	"ACTIVE";
 
-const originalCheckUserStatus = AccountService.prototype.checkUserStatus;
+const originalGet = container.get;
 
 const { checkStatusMiddlware } = await import(
 	"../../src/middlware/checkStatusMiddleware"
@@ -14,13 +14,14 @@ const { checkStatusMiddlware } = await import(
 
 describe("checkStatusMiddleware", () => {
 	beforeEach(() => {
-		AccountService.prototype.checkUserStatus = (userId: string) =>
-			checkUserStatus(userId);
+		container.get = (() => ({
+			checkUserStatus: (userId: string) => checkUserStatus(userId),
+		})) as typeof container.get;
 	});
 
 	afterEach(() => {
 		checkUserStatus = async () => "ACTIVE";
-		AccountService.prototype.checkUserStatus = originalCheckUserStatus;
+		container.get = originalGet;
 	});
 
 	test("returns 401 when the context does not contain a user", async () => {
