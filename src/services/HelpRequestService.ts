@@ -2,7 +2,7 @@ import {
 	HelpRequestRepository,
 	type CreateHelpRequestDTO,
 	type HelpRequest,
-} from "../db/repositories/helpRequests.repository";
+} from "../db/repositories/helpRequest.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import type { requestStatusEnum } from "../db/enums";
@@ -39,6 +39,8 @@ export class HelpRequestService {
 		}
 	}
 
+
+
 	/**
 	 * Retrieves a task with the specified ID and includes the associated details (if any)
 	 *
@@ -74,22 +76,21 @@ export class HelpRequestService {
 		};
 	}
 
-	/**
-	 * Updates a HelpRequest status according to the allowed transitions
-	 * @param id - The UUID of the HelpRequest to update
-	 * @param newStatus - The target status to transition to
-	 * @returns The updated HelpRequest object
-	 * @throws {NotFoundError} If the HelpRequest is not found (404)
-	 * @throws {InvalidStatusTransitionError} If the transition is forbidden (400)
-	 */
-	async updateHelpRequestStatus(
-		id: number,
-		newStatus: RequestStatus,
-	): Promise<HelpRequest> {
-		const current = await this.helpRequestRepo.findById(id);
-		if (!current) {
-			throw new NotFoundError("HelpRequest", String(id));
-		}
+
+
+    /**
+     * Updates a HelpRequest status according to the allowed transitions
+     * @param id - The UUID of the HelpRequest to update
+     * @param newStatus - The target status to transition to
+     * @returns The updated HelpRequest object
+     * @throws {NotFoundError} If the HelpRequest is not found (404)
+     * @throws {InvalidStatusTransitionError} If the transition is forbidden (400)
+     */
+    async updateHelpRequestStatus(id: number, newStatus: RequestStatus): Promise<HelpRequest> {
+        const current = await this.helpRequestRepo.findById(id);
+        if (!current) {
+            throw new NotFoundError("HelpRequest", String(id));
+        }
 
 		const currentStatus = current.status;
 		const allowedNext = VALID_TRANSITIONS[currentStatus];

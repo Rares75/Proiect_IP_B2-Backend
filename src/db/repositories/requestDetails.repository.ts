@@ -99,6 +99,14 @@ export class HelpRequestDetailsRepository
 		return result.length > 0;
 	}
 
+	async deleteByHelpRequestId(helpRequestId: number): Promise<boolean> {
+		const result = await db
+			.delete(requestDetails)
+			.where(eq(requestDetails.helpRequestId, helpRequestId))
+			.returning({ id: requestDetails.id });
+		return result.length > 0;
+	}
+
 	async exists(id: number): Promise<boolean> {
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })

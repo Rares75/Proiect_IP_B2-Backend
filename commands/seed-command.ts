@@ -7,9 +7,10 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import PrettyError from "pretty-error";
 import { reset } from "drizzle-seed";
 import { createSeedContext, entitySeeds } from "../seeds";
-const pe = new PrettyError();
 import * as schema from "../src/db/schema";
 import { mainSymbols } from "figures";
+
+const pe = new PrettyError();
 
 const seedSchema = Object.fromEntries(
 	Object.entries(schema).filter(([, value]) => is(value, PgTableEntity)),
