@@ -1,8 +1,7 @@
-import { describe, expect, it, beforeAll, spyOn } from "bun:test";
+import { describe, expect, it, beforeAll} from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestDetailsService } from "../../src/services/RequestDetailsService";
 
 describe("POST /api/tasks/:id/details", () => {
   beforeAll(async () => {
