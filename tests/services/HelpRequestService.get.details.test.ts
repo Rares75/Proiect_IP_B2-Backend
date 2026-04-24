@@ -1,6 +1,8 @@
-import {describe, it, expect, beforeEach, vi} from "bun:test";
+import { describe, it, expect, beforeEach, vi } from "bun:test";
 
-const {HelpRequestService} = await import("../../src/services/HelpRequestService");
+const { HelpRequestService } = await import(
+	"../../src/services/HelpRequestService"
+);
 
 /**
  * Unit Tests pentru HelpRequestService
@@ -12,329 +14,318 @@ const {HelpRequestService} = await import("../../src/services/HelpRequestService
  * 4. Erori la fetcharea detaliilor
  */
 
-
 describe("HelpRequestService - getHelpRequestById", () => {
-    let service: any;
-    let mockHelpRequestRepo: any;
-    let mockDetailsRepo: any;
+	let service: any;
+	let mockHelpRequestRepo: any;
+	let mockDetailsRepo: any;
 
-    beforeEach(() => {
-        // Mock repositories
-        mockHelpRequestRepo = {
-            findById: vi.fn(),
-            create: vi.fn(),
-        };
+	beforeEach(() => {
+		// Mock repositories
+		mockHelpRequestRepo = {
+			findById: vi.fn(),
+			create: vi.fn(),
+		};
 
-        mockDetailsRepo = {
-            findByHelpRequestId: vi.fn(),
-            create: vi.fn(),
-            update: vi.fn(),
-        };
+		mockDetailsRepo = {
+			findByHelpRequestId: vi.fn(),
+			create: vi.fn(),
+			update: vi.fn(),
+		};
 
-        // Instantiate service with mocked dependencies
-        service = new HelpRequestService(mockHelpRequestRepo, mockDetailsRepo);
-    });
+		// Instantiate service with mocked dependencies
+		service = new HelpRequestService(mockHelpRequestRepo, mockDetailsRepo);
+	});
 
-    describe("Success Cases with Details", () => {
-        it("should return task with populated details when both exist", async () => {
-            // Arrange
-            const taskId = 1;
-            const mockTask = {
-                id: 1,
-                userId: "user-123",
-                guestSessionId: null,
-                title: "Cumpar patlajele",
-                description: "Cumparaturi",
-                urgency: "MEDIUM",
-                status: "OPEN",
-                anonymousMode: false,
-                createdAt: new Date("2025-04-23T10:30:00Z"),
-                locationCity: "Iasi",
-                locationAddressText: "Carrefour",
-                location: null,
-            };
+	describe("Success Cases with Details", () => {
+		it("should return task with populated details when both exist", async () => {
+			// Arrange
+			const taskId = 1;
+			const mockTask = {
+				id: 1,
+				userId: "user-123",
+				guestSessionId: null,
+				title: "Cumpar patlajele",
+				description: "Cumparaturi",
+				urgency: "MEDIUM",
+				status: "OPEN",
+				anonymousMode: false,
+				createdAt: new Date("2025-04-23T10:30:00Z"),
+				locationCity: "Iasi",
+				locationAddressText: "Carrefour",
+				location: null,
+			};
 
-            const mockDetails = {
-                id: 5,
-                helpRequestId: 1,
-                notes: "Cumperi o rosie platesti 2",
-                languageNeeded: "ro",
-                safetyNotes: "Verificare identitate obligatorie",
-            };
+			const mockDetails = {
+				id: 5,
+				helpRequestId: 1,
+				notes: "Cumperi o rosie platesti 2",
+				languageNeeded: "ro",
+				safetyNotes: "Verificare identitate obligatorie",
+			};
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
+			const result = await service.getHelpRequestById(taskId);
+			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(taskId);
+			expect(result).toEqual({
+				...mockTask,
+				details: mockDetails,
+			});
+			expect(result.details).not.toBeNull();
+			expect(result.details.helpRequestId).toBe(taskId);
+		});
 
-            const result = await service.getHelpRequestById(taskId);
-            expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
-            expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(
-                taskId
-            );
-            expect(result).toEqual({
-                ...mockTask,
-                details: mockDetails,
-            });
-            expect(result.details).not.toBeNull();
-            expect(result.details.helpRequestId).toBe(taskId);
-        });
+		it("should return task with null details when task exists but details do not", async () => {
+			const taskId = 2;
+			const mockTask = {
+				id: 2,
+				userId: "user-456",
+				guestSessionId: null,
+				title: "Transport la spital",
+				description: "Transport pentru consultatie",
+				urgency: "HIGH",
+				status: "OPEN",
+				anonymousMode: true,
+				createdAt: new Date("2025-04-23T14:15:00Z"),
+				locationCity: "Iasi",
+				locationAddressText: "Clinica Dr. X",
+				location: null,
+			};
 
-        it("should return task with null details when task exists but details do not", async () => {
-            const taskId = 2;
-            const mockTask = {
-                id: 2,
-                userId: "user-456",
-                guestSessionId: null,
-                title: "Transport la spital",
-                description: "Transport pentru consultatie",
-                urgency: "HIGH",
-                status: "OPEN",
-                anonymousMode: true,
-                createdAt: new Date("2025-04-23T14:15:00Z"),
-                locationCity: "Iasi",
-                locationAddressText: "Clinica Dr. X",
-                location: null,
-            };
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
+			const result = await service.getHelpRequestById(taskId);
 
+			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(taskId);
+			expect(result).toEqual({
+				...mockTask,
+				details: null,
+			});
+			expect(result.details).toBeNull();
+		});
 
-            const result = await service.getHelpRequestById(taskId);
+		it("should spread all task properties correctly with details", async () => {
+			const taskId = 1;
+			const mockTask = {
+				id: 1,
+				userId: "user-123",
+				guestSessionId: "session-abc",
+				title: "Full task properties test",
+				description: "Testing all properties",
+				urgency: "HIGH",
+				status: "OPEN",
+				anonymousMode: true,
+				createdAt: new Date("2025-04-23T10:30:00Z"),
+				locationCity: "Iasi",
+				locationAddressText: "Full address",
+				location: { x: 46.9671, y: 28.1667 },
+			};
 
-            expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
-            expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(
-                taskId
-            );
-            expect(result).toEqual({
-                ...mockTask,
-                details: null,
-            });
-            expect(result.details).toBeNull();
-        });
+			const mockDetails = {
+				id: 1,
+				helpRequestId: 1,
+				notes: "Notes",
+				languageNeeded: "en",
+				safetyNotes: "Safety notes",
+			};
 
-        it("should spread all task properties correctly with details", async () => {
-            const taskId = 1;
-            const mockTask = {
-                id: 1,
-                userId: "user-123",
-                guestSessionId: "session-abc",
-                title: "Full task properties test",
-                description: "Testing all properties",
-                urgency: "HIGH",
-                status: "OPEN",
-                anonymousMode: true,
-                createdAt: new Date("2025-04-23T10:30:00Z"),
-                locationCity: "Iasi",
-                locationAddressText: "Full address",
-                location: {x: 46.9671, y: 28.1667},
-            };
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
-            const mockDetails = {
-                id: 1,
-                helpRequestId: 1,
-                notes: "Notes",
-                languageNeeded: "en",
-                safetyNotes: "Safety notes",
-            };
+			const result = await service.getHelpRequestById(taskId);
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
+			expect(result.id).toBe(1);
+			expect(result.userId).toBe("user-123");
+			expect(result.guestSessionId).toBe("session-abc");
+			expect(result.title).toBe("Full task properties test");
+			expect(result.description).toBe("Testing all properties");
+			expect(result.urgency).toBe("HIGH");
+			expect(result.status).toBe("OPEN");
+			expect(result.anonymousMode).toBe(true);
+			expect(result.createdAt).toEqual(new Date("2025-04-23T10:30:00Z"));
+			expect(result.locationCity).toBe("Iasi");
+			expect(result.locationAddressText).toBe("Full address");
+			expect(result.location).toEqual({ x: 46.9671, y: 28.1667 });
+			expect(result.details).toEqual(mockDetails);
+		});
+	});
 
-            const result = await service.getHelpRequestById(taskId);
+	describe("Not Found Cases", () => {
+		it("should return undefined when task does not exist", async () => {
+			const taskId = 999;
+			mockHelpRequestRepo.findById.mockResolvedValue(undefined);
 
-            expect(result.id).toBe(1);
-            expect(result.userId).toBe("user-123");
-            expect(result.guestSessionId).toBe("session-abc");
-            expect(result.title).toBe("Full task properties test");
-            expect(result.description).toBe("Testing all properties");
-            expect(result.urgency).toBe("HIGH");
-            expect(result.status).toBe("OPEN");
-            expect(result.anonymousMode).toBe(true);
-            expect(result.createdAt).toEqual(new Date("2025-04-23T10:30:00Z"));
-            expect(result.locationCity).toBe("Iasi");
-            expect(result.locationAddressText).toBe("Full address");
-            expect(result.location).toEqual({x: 46.9671, y: 28.1667});
-            expect(result.details).toEqual(mockDetails);
-        });
-    });
+			const result = await service.getHelpRequestById(taskId);
 
-    describe("Not Found Cases", () => {
-        it("should return undefined when task does not exist", async () => {
-            const taskId = 999;
-            mockHelpRequestRepo.findById.mockResolvedValue(undefined);
+			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
+			expect(result).toBeUndefined();
+		});
 
-            const result = await service.getHelpRequestById(taskId);
+		it("should not fetch details when task repository returns null", async () => {
+			const taskId = 999;
+			mockHelpRequestRepo.findById.mockResolvedValue(null);
 
-            expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
-            expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
-            expect(result).toBeUndefined();
-        });
+			const result = await service.getHelpRequestById(taskId);
 
-        it("should not fetch details when task repository returns null", async () => {
-            const taskId = 999;
-            mockHelpRequestRepo.findById.mockResolvedValue(null);
+			expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
+			expect(result).toBeUndefined();
+		});
+	});
 
-            const result = await service.getHelpRequestById(taskId);
+	describe("Error Handling", () => {
+		it("should propagate error when task repository fails", async () => {
+			const taskId = 1;
+			const dbError = new Error("Database connection failed");
+			mockHelpRequestRepo.findById.mockRejectedValue(dbError);
 
-            expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
-            expect(result).toBeUndefined();
-        });
-    });
+			expect(service.getHelpRequestById(taskId)).rejects.toThrow(
+				"Database connection failed",
+			);
+			expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
+		});
 
-    describe("Error Handling", () => {
-        it("should propagate error when task repository fails", async () => {
+		it("should propagate error when details repository fails", async () => {
+			const taskId = 1;
+			const mockTask = {
+				id: 1,
+				userId: "user-123",
+				title: "Test",
+				description: "Test",
+				urgency: "MEDIUM",
+				status: "OPEN",
+				anonymousMode: false,
+				createdAt: new Date(),
+				locationCity: "Iași",
+				locationAddressText: "Test",
+				location: null,
+			};
 
-            const taskId = 1;
-            const dbError = new Error("Database connection failed");
-            mockHelpRequestRepo.findById.mockRejectedValue(dbError);
+			const detailsError = new Error("Failed to fetch request details");
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockRejectedValue(detailsError);
 
-            expect(service.getHelpRequestById(taskId)).rejects.toThrow(
-                "Database connection failed"
-            );
-            expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
-        });
+			expect(service.getHelpRequestById(taskId)).rejects.toThrow(
+				"Failed to fetch request details",
+			);
+		});
 
-        it("should propagate error when details repository fails", async () => {
-            const taskId = 1;
-            const mockTask = {
-                id: 1,
-                userId: "user-123",
-                title: "Test",
-                description: "Test",
-                urgency: "MEDIUM",
-                status: "OPEN",
-                anonymousMode: false,
-                createdAt: new Date(),
-                locationCity: "Iași",
-                locationAddressText: "Test",
-                location: null,
-            };
+		it("should handle gracefully when details query returns null", async () => {
+			const taskId = 1;
+			const mockTask = {
+				id: 1,
+				userId: "user-123",
+				title: "Test",
+				description: "Test",
+				urgency: "MEDIUM",
+				status: "OPEN",
+				anonymousMode: false,
+				createdAt: new Date(),
+				locationCity: "Iași",
+				locationAddressText: "Test",
+				location: null,
+			};
 
-            const detailsError = new Error("Failed to fetch request details");
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockRejectedValue(detailsError);
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(null);
 
-            expect(service.getHelpRequestById(taskId)).rejects.toThrow(
-                "Failed to fetch request details"
-            );
-        });
+			const result = await service.getHelpRequestById(taskId);
 
-        it("should handle gracefully when details query returns null", async () => {
+			expect(result.details).toBeNull();
+		});
+	});
 
-            const taskId = 1;
-            const mockTask = {
-                id: 1,
-                userId: "user-123",
-                title: "Test",
-                description: "Test",
-                urgency: "MEDIUM",
-                status: "OPEN",
-                anonymousMode: false,
-                createdAt: new Date(),
-                locationCity: "Iași",
-                locationAddressText: "Test",
-                location: null,
-            };
+	describe("Repository Call Order", () => {
+		it("should call findById before findByHelpRequestId", async () => {
+			const callOrder: string[] = [];
+			const taskId = 1;
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(null);
+			mockHelpRequestRepo.findById.mockImplementation(async () => {
+				callOrder.push("findById");
+				return { id: 1, title: "Test" };
+			});
 
-            const result = await service.getHelpRequestById(taskId);
+			mockDetailsRepo.findByHelpRequestId.mockImplementation(async () => {
+				callOrder.push("findByHelpRequestId");
+				return { id: 1, helpRequestId: 1 };
+			});
 
-            expect(result.details).toBeNull();
-        });
-    });
+			await service.getHelpRequestById(taskId);
 
-    describe("Repository Call Order", () => {
-        it("should call findById before findByHelpRequestId", async () => {
+			expect(callOrder).toEqual(["findById", "findByHelpRequestId"]);
+		});
 
-            const callOrder: string[] = [];
-            const taskId = 1;
+		it("should not call findByHelpRequestId if task not found", async () => {
+			const taskId = 999;
+			mockHelpRequestRepo.findById.mockResolvedValue(undefined);
 
-            mockHelpRequestRepo.findById.mockImplementation(async () => {
-                callOrder.push("findById");
-                return {id: 1, title: "Test"};
-            });
+			await service.getHelpRequestById(taskId);
 
-            mockDetailsRepo.findByHelpRequestId.mockImplementation(async () => {
-                callOrder.push("findByHelpRequestId");
-                return {id: 1, helpRequestId: 1};
-            });
+			expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
+		});
+	});
 
-            await service.getHelpRequestById(taskId);
+	describe("Edge Cases", () => {
+		it("should handle task with empty details fields", async () => {
+			const taskId = 1;
+			const mockTask = { id: 1, title: "Test", status: "OPEN" };
+			const mockDetails = {
+				id: 1,
+				helpRequestId: 1,
+				notes: null,
+				languageNeeded: null,
+				safetyNotes: null,
+			};
 
-            expect(callOrder).toEqual(["findById", "findByHelpRequestId"]);
-        });
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
-        it("should not call findByHelpRequestId if task not found", async () => {
-            const taskId = 999;
-            mockHelpRequestRepo.findById.mockResolvedValue(undefined);
+			const result = await service.getHelpRequestById(taskId);
 
-            await service.getHelpRequestById(taskId);
+			expect(result.details).toEqual(mockDetails);
+			expect(result.details.notes).toBeNull();
+			expect(result.details.languageNeeded).toBeNull();
+			expect(result.details.safetyNotes).toBeNull();
+		});
 
-            expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
-        });
-    });
+		it("should handle large ID numbers correctly", async () => {
+			const largeId = Number.MAX_SAFE_INTEGER;
+			const mockTask = { id: largeId, title: "Large ID test" };
 
-    describe("Edge Cases", () => {
-        it("should handle task with empty details fields", async () => {
-            const taskId = 1;
-            const mockTask = {id: 1, title: "Test", status: "OPEN"};
-            const mockDetails = {
-                id: 1,
-                helpRequestId: 1,
-                notes: null,
-                languageNeeded: null,
-                safetyNotes: null,
-            };
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
+			const result = await service.getHelpRequestById(largeId);
 
-            const result = await service.getHelpRequestById(taskId);
+			expect(result.id).toBe(largeId);
+			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(largeId);
+		});
 
-            expect(result.details).toEqual(mockDetails);
-            expect(result.details.notes).toBeNull();
-            expect(result.details.languageNeeded).toBeNull();
-            expect(result.details.safetyNotes).toBeNull();
-        });
+		it("should correctly handle falsy but valid detail values", async () => {
+			const taskId = 1;
+			const mockTask = { id: 1, title: "Test" };
+			const mockDetailsWithFalsyValues = {
+				id: 1,
+				helpRequestId: 1,
+				notes: "", // Empty string is falsy
+				languageNeeded: null,
+				safetyNotes: undefined,
+			};
 
-        it("should handle large ID numbers correctly", async () => {
-            const largeId = Number.MAX_SAFE_INTEGER;
-            const mockTask = {id: largeId, title: "Large ID test"};
+			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(
+				mockDetailsWithFalsyValues,
+			);
 
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
+			const result = await service.getHelpRequestById(taskId);
 
-            const result = await service.getHelpRequestById(largeId);
-
-            expect(result.id).toBe(largeId);
-            expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(largeId);
-        });
-
-        it("should correctly handle falsy but valid detail values", async () => {
-
-            const taskId = 1;
-            const mockTask = {id: 1, title: "Test"};
-            const mockDetailsWithFalsyValues = {
-                id: 1,
-                helpRequestId: 1,
-                notes: "", // Empty string is falsy
-                languageNeeded: null,
-                safetyNotes: undefined,
-            };
-
-            mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
-            mockDetailsRepo.findByHelpRequestId.mockResolvedValue(
-                mockDetailsWithFalsyValues
-            );
-
-            const result = await service.getHelpRequestById(taskId);
-
-            // Should not convert falsy object to null
-            expect(result.details).not.toBeNull();
-            expect(result.details).toEqual(mockDetailsWithFalsyValues);
-        });
-    });
+			// Should not convert falsy object to null
+			expect(result.details).not.toBeNull();
+			expect(result.details).toEqual(mockDetailsWithFalsyValues);
+		});
+	});
 });

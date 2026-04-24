@@ -25,7 +25,6 @@ describe("AccountService", () => {
 		const createdAccount = {
 			id: "account-1",
 			userId: "user-1",
-			status: "ACTIVE",
 		};
 
 		const service = createService({
@@ -40,7 +39,6 @@ describe("AccountService", () => {
 			accountId: "provider-account-1",
 			providerId: "credentials",
 			userId: "user-1",
-			status: "ACTIVE",
 		} as any);
 
 		expect(result).toMatchObject(createdAccount);
@@ -80,7 +78,7 @@ describe("AccountService", () => {
 	});
 
 	test("returns the account for a valid user id and logs when missing", async () => {
-		const account = { id: "account-2", userId: "user-2", status: "ACTIVE" };
+		const account = { id: "account-2", userId: "user-2" };
 
 		const service = createService({
 			findFirstBy: async ({ userId }: { userId: string }) =>
@@ -103,19 +101,19 @@ describe("AccountService", () => {
 			update: async (accountId: string, data: unknown) => {
 				updateCalls.push({ accountId, data });
 				return accountId === "account-3"
-					? { id: accountId, status: "BLOCKED", ...(data as object) }
+					? { id: accountId, ...(data as object) }
 					: undefined;
 			},
 		});
 
 		const updated = await service.updateAccount("account-3", {
-			status: "BLOCKED",
+			scope: "profile:read",
 		} as any);
 		const missing = await service.updateAccount("missing-account", {
-			status: "BLOCKED",
+			scope: "profile:read",
 		} as any);
 
-		expect(updated).toMatchObject({ id: "account-3", status: "BLOCKED" });
+		expect(updated).toMatchObject({ id: "account-3", scope: "profile:read" });
 		expect(missing).toBeNull();
 		expect(updateCalls).toHaveLength(2);
 		expect(loggedExceptions).toHaveLength(1);
@@ -161,20 +159,5 @@ describe("AccountService", () => {
 		expect(result).toEqual([]);
 		expect(loggedExceptions).toHaveLength(1);
 		expect(loggedExceptions[0]?.message).toContain("Failed to fetch accounts");
-	});
-
-	test("returns the user's account status and logs when the account is missing", async () => {
-		const service = createService({
-			findFirstBy: async ({ userId }: { userId: string }) =>
-				userId === "user-5" ? { status: "ACTIVE" } : undefined,
-		});
-
-		const status = await service.checkUserStatus("user-5");
-		const missing = await service.checkUserStatus("missing-user");
-
-		expect(status).toBe("ACTIVE");
-		expect(missing).toBeNull();
-		expect(loggedExceptions).toHaveLength(1);
-		expect(loggedExceptions[0]?.message).toBe("Account not found for user");
 	});
 });

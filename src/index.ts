@@ -4,6 +4,7 @@ import { parseEnv } from "./env";
 import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
 import { join } from "node:path";
+import { logger } from "./utils/logger";
 
 await loadDiModules(
 	join(import.meta.dir, "db", "repositories"),
@@ -20,4 +21,4 @@ const server = Bun.serve({
 });
 
 const hostname = server.hostname === "0.0.0.0" ? "localhost" : server.hostname;
-console.log(`Server running on http://${hostname}:${server.port}`);
+logger.success(`Server running on http://${hostname}:${server.port}`);

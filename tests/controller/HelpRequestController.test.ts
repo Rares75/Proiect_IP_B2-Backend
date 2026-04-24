@@ -9,7 +9,7 @@ describe("GET /api/tasks/:id", () => {
 	beforeAll(async () => {
 		const controllersPath = join(
 			(import.meta as any).dir,
-			"../src/controllers",
+			"../../src/controllers",
 		);
 		await loadControllers(controllersPath);
 	});
@@ -37,13 +37,22 @@ describe("GET /api/tasks/:id", () => {
 
 	it("ar trebui sa returneze 404 pentru un task care nu exista", async () => {
 		const fakeId = "999999"; // Un ID care nu a fost creat
-		const response = await app.request(`/api/tasks/${fakeId}`);
-		const body: any = await response.json();
+		const mockNotFound = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(undefined);
 
-		expect(response.status).toBe(404);
-		expect(body.message).toBe(
-			`Eroare: Task-ul cu ID-ul '${fakeId}' nu exista in sistem.`,
-		);
+		try {
+			const response = await app.request(`/api/tasks/${fakeId}`);
+			const body: any = await response.json();
+
+			expect(response.status).toBe(404);
+			expect(body.message).toBe(
+				`Eroare: Task-ul cu ID-ul '${fakeId}' nu exista in sistem.`,
+			);
+		} finally {
+			mockNotFound.mockRestore();
+		}
 	});
 
 	it("ar trebui sa returneze 500 daca pica baza de date / serverul", async () => {
@@ -66,19 +75,25 @@ describe("GET /api/tasks/:id", () => {
 
 	it("ar trebui sa returneze 200 si datele pentru un task valid", async () => {
 		const validId = "2";
-		const response = await app.request(`/api/tasks/${validId}`);
+		const mockTask = {
+			id: Number(validId),
+			title: "Test task",
+			status: "OPEN",
+			details: null,
+		};
+		const mockFound = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
 
-		if (response.status === 200) {
+		try {
+			const response = await app.request(`/api/tasks/${validId}`);
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.success).toBe(true);
-			expect(body.data).toBeDefined();
-			expect(body.data.id).toBe(Number(validId));
-		} else {
-			console.log(
-				`Task-ul ${validId} nu exista in baza de test acum. S-a intors ${response.status}.`,
-			);
+			expect(body).toMatchObject(mockTask);
+		} finally {
+			mockFound.mockRestore();
 		}
 	});
 });

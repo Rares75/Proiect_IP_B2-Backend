@@ -1,6 +1,6 @@
 import { helpRequests } from "../src/db/schema";
 import type { EntitySeed } from "./types";
-import { pick, point, seedDate } from "./helpers";
+import { pick, seedDate } from "./helpers";
 
 const urgencies = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 const statuses = [
@@ -30,7 +30,7 @@ export const helpRequestsSeed: EntitySeed = {
 					const requester = pick(context.users, index);
 
 					return {
-						userId: anonymous ? null : requester.id,
+						requestedByUserId: anonymous ? null : requester.id,
 						guestSessionId: anonymous
 							? `guest-session-${String(index + 1).padStart(3, "0")}`
 							: null,
@@ -40,12 +40,6 @@ export const helpRequestsSeed: EntitySeed = {
 						status: pick(statuses, index),
 						anonymousMode: anonymous,
 						createdAt: seedDate(index + 1),
-						locationCity: pick(
-							["Bucharest", "Cluj-Napoca", "Iasi", "Timisoara", "Brasov"],
-							index,
-						),
-						locationAddressText: `Help request address ${index + 1}`,
-						location: point(index + 100),
 					};
 				}),
 			)

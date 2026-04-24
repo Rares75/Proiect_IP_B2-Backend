@@ -1,7 +1,7 @@
 import { eq, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
 import { repository } from "../../di/decorators/repository";
-import { volunteers, volunteerProfiles, profiles } from "../profile";
+import { userProfiles, volunteerProfiles, volunteers } from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
 
@@ -100,17 +100,17 @@ export class VolunteerRepository {
 				completedTasks: volunteers.completedTasks,
 				name: user.name,
 				email: user.email,
-				phone: user.phone,
+				phone: user.phoneNumber,
 				image: user.image,
-				bio: profiles.bio,
-				languages: profiles.languages,
-				hiddenIdentity: profiles.hiddenIdentity,
+				bio: userProfiles.bio,
+				languages: userProfiles.languages,
+				hiddenIdentity: userProfiles.hiddenIdentity,
 				skills: volunteerProfiles.skills,
 				maxDistanceKm: volunteerProfiles.maxDistanceKm,
 			})
 			.from(volunteers)
 			.innerJoin(user, eq(volunteers.userId, user.id))
-			.leftJoin(profiles, eq(profiles.userId, user.id))
+			.leftJoin(userProfiles, eq(userProfiles.userId, user.id))
 			.leftJoin(
 				volunteerProfiles,
 				eq(volunteerProfiles.volunteerId, volunteers.id),

@@ -56,9 +56,20 @@ export class HelpRequestService {
 
 		//Get the details associated with the task
 		const details = await this.helpRequestDetailsRepo.findByHelpRequestId(id);
+		const location =
+			typeof this.helpRequestRepo.findLocationByHelpRequestId === "function"
+				? await this.helpRequestRepo.findLocationByHelpRequestId(id)
+				: undefined;
 
 		return {
 			...helpRequest,
+			...(location !== undefined
+				? {
+						locationCity: location?.city ?? null,
+						locationAddressText: location?.addressText ?? null,
+						location: location?.location ?? null,
+					}
+				: {}),
 			details: details || null,
 		};
 	}
