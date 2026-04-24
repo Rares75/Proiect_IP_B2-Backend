@@ -2,7 +2,7 @@ import {
     HelpRequestRepository,
     type CreateHelpRequestDTO,
     type HelpRequest,
-} from "../db/repositories/helpRequests.repository";
+} from "../db/repositories/helpRequest.repository";
 import {inject} from "../di";
 import {Service} from "../di/decorators/service";
 import type {requestStatusEnum} from "../db/enums";

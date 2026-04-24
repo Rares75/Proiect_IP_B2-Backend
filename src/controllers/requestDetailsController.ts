@@ -15,7 +15,7 @@ export class RequestDetailsController {
 			const id = Number(c.req.param("id"));
 
 			if (!Number.isInteger(id) || id <= 0) {
-				return c.json({ error: "Invalid task id." }, 400);
+				return c.json({ message: "Invalid task id." }, 400);
 			}
 
 			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);

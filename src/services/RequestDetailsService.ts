@@ -14,8 +14,8 @@ type DeleteRequestDetailsResponse =
       status: 204;
     }
   | {
-      status: 404 | 409;
-      body: { error: string };
+      status: 404 | 409 | 500;
+      body: { message: string };
     };
 
 @Service()
@@ -38,7 +38,7 @@ export class RequestDetailsService {
     if (!task) {
       return {
         status: 404,
-        body: { error: "Task not found." },
+        body: { message: "Task not found." },
       };
     }
 
@@ -46,7 +46,8 @@ export class RequestDetailsService {
       return {
         status: 409,
         body: {
-          error: "Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+          message:
+            "Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
         },
       };
     }
@@ -56,11 +57,18 @@ export class RequestDetailsService {
     if (!details) {
       return {
         status: 409,
-        body: { error: "Task has no details." },
+        body: { message: "Task has no details." },
       };
     }
 
-    await requestDetailsRepository.deleteByHelpRequestId(id);
+    const deleted = await requestDetailsRepository.deleteByHelpRequestId(id);
+
+    if (!deleted) {
+      return {
+        status: 500,
+        body: { message: "Task details could not be deleted." },
+      };
+    }
 
     return {
       status: 204,

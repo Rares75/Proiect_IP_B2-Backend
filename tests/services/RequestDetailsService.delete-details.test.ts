@@ -41,7 +41,7 @@ describe("RequestDetailsService.deleteHelpRequestDetails", () => {
 
     expect(result).toEqual({
       status: 404,
-      body: { error: "Task not found." },
+      body: { message: "Task not found." },
     });
   });
 
@@ -57,7 +57,8 @@ describe("RequestDetailsService.deleteHelpRequestDetails", () => {
     expect(result).toEqual({
       status: 409,
       body: {
-        error: "Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+        message:
+          "Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
       },
     });
   });
@@ -74,7 +75,28 @@ describe("RequestDetailsService.deleteHelpRequestDetails", () => {
 
     expect(result).toEqual({
       status: 409,
-      body: { error: "Task has no details." },
+      body: { message: "Task has no details." },
+    });
+  });
+
+  test("returns 500 when repository does not confirm deletion", async () => {
+    helpRequestRepository.findById = async () =>
+      ({
+        id: 12,
+        status: "OPEN",
+      });
+    requestDetailsRepository.findByHelpRequestId = async () =>
+      ({
+        id: 99,
+        helpRequestId: 12,
+      });
+    requestDetailsRepository.deleteByHelpRequestId = async () => false;
+
+    const result = await requestDetailsService.deleteHelpRequestDetails(12);
+
+    expect(result).toEqual({
+      status: 500,
+      body: { message: "Task details could not be deleted." },
     });
   });
 
