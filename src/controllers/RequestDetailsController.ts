@@ -10,14 +10,25 @@ export class RequestDetailsController {
 		private readonly requestDetailsService: RequestDetailsService,
 	) {}
 
-	controller = new Hono().delete("/:id/details", async (c) => {
-		try {
-			const id = Number(c.req.param("id"));
+	controller = new Hono()
+		.post("/:id/details", async (c) => {
+			try {
+				const id = Number(c.req.param("id"));
+				const body = await c.req.json();
 
-			if (!Number.isInteger(id) || id <= 0) {
-				return c.json({ message: "Invalid task id." }, 400);
+				const result = await this.requestDetailsService.upsertDetails(id, body);
+
+				if (result.notFound) {
+					return c.json({ message: "Task not found" }, 404);
+				}
+
+				return c.json(result.data, 200);
+			} catch (_error) {
+				return c.json({ message: "Could not update help request details" }, 500);
 			}
-
+		})
+		.delete("/:id/details", async (c) => {
+			const id = Number(c.req.param("id"));
 			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);
 
 			if (result.status === 204) {
@@ -25,9 +36,7 @@ export class RequestDetailsController {
 			}
 
 			return c.json(result.body, result.status);
-		} catch (error) {
-			console.error(error);
-			return c.json({ message: "Internal server error" }, 500);
-		}
-	});
+		});
 }
+
+export { RequestDetailsController as HelpRequestDetailsController };

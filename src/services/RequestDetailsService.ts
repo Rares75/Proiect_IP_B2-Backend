@@ -1,79 +1,131 @@
+import { inject } from "../di";
 import { Service } from "../di/decorators/service";
+import { requestStatusEnum } from "../db/enums";
+import { HelpRequestRepository } from "../db/repositories/helpRequest.repository";
+import {
+	HelpRequestDetailsRepository,
+	type UpdateHelpRequestDetailsDTO,
+} from "../db/repositories/requestDetails.repository";
 
-type HelpRequestRepositoryLike = {
-  findById: (id: number) => Promise<{ status: string } | undefined>;
-};
+type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
-type RequestDetailsRepositoryLike = {
-  findByHelpRequestId: (id: number) => Promise<unknown | undefined>;
-  deleteByHelpRequestId: (id: number) => Promise<boolean>;
-};
+type DeleteHelpRequestDetailsResult =
+	| { status: 204 }
+	| { status: 404 | 409 | 500; body: { message: string } };
 
-type DeleteRequestDetailsResponse =
-  | {
-      status: 204;
-    }
-  | {
-      status: 404 | 409 | 500;
-      body: { message: string };
-    };
+const NON_DELETABLE_STATUSES = new Set<RequestStatus>([
+	"MATCHED",
+	"IN_PROGRESS",
+	"COMPLETED",
+	"CANCELLED",
+	"REJECTED",
+]);
 
 @Service()
 export class RequestDetailsService {
-  protected async getHelpRequestRepository(): Promise<HelpRequestRepositoryLike> {
-    const { helpRequestRepository } = await import("../db/repositories/helpRequest.repository");
-    return helpRequestRepository;
-  }
+	constructor(
+		@inject(HelpRequestRepository)
+		private readonly helpRequestRepo: HelpRequestRepository,
+		@inject(HelpRequestDetailsRepository)
+		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
+	) {}
 
-  protected async getRequestDetailsRepository(): Promise<RequestDetailsRepositoryLike> {
-    const { requestDetailsRepository } = await import("../db/repositories/requestDetails.repository");
-    return requestDetailsRepository;
-  }
+	protected async getHelpRequestRepository() {
+		return this.helpRequestRepo;
+	}
 
-  async deleteHelpRequestDetails(id: number): Promise<DeleteRequestDetailsResponse> {
-    const helpRequestRepository = await this.getHelpRequestRepository();
-    const requestDetailsRepository = await this.getRequestDetailsRepository();
-    const task = await helpRequestRepository.findById(id);
+	protected async getRequestDetailsRepository() {
+		return this.requestDetailsRepo;
+	}
 
-    if (!task) {
-      return {
-        status: 404,
-        body: { message: "Task not found." },
-      };
-    }
+	async upsertDetails(
+		helpRequestId: number,
+		data: UpdateHelpRequestDetailsDTO,
+	) {
+		try {
+			// Verifica daca task-ul parinte exista
+			const taskExists = await this.helpRequestRepo.exists(helpRequestId);
+			if (!taskExists) {
+				return { notFound: true, data: null };
+			}
 
-    if (["MATCHED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "REJECTED"].includes(task.status)) {
-      return {
-        status: 409,
-        body: {
-          message:
-            "Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
-        },
-      };
-    }
+			// Verifica daca details exista deja pentru acest task
+			const existing =
+				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 
-    const details = await requestDetailsRepository.findByHelpRequestId(id);
+			if (existing) {
+				// Daca exista -> update
+				const updated = await this.requestDetailsRepo.updateByHelpRequestId(
+					helpRequestId,
+					data,
+				);
+				return { notFound: false, data: updated };
+			} else {
+				// Daca nu exista -> create
+				const created = await this.requestDetailsRepo.create({
+					...data,
+					helpRequestId,
+				});
+				return { notFound: false, data: created };
+			}
+		} catch (error) {
+			console.error("Failed to upsert help request details:", error);
+			throw new Error("Could not update help request details");
+		}
+	}
 
-    if (!details) {
-      return {
-        status: 409,
-        body: { message: "Task has no details." },
-      };
-    }
+	async deleteHelpRequestDetails(
+		helpRequestId: number,
+	): Promise<DeleteHelpRequestDetailsResult> {
+		try {
+			const helpRequestRepo = await this.getHelpRequestRepository();
+			const requestDetailsRepo = await this.getRequestDetailsRepository();
 
-    const deleted = await requestDetailsRepository.deleteByHelpRequestId(id);
+			const task = await helpRequestRepo.findById(helpRequestId);
+			if (!task) {
+				return {
+					status: 404,
+					body: { message: "Task not found." },
+				};
+			}
 
-    if (!deleted) {
-      return {
-        status: 500,
-        body: { message: "Task details could not be deleted." },
-      };
-    }
+			if (NON_DELETABLE_STATUSES.has(task.status as RequestStatus)) {
+				return {
+					status: 409,
+					body: {
+						message:
+							"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+					},
+				};
+			}
 
-    return {
-      status: 204,
-    };
-  }
+			const existingDetails =
+				await requestDetailsRepo.findByHelpRequestId(helpRequestId);
+			if (!existingDetails) {
+				return {
+					status: 409,
+					body: { message: "Task has no details." },
+				};
+			}
+
+			const deleted =
+				await requestDetailsRepo.deleteByHelpRequestId(helpRequestId);
+			if (!deleted) {
+				return {
+					status: 500,
+					body: { message: "Task details could not be deleted." },
+				};
+			}
+
+			return { status: 204 };
+		} catch (error) {
+			console.error("Failed to delete help request details:", error);
+			return {
+				status: 500,
+				body: { message: "Task details could not be deleted." },
+			};
+		}
+	}
 }
 
-export const requestDetailsService = new RequestDetailsService();
+export { RequestDetailsService as HelpRequestDetailsService };

@@ -10,6 +10,5 @@ export const injectable = (
 ) => {
 	return (target: Constructor): void => {
 		container.add(target, scope);
-		// logger.info(`Registered ${target.name} with scope ${scope}`);
 	};
 };
