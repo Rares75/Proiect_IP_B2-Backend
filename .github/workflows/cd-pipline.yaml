@@ -36,12 +36,6 @@ jobs:
       - name: Install Railway CLI
         run: bun install -g @railway/cli
 
-      #Database migrations using CLI tunnel
-      - name: Run database migrations
-        run: railway run --service ${{ secrets.RAILWAY_SERVICE_ID }} bun db:migrate
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
       #Deployment
       - name: Deploy to Railway
         run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
