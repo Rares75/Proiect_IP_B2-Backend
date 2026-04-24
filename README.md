@@ -14,8 +14,6 @@ bun dev
 
 open http://localhost:3000
 
-Database note: the Docker Postgres service is exposed on `localhost:5433` to avoid conflicts with a local Windows PostgreSQL service on `5432`.
-
 ---
 
 ## 🛠️ Technology Stack & Documentation
