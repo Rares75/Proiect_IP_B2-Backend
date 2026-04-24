@@ -1,21 +1,10 @@
 import { relations } from "drizzle-orm";
-import {
-	pgTable,
-	text,
-	timestamp,
-	boolean,
-	index,
-	real,
-} from "drizzle-orm/pg-core";
-import { accountStatusEnum } from "./enums";
+import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	email: text("email").notNull().unique(),
-	phone: text("phone"),
-	averageRating: real("average_rating").notNull().default(0),
-	status: accountStatusEnum("status").notNull().default("ACTIVE"),
 	emailVerified: boolean("email_verified").default(false).notNull(),
 	image: text("image"),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -23,6 +12,10 @@ export const user = pgTable("user", {
 		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
+	username: text("username").unique(),
+	displayUsername: text("display_username"),
+	phoneNumber: text("phone_number").unique(),
+	phoneNumberVerified: boolean("phone_number_verified"),
 });
 
 export const session = pgTable(

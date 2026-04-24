@@ -1,46 +1,56 @@
+import { relations } from "drizzle-orm";
 import {
+	boolean,
+	geometry,
+	index,
+	integer,
 	pgTable,
 	serial,
 	text,
-	boolean,
-	integer,
-	varchar,
 	timestamp,
-	geometry,
-	index,
+	varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { user } from "./auth-schema";
 import {
-	urgencyLevelEnum,
-	requestStatusEnum,
-	offerStatusEnum,
 	assignmentStatusEnum,
+	offerStatusEnum,
+	requestStatusEnum,
+	urgencyLevelEnum,
 } from "./enums";
 import { volunteers } from "./profile";
-import { user } from "./auth-schema";
 
-export const helpRequests = pgTable(
-	"help_requests",
+export const helpRequests = pgTable("help_requests", {
+	id: serial("id").primaryKey(),
+	requestedByUserId: text("requested_by_user_id").references(() => user.id, {
+		onDelete: "set null",
+	}),
+	guestSessionId: varchar("guest_session_id", { length: 128 }),
+	title: varchar("title", { length: 255 }).notNull(),
+	description: text("description"),
+	urgency: urgencyLevelEnum("urgency").notNull().default("MEDIUM"),
+	status: requestStatusEnum("status").notNull().default("OPEN"),
+	anonymousMode: boolean("anonymous_mode").notNull().default(false),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});
+
+export const requestLocations = pgTable(
+	"request_locations",
 	{
 		id: serial("id").primaryKey(),
-		userId: text("user_id").references(() => user.id, {
-			onDelete: "set null",
-		}),
-		guestSessionId: varchar("guest_session_id", { length: 128 }),
-		title: varchar("title", { length: 255 }).notNull(),
-		description: text("description"),
-		urgency: urgencyLevelEnum("urgency").notNull().default("MEDIUM"),
-		status: requestStatusEnum("status").notNull().default("OPEN"),
-		anonymousMode: boolean("anonymous_mode").notNull().default(false),
+		helpRequestId: integer("help_request_id")
+			.notNull()
+			.unique()
+			.references(() => helpRequests.id, { onDelete: "cascade" }),
+		city: varchar("city", { length: 100 }),
+		addressText: text("address_text"),
+		location: geometry("location", { type: "point", mode: "xy", srid: 4326 }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
-
-		locationCity: varchar("location_city", { length: 100 }),
-		locationAddressText: text("location_address_text"),
-		location: geometry("location", { type: "point", mode: "xy", srid: 4326 }),
 	},
-	(t) => [index("idx_help_requests_location").using("gist", t.location)],
+	(t) => [index("idx_request_locations_location").using("gist", t.location)],
 );
 
 export const requestDetails = pgTable("request_details", {
@@ -75,6 +85,9 @@ export const taskAssignments = pgTable("task_assignments", {
 		.notNull()
 		.unique()
 		.references(() => helpRequests.id, { onDelete: "cascade" }),
+	offerId: integer("offer_id").references(() => helpOffers.id, {
+		onDelete: "set null",
+	}),
 	requestedByUserId: text("requested_by_user_id")
 		.notNull()
 		.references(() => user.id),
@@ -85,6 +98,7 @@ export const taskAssignments = pgTable("task_assignments", {
 	assignedAt: timestamp("assigned_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),
+	startedAt: timestamp("started_at", { withTimezone: true }),
 	completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
@@ -95,10 +109,24 @@ export const helpRequestsRelations = relations(
 			fields: [helpRequests.id],
 			references: [requestDetails.helpRequestId],
 		}),
+		requestLocation: one(requestLocations, {
+			fields: [helpRequests.id],
+			references: [requestLocations.helpRequestId],
+		}),
 		helpOffers: many(helpOffers),
 		taskAssignment: one(taskAssignments, {
 			fields: [helpRequests.id],
 			references: [taskAssignments.helpRequestId],
+		}),
+	}),
+);
+
+export const requestLocationsRelations = relations(
+	requestLocations,
+	({ one }) => ({
+		helpRequest: one(helpRequests, {
+			fields: [requestLocations.helpRequestId],
+			references: [helpRequests.id],
 		}),
 	}),
 );
@@ -128,6 +156,14 @@ export const taskAssignmentsRelations = relations(
 			fields: [taskAssignments.helpRequestId],
 			references: [helpRequests.id],
 		}),
+		offer: one(helpOffers, {
+			fields: [taskAssignments.offerId],
+			references: [helpOffers.id],
+		}),
+		requester: one(user, {
+			fields: [taskAssignments.requestedByUserId],
+			references: [user.id],
+		}),
 		volunteer: one(volunteers, {
 			fields: [taskAssignments.handledByVolunteerId],
 			references: [volunteers.id],
@@ -137,5 +173,4 @@ export const taskAssignmentsRelations = relations(
 	}),
 );
 
-import { ratings } from "./social";
-import { interactionHistories } from "./social";
+import { interactionHistories, ratings } from "./social";
