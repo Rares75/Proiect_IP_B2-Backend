@@ -28,7 +28,6 @@ describe('GET /api/tasks/:id', () => {
             const body: any = await response.json();
 
             expect(response.status).toBe(400);
-            expect(body.success).toBe(false);
             expect(body.message).toBe("Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.");
         }
     });
@@ -40,7 +39,6 @@ describe('GET /api/tasks/:id', () => {
         const body: any = await response.json();
 
         expect(response.status).toBe(404);
-        expect(body.success).toBe(false);
         expect(body.message).toBe(`Eroare: Task-ul cu ID-ul '${fakeId}' nu exista in sistem.`);
     });
 
@@ -53,26 +51,45 @@ describe('GET /api/tasks/:id', () => {
         const body: any = await response.json();
 
         expect(response.status).toBe(500);
-        expect(body.success).toBe(false);
         expect(body.message).toBe("Eroare interna a serverului. Va rugam incercati mai tarziu.");
 
         mockError.mockRestore();
     });
 
 
-    it('ar trebui sa returneze 200 si datele pentru un task valid', async () => {
+    it('ar trebui sa returneze 200 si direct obiectul pentru un task valid', async () => {
         const validId = "2";
+
+        const mockTask = {
+            id: Number(validId),
+            title: "Task de testare",
+            description: "Ajutor la cumparaturi", // MessageContent
+            skillsNeeded: ["Curatenie"],          // string[]
+            urgency: "HIGH",                      // UrgencyLevel
+            status: "OPEN",                       // RequestStatus
+            anonymousMode: false,                 // bool
+            createdAt: new Date().toISOString(),  // datetime
+            category: "SOCIAL"                    // Category
+        };
+
+        const mockSuccess = spyOn(HelpRequestService.prototype, 'getHelpRequestById').mockResolvedValue(mockTask as any);
+
         const response = await app.request(`/api/tasks/${validId}`);
+        const body: any = await response.json();
 
-        if (response.status === 200) {
-            const body: any = await response.json();
+        expect(response.status).toBe(200);
 
-            expect(response.status).toBe(200);
-            expect(body.success).toBe(true);
-            expect(body.data).toBeDefined();
-            expect(body.data.id).toBe(Number(validId));
-        } else {
-            console.log(`Task-ul ${validId} nu exista in baza de test acum. S-a intors ${response.status}.`);
-        }
+        expect(body.success).toBeUndefined();
+        expect(body.data).toBeUndefined();
+
+        expect(body.id).toBe(Number(validId));
+        expect(body.title).toBe("Task de testare");
+        expect(body.status).toBeDefined();
+        expect(body.status).toBe("OPEN");
+
+        expect(body.anonymousMode).toBe(false);
+
+        mockSuccess.mockRestore();
     });
+
 });
