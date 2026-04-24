@@ -8,11 +8,13 @@ export type SeedContext = {
 	sessions: Array<{ id: string; userId: string }>;
 	verification: Array<{ id: string }>;
 	profiles: Array<{ id: number; userId: string }>;
+	userAccesses: Array<{ id: number; userId: string }>;
 	volunteers: Array<{ id: number; userId: string }>;
 	volunteerProfiles: Array<{ id: number; volunteerId: number }>;
 	volunteerKnownLocations: Array<{ id: number; volunteerId: number }>;
 	userVerifications: Array<{ id: number; userId: string }>;
-	helpRequests: Array<{ id: number; userId: string | null }>;
+	helpRequests: Array<{ id: number; requestedByUserId: string | null }>;
+	requestLocations: Array<{ id: number; helpRequestId: number }>;
 	requestDetails: Array<{ id: number; helpRequestId: number }>;
 	helpOffers: Array<{
 		id: number;
@@ -52,11 +54,13 @@ export const createSeedContext = (): SeedContext => ({
 	sessions: [],
 	verification: [],
 	profiles: [],
+	userAccesses: [],
 	volunteers: [],
 	volunteerProfiles: [],
 	volunteerKnownLocations: [],
 	userVerifications: [],
 	helpRequests: [],
+	requestLocations: [],
 	requestDetails: [],
 	helpOffers: [],
 	taskAssignments: [],
