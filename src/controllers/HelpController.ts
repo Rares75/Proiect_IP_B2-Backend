@@ -12,14 +12,8 @@ import {
 export class HelpController {
 	controller = new Hono()
 		.use("/", validationMiddleware)
-		.use(
-			"/helpRequest",
-			createValidationMiddleware(helpRequestInputSchema),
-		)
-		.use(
-			"/requestDetails",
-			createValidationMiddleware(requestDetailsSchema),
-		)
+		.use("/helpRequest", createValidationMiddleware(helpRequestInputSchema))
+		.use("/requestDetails", createValidationMiddleware(requestDetailsSchema))
 		.post("/", async (c) => {
 			const body = await c.req.json();
 

@@ -9,7 +9,11 @@ import { logger } from "./utils/logger";
 import * as schema from "./db/schema";
 import { getMailer } from "./mailers/getMailer";
 import { username } from "better-auth/plugins";
+import { createAuthMiddleware } from "better-auth/api";
+import { container } from "./di";
+import { ProfileRepository } from "./db/repositories/profile.repository";
 
+const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {
@@ -68,6 +72,17 @@ const auth = betterAuth({
 				},
 			});
 		},
+	},
+
+	hooks: {
+		after: createAuthMiddleware(async (ctx) => {
+			if (ctx.path !== "/sign-up/email") return;
+
+			const newUser = ctx.context.newSession?.user;
+			if (!newUser) return;
+
+			await profileRepository.create({ userId: newUser.id });
+		}),
 	},
 
 	plugins: [

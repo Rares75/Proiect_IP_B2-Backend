@@ -81,6 +81,12 @@ export class RequestDetailsController {
 					);
 				}
 
+
+			try {
+				const id = Number(c.req.param("id"));
+				if (Number.isNaN(id)) {
+					return c.json({ message: "Invalid id" }, 400);
+				}
 				const result = await this.requestDetailsService.upsertDetails(
 					id,
 					parsedBody.data,
@@ -92,7 +98,10 @@ export class RequestDetailsController {
 
 				return c.json(result.data, 200);
 			} catch (_error) {
-				return c.json({ message: "Could not update help request details" }, 500);
+				return c.json(
+					{ message: "Could not update help request details" },
+					500,
+				);
 			}
 		})
 		.delete("/:id/details", async (c) => {
