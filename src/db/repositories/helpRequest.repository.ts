@@ -137,8 +137,14 @@ export class HelpRequestRepository
             offset: offset,
             where: filters,
             orderBy: (fields, { asc, desc }) => {
-                const column = fields[sortBy]; 
-                return order === 'ASC' ? [asc(column)] : [desc(column)]; 
+                const primarySort = order === 'ASC' ? asc(fields[sortBy]) : desc(fields[sortBy]);
+                
+                if (sortBy === 'urgency') {
+                    //Departajare: Mai intai dupa data, apoi dupa ID dacă datele sunt identice
+                    return [primarySort, desc(fields.createdAt), desc(fields.id)];
+                }
+                
+                return [primarySort, desc(fields.id)]; 
             },
             with: {
                 requestDetails: true 

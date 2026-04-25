@@ -13,8 +13,8 @@ export const validateTasksQuery = (query: any) => {
     }
 
     //Sortare 
-    const sortBy = query.sortBy || 'createdAt';
-    const order = query.order ? query.order.toUpperCase() : 'DESC';
+    const sortBy = query.sortBy !== undefined ? query.sortBy : 'createdAt';
+    const order = query.order !== undefined ? query.order.toUpperCase() : 'DESC';
 
     const validSortFields = ['createdAt', 'urgency'];
     const validOrders = ['ASC', 'DESC'];

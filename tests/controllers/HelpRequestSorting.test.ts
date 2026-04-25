@@ -121,4 +121,81 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
         expect(serviceSpy).toHaveBeenCalledWith(1, 10, 'urgency', 'ASC');
         serviceSpy.mockRestore();
     });
+
+    it("ar trebui sa returneze cele mai vechi primele pentru ?sortBy=createdAt&order=ASC", async () => {
+        authSpy = spyOn(auth.api, 'getSession').mockResolvedValue({
+            user: { id: "user-123", email: "test@test.com" } as any,
+            session: { id: "session-123" } as any
+        });
+        
+        const serviceSpy = spyOn(HelpRequestService.prototype, 'getPaginatedTasks').mockResolvedValue({
+            data: [
+                { id: 1, createdAt: "2023-01-01" } as any,
+                { id: 2, createdAt: "2024-01-01" } as any
+            ],
+            meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 }
+        });
+
+        const response = await app.request(`/api/tasks?sortBy=createdAt&order=ASC`, { 
+            headers: { "Authorization": "Bearer fake-test-token" } 
+        });
+        expect(response.status).toBe(200);
+        
+        const body: any = await response.json();
+        expect(body.data[0].createdAt).toBe("2023-01-01");
+        expect(body.data[1].createdAt).toBe("2024-01-01");
+        
+        expect(serviceSpy).toHaveBeenCalledWith(1, 10, 'createdAt', 'ASC');
+        serviceSpy.mockRestore();
+    });
+
+    it("ar trebui sa returneze cele mai noi primele pentru ?sortBy=createdAt&order=DESC", async () => {
+        authSpy = spyOn(auth.api, 'getSession').mockResolvedValue({
+            user: { id: "user-123", email: "test@test.com" } as any,
+            session: { id: "session-123" } as any
+        });
+        
+        const serviceSpy = spyOn(HelpRequestService.prototype, 'getPaginatedTasks').mockResolvedValue({
+            data: [
+                { id: 2, createdAt: "2024-01-01" } as any,
+                { id: 1, createdAt: "2023-01-01" } as any
+            ],
+            meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 }
+        });
+
+        const response = await app.request(`/api/tasks?sortBy=createdAt&order=DESC`, { 
+            headers: { "Authorization": "Bearer fake-test-token" } 
+        });
+        expect(response.status).toBe(200);
+        
+        const body: any = await response.json();
+        expect(body.data[0].createdAt).toBe("2024-01-01");
+        
+        expect(serviceSpy).toHaveBeenCalledWith(1, 10, 'createdAt', 'DESC');
+        serviceSpy.mockRestore();
+    });
+
+    it("ar trebui sa aplice sortarea inainte de paginare pe un set mare de date", async () => {
+        authSpy = spyOn(auth.api, 'getSession').mockResolvedValue({
+            user: { id: "user-123", email: "test@test.com" } as any,
+            session: { id: "session-123" } as any
+        });
+        
+        // Simulam o baza de date cu 50 de elemente
+        const serviceSpy = spyOn(HelpRequestService.prototype, 'getPaginatedTasks').mockResolvedValue({
+            data: [
+                { id: 6, urgency: "HIGH" } as any,
+            ],
+            meta: { page: 2, pageSize: 5, total: 50, totalPages: 10 }
+        });
+
+        const response = await app.request(`/api/tasks?page=2&pageSize=5&sortBy=urgency&order=DESC`, { 
+            headers: { "Authorization": "Bearer fake-test-token" } 
+        });
+        expect(response.status).toBe(200);
+        
+        expect(serviceSpy).toHaveBeenCalledWith(2, 5, 'urgency', 'DESC');
+        serviceSpy.mockRestore();
+    });
+
 });
