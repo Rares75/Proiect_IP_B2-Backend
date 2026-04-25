@@ -1,12 +1,18 @@
 import { eq, and, count as drizzleCount } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { helpRequests, requestLocations } from "../requests";
+import { volunteers } from "../profile";
+import { helpRequests, requestLocations, taskAssignments } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
+export type HelpRequestAssignmentAuthorization = {
+	requestedByUserId: string;
+	handledByVolunteerId: number;
+	volunteerUserId: string;
+};
 
 export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
 
@@ -118,5 +124,25 @@ export class HelpRequestRepository
 			.where(eq(helpRequests.id, id))
 			.returning();
 		return updated;
+	}
+
+	async findAssignmentAuthorizationByHelpRequestId(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		const [found] = await db
+			.select({
+				requestedByUserId: taskAssignments.requestedByUserId,
+				handledByVolunteerId: taskAssignments.handledByVolunteerId,
+				volunteerUserId: volunteers.userId,
+			})
+			.from(taskAssignments)
+			.innerJoin(
+				volunteers,
+				eq(taskAssignments.handledByVolunteerId, volunteers.id),
+			)
+			.where(eq(taskAssignments.helpRequestId, helpRequestId))
+			.limit(1);
+
+		return found;
 	}
 }
