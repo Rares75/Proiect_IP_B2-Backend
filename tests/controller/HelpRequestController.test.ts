@@ -141,7 +141,7 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
       expect(response.status).toBe(400);
     });
 
-    it("ar trebui sa returneze 400 daca pageSize depaseste maximul (200)", async () => {
+    it("ar trebui sa returneze 400 daca pageSize depaseste maximul (100)", async () => {
       authSpy = spyOn(auth.api, 'getSession').mockResolvedValue({
         user: { id: "user-123", email: "test@test.com" } as any,
         session: { id: "session-123" } as any
@@ -206,6 +206,8 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
         session: { id: "session-123" } as any
       });
 
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      
       const serviceSpy = spyOn(HelpRequestService.prototype, 'getPaginatedTasks').mockRejectedValue(new Error("DB_CRASH: parola bazei de date a fost compromisa!"));
 
       const response = await app.request(`/api/tasks`, {
@@ -219,6 +221,8 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
       expect(body.message).not.toContain("parola bazei de date");
 
       serviceSpy.mockRestore();
+
+      consoleSpy.mockRestore();
     });
 
     it("ar trebui sa returneze rezultatele corecte si meta actualizat pentru page=2 si pageSize=5", async () => {
