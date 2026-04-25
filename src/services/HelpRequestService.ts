@@ -9,6 +9,7 @@ import { Service } from "../di/decorators/service";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { NotificationService } from "./NotificationService";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -26,14 +27,29 @@ export class HelpRequestService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		try {
-			return await this.helpRequestRepo.create({
+			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
+
+			try {
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
+					createdRequest,
+				);
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify eligible volunteers for new help request:",
+					notificationError,
+				);
+			}
+
+			return createdRequest;
 		} catch (error) {
 			console.error("Failed to create help request:", error);
 			throw new Error("Could not create help request");
