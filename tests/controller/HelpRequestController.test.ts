@@ -126,7 +126,7 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
       });
       expect(response.status).toBe(400);
       const body: any = await response.json();
-      expect(body.message).toContain("intre 1 si 100");
+      expect(body.error).toContain("intre 1 si 100");
     });
 
     it("ar trebui sa returneze 400 daca page este numar negativ", async () => {
@@ -217,8 +217,8 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
       expect(response.status).toBe(500);
       const body: any = await response.json();
       
-      expect(body.message).toBe("Eroare interna a serverului.");
-      expect(body.message).not.toContain("parola bazei de date");
+      expect(body.error).toBe("Eroare interna a serverului.");
+      expect(body.error).not.toContain("parola bazei de date");
 
       serviceSpy.mockRestore();
 
