@@ -1,19 +1,49 @@
 import { Hono } from "hono";
+import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { requestStatusEnum } from "../db/enums";
+import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
+import { authMiddlware } from "../middlware/authMiddleware";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
-
-import { authMiddleware } from "../middlware/authMiddleware";
-
-type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-
-const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
 	helpRequestInputSchema,
 } from "../validation";
+
+type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
+type HelpRequestResponse = Awaited<
+	ReturnType<HelpRequestService["getHelpRequestById"]>
+>;
+type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
+
+const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
+
+const removeClientOwnerFields = (
+	body: CreateHelpRequestDTO & { userId?: unknown },
+): Omit<CreateHelpRequestDTO, "requestedByUserId"> => {
+	const safeBody = { ...body };
+	delete safeBody.userId;
+	delete safeBody.requestedByUserId;
+
+	return safeBody;
+};
+
+const sanitizeAnonymousTask = (
+	task: ExistingHelpRequestResponse,
+): ExistingHelpRequestResponse | Record<string, unknown> => {
+	if (!task.anonymousMode) {
+		return task;
+	}
+
+	const safeTask: Record<string, unknown> = { ...task };
+	delete safeTask.requestedByUserId;
+	delete safeTask.userId;
+	delete safeTask.ownerId;
+
+	return safeTask;
+};
 
 @Controller("/tasks")
 export class HelpRequestController {
@@ -22,17 +52,37 @@ export class HelpRequestController {
 		private readonly helpRequestService: HelpRequestService,
 	) {}
 
-	controller = new Hono()
+	controller = new Hono<AppEnv>()
+		.use("*", authMiddlware)
 		.use("/", createValidationMiddleware(helpRequestInputSchema))
-		
+
 		.post("/", async (c) => {
-				try {
-					const body = await c.req.json();
-					const result = await this.helpRequestService.createHelpRequest(body);
-					return c.json(result, 201);
-				} catch {
-					return c.json({ message: "Internal server error" }, 500);
+			try {
+				const session = c.get("session");
+				const body = (await c.req.json()) as CreateHelpRequestDTO & {
+					userId?: unknown;
+				};
+				const safeBody = removeClientOwnerFields(body);
+				const result = await this.helpRequestService.createHelpRequest({
+					...safeBody,
+					requestedByUserId: session.userId,
+				});
+				return c.json(result, 201);
+			} catch {
+				return c.json({ message: "Internal server error" }, 500);
 			}
+		})
+
+		.get("/", async (c) => {
+			const limit = Number(c.req.query("limit") ?? 50);
+			const offset = Number(c.req.query("offset") ?? 0);
+
+			const result = await this.helpRequestService.getHelpRequests(
+				Number.isInteger(limit) ? limit : 50,
+				Number.isInteger(offset) ? offset : 0,
+			);
+
+			return c.json(result, 200);
 		})
 
 		.get("/:id", async (c) => {
@@ -72,7 +122,7 @@ export class HelpRequestController {
 				const dataToReturn = Array.isArray(foundTask)
 					? foundTask[0]
 					: foundTask;
-				return c.json(dataToReturn, 200);
+				return c.json(sanitizeAnonymousTask(dataToReturn), 200);
 			} catch (error) {
 				console.error(
 					`Eroare critica la GET /tasks/${c.req.param("id")} :`,
@@ -88,7 +138,7 @@ export class HelpRequestController {
 			}
 		})
 
-		.post("/:id/status", async (c) => {
+		.on(["POST", "PATCH"], "/:id/status", async (c) => {
 			const requestId = Number(c.req.param("id"));
 			if (!Number.isInteger(requestId)) {
 				return c.json(
@@ -119,6 +169,30 @@ export class HelpRequestController {
 			}
 
 			try {
+				const session = c.get("session");
+				const task =
+					await this.helpRequestService.getHelpRequestForAuthorization(
+						requestId,
+					);
+				if (!task) {
+					return c.json(
+						{ message: `HelpRequest with id ${requestId} not found` },
+						404,
+					);
+				}
+
+				const assignment =
+					await this.helpRequestService.getAssignmentAuthorization(
+						requestId,
+					);
+				const isOwner = task.requestedByUserId === session.userId;
+				const isAssignedVolunteer =
+					assignment?.volunteerUserId === session.userId;
+
+				if (!isOwner && !isAssignedVolunteer) {
+					return c.json({ message: "Forbidden" }, 403);
+				}
+
 				const updated = await this.helpRequestService.updateHelpRequestStatus(
 					requestId,
 					status as RequestStatus,
@@ -132,36 +206,8 @@ export class HelpRequestController {
 				if (error instanceof InvalidStatusTransitionError) {
 					return c.json({ message: error.message }, 400);
 				}
-        
-        throw error;
-      }
-    })
-  
 
-    //BE1-12
-    .get("/", authMiddleware, async (c) => {
-      try {
-        const pageParam = c.req.query("page");
-        const pageSizeParam = c.req.query("pageSize");
-
-        const page = pageParam ? Number(pageParam) : 1;
-        const pageSize = pageSizeParam ? Number(pageSizeParam) : 10;
-
-        if (!Number.isInteger(page) || page < 1) {
-            return c.json({ error: "Eroare: 'page' trebuie sa fie minim 1." }, 400);
-        }
-
-        if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
-            return c.json({ error: "Eroare: 'pageSize' trebuie sa fie intre 1 si 100." }, 400);
-        }
-
-        const result = await this.helpRequestService.getPaginatedTasks(page, pageSize);
-
-        return c.json(result, 200);
-      } catch (error) {
-        console.error("Eroare la GET /tasks paginat:", error);
-        return c.json({ error: "Eroare interna a serverului." }, 500);
-      }
-    });
-
+				throw error;
+			}
+		});
 }
