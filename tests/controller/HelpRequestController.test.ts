@@ -29,7 +29,7 @@ describe("GET /api/tasks/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(400);
-			expect(body.message).toBe(
+			expect(body.error).toBe(
 				"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
 			);
 		}
@@ -47,7 +47,7 @@ describe("GET /api/tasks/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(404);
-			expect(body.message).toBe(
+			expect(body.error).toBe(
 				`Eroare: Task-ul cu ID-ul '${fakeId}' nu exista in sistem.`,
 			);
 		} finally {
@@ -66,7 +66,7 @@ describe("GET /api/tasks/:id", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(500);
-		expect(body.message).toBe(
+		expect(body.error).toBe(
 			"Eroare interna a serverului. Va rugam incercati mai tarziu.",
 		);
 
