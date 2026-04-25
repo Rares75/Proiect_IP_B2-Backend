@@ -13,6 +13,10 @@ type DeleteHelpRequestDetailsResult =
 	| { status: 204 }
 	| { status: 404 | 409 | 500; body: { message: string } };
 
+type UpsertHelpRequestDetailsResult =
+	| { status: 200 | 201; data: any }
+	| { status: 404 | 409 | 500; message: string };
+
 const NON_DELETABLE_STATUSES = new Set<RequestStatus>([
 	"MATCHED",
 	"IN_PROGRESS",
@@ -28,7 +32,7 @@ export class RequestDetailsService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
-	) {}
+	) { }
 
 	protected async getHelpRequestRepository() {
 		return this.helpRequestRepo;
@@ -41,36 +45,40 @@ export class RequestDetailsService {
 	async upsertDetails(
 		helpRequestId: number,
 		data: UpdateHelpRequestDetailsDTO,
-	) {
+	): Promise<UpsertHelpRequestDetailsResult> {
 		try {
-			// Verifica daca task-ul parinte exista
-			const taskExists = await this.helpRequestRepo.exists(helpRequestId);
-			if (!taskExists) {
-				return { notFound: true, data: null };
+			// check existence and status
+			const task = await this.helpRequestRepo.findById(helpRequestId);
+
+			if (!task) {
+				return { status: 404, message: "Task not found" };
 			}
 
-			// Verifica daca details exista deja pentru acest task
-			const existing =
-				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
+			if (task.status !== "OPEN") {
+				return { status: 409, message: "Task must be OPEN to update details" };
+			}
+
+			// Check if details already exist for this task
+			const existing = await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 
 			if (existing) {
-				// Daca exista -> update
+				// If exists -> update with full overwrite
 				const updated = await this.requestDetailsRepo.updateByHelpRequestId(
 					helpRequestId,
 					data,
 				);
-				return { notFound: false, data: updated };
+				return { status: 200, data: updated };
 			} else {
-				// Daca nu exista -> create
+				// If it does not exist -> create
 				const created = await this.requestDetailsRepo.create({
 					...data,
 					helpRequestId,
 				});
-				return { notFound: false, data: created };
+				return { status: 201, data: created };
 			}
 		} catch (error) {
 			console.error("Failed to upsert help request details:", error);
-			throw new Error("Could not update help request details");
+			return { status: 500, message: "Could not update help request details" };
 		}
 	}
 
