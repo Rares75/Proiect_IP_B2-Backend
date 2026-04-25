@@ -53,7 +53,7 @@ export class RequestDetailsController {
 
             const id = Number(c.req.param("id"));
           	if (!Number.isInteger(id)) {
-                return c.json({ message: "Invalid id" }, 400);
+                return c.json({ error: "Invalid id" }, 400);
             }
 
             const result = await this.requestDetailsService.upsertDetails(
@@ -62,7 +62,7 @@ export class RequestDetailsController {
             );
 
             if ("message" in result) {
-                return c.json({ message: result.message }, result.status);
+                return c.json({ error: result.message }, result.status);
             }
 
             return c.json(result.data, result.status);
