@@ -115,11 +115,41 @@ export class HelpRequestService {
 			throw new InvalidStatusTransitionError(currentStatus, newStatus);
 		}
 
-		const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
+        const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
 		if (!updated) {
 			throw new NotFoundError("HelpRequest", String(id));
 		}
 
 		return updated;
-	}
+
+    }
+
+
+    //BE1-12
+    async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, filters);
+
+        const totalPages = Math.ceil(total / pageSize);
+
+        const formattedData = data.map((task) => {
+            if (task.anonymousMode) {
+                const { requestedByUserId, ...restOfTask } = task;
+                return restOfTask;
+            }
+            return task;
+        });
+
+        return {
+            data: formattedData,
+            meta: {
+                page: page,
+                pageSize: pageSize,
+                total: total,
+                totalPages: totalPages
+            }
+        };
+    }
+
+		
 }
+

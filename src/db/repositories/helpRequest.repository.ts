@@ -1,10 +1,11 @@
-import { eq, and, count as drizzleCount } from "drizzle-orm";
+import { eq, and, count as drizzleCount, type SQL } from "drizzle-orm";  
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { volunteers } from "../profile";
 import { helpRequests, requestLocations, taskAssignments } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
+
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -145,4 +146,41 @@ export class HelpRequestRepository
 
 		return found;
 	}
+    async updateStatus(
+        id: number,
+        newStatus: (typeof requestStatusEnum.enumValues)[number],
+    ): Promise<HelpRequest | undefined> {
+        const [updated] = await db
+            .update(helpRequests)
+            .set({ status: newStatus })
+            .where(eq(helpRequests.id, id))
+            .returning();
+        return updated;
+    }
+
+
+    //BE1-12
+    async findPaginatedWithDetails(page: number, pageSize: number, filters?: SQL) {
+        const offset = (page - 1) * pageSize;
+
+        const data = await db.query.helpRequests.findMany({
+            limit: pageSize,
+            offset: offset,
+            where: filters, 
+			orderBy: (helpRequests, { desc }) => [desc(helpRequests.id)],
+            with: {
+                requestDetails: true 
+            }
+        });
+
+        const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
+        const countQuery = filters ? baseQuery.where(filters) : baseQuery;
+        
+        const [{ value }] = await countQuery;
+        const total = value;
+
+        return { data, total };
+    }
+
+	
 }
