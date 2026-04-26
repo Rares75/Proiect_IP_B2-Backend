@@ -140,18 +140,13 @@ export class HelpRequestRepository
 	) {
 		//BE1-12 + BE1-13
 		const offset = (page - 1) * pageSize;
-		const conditions: SQL[] = [];
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
-		const distanceFilter = buildDistanceFilter(filters?.distance);
-
-		if (statusFilter) {
-			conditions.push(statusFilter);
-		}
-		if (distanceFilter) {
-			conditions.push(distanceFilter);
-		}
-
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const whereClause = [statusFilter, distanceFilter].filter(Boolean) as SQL[];
+		const composedWhere =
+			whereClause.length > 0 ? and(...whereClause) : undefined;
 		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 		const primarySort =
 			order === "ASC"
@@ -177,7 +172,7 @@ export class HelpRequestRepository
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
-			.where(whereClause)
+			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
@@ -194,7 +189,7 @@ export class HelpRequestRepository
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
-			.where(whereClause);
+			.where(composedWhere);
 
 		const total = countRows[0]?.value ?? 0;
 
