@@ -17,12 +17,12 @@ describe("GET /api/tasks/:id", () => {
 
 	it("ar trebui sa returneze 400 pentru TOATE tipurile de ID-uri invalide", async () => {
 		const badInputs = [
-			"abc",
-			"@#!",
-			"-5",
-			"0",
-			"3.14",
-			"999999999999999999999999",
+			"abc", // Litere / Text pur
+			"@#!", // Caractere speciale
+			"-5", // Numar negativ
+			"0", // Zero
+			"3.14", // Numar cu zecimale
+			"999999999999999999999999", // Numar urias (Overflow bazei de date)
 		];
 
 		for (const badId of badInputs) {
@@ -37,7 +37,7 @@ describe("GET /api/tasks/:id", () => {
 	});
 
 	it("ar trebui sa returneze 404 pentru un task care nu exista", async () => {
-		const fakeId = "999999";
+		const fakeId = "999999"; // Un ID care nu a fost creat
 		const mockNotFound = spyOn(
 			HelpRequestService.prototype,
 			"getHelpRequestById",
@@ -57,6 +57,7 @@ describe("GET /api/tasks/:id", () => {
 	});
 
 	it("ar trebui sa returneze 500 daca pica baza de date / serverul", async () => {
+		// Simulam o pana de curent la baza de date pentru o secunda
 		const mockError = spyOn(
 			HelpRequestService.prototype,
 			"getHelpRequestById",
@@ -98,6 +99,7 @@ describe("GET /api/tasks/:id", () => {
 	});
 });
 
+//BE1-12
 describe("GET /api/tasks (Paginare BE1-12)", () => {
 	let authSpy: any;
 

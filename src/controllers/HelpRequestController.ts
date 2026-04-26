@@ -138,10 +138,13 @@ export class HelpRequestController {
 			}
 		})
 
+		// BE1-12 & BE1-13 (Paginare + Sortare)
 		.get("/", authMiddleware, async (c) => {
 			try {
+				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
 				const validation = validateTasksQuery(c.req.query());
 
+				//Daca validatorul gaseste o problema
 				if (validation.error || !validation.validData) {
 					return c.json(
 						{ error: validation.error || "Eroare de validare." },
@@ -149,6 +152,7 @@ export class HelpRequestController {
 					);
 				}
 
+				//Extragem parametrii
 				const { page, pageSize, sortBy, order, filters } = validation.validData;
 				const result = await this.helpRequestService.getPaginatedTasks(
 					page,

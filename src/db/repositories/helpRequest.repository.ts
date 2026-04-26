@@ -138,6 +138,7 @@ export class HelpRequestRepository
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
 	) {
+		//BE1-12 + BE1-13
 		const offset = (page - 1) * pageSize;
 		const conditions: SQL[] = [];
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
