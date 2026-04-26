@@ -44,7 +44,7 @@ export class HelpRequestService {
 		const reason = titleResult.reason || descResult.reason;
 
 		if (finalResult === ModerationLevel.BLOCKED) {
-        	throw new ModerationError(reason);
+        	throw new ModerationError(reason ?? "Inappropriate content.");
     	}
 
 		if (finalResult === ModerationLevel.FLAGGED) {
