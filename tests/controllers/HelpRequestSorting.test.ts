@@ -20,7 +20,6 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 	});
 
 	it("ar trebui sa returneze 400 daca sortBy este invalid (ex: titlu)", async () => {
-		// Folosim mock-ul complet si corect, la fel ca in BE1-12
 		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
 			user: { id: "user-123", email: "test@test.com" } as any,
 			session: { id: "session-123" } as any,
@@ -238,7 +237,6 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 			session: { id: "session-123" } as any,
 		});
 
-		// Simulam o baza de date cu 50 de elemente
 		const serviceSpy = spyOn(
 			HelpRequestService.prototype,
 			"getPaginatedTasks",

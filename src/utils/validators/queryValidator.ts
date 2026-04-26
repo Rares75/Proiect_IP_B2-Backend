@@ -1,4 +1,8 @@
-import { parseDistanceFilter, type TaskFilterParams } from "../../filters";
+import {
+	parseDistanceFilter,
+	parseStatusFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 type TaskSortBy = "createdAt" | "urgency";
 type SortOrder = "ASC" | "DESC";
@@ -41,6 +45,11 @@ export const validateTasksQuery = (
 		};
 	}
 
+	const statusValidation = parseStatusFilter(query.status);
+	if (statusValidation.error || !statusValidation.validData) {
+		return { error: statusValidation.error };
+	}
+
 	const distanceValidation = parseDistanceFilter(query);
 	if (distanceValidation.error || !distanceValidation.validData) {
 		return { error: distanceValidation.error };
@@ -52,7 +61,10 @@ export const validateTasksQuery = (
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
-			filters: distanceValidation.validData,
+			filters: {
+				...statusValidation.validData,
+				...distanceValidation.validData,
+			},
 		} satisfies ValidTasksQuery,
 	};
 };

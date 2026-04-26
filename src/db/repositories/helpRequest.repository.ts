@@ -14,14 +14,13 @@ import type { requestStatusEnum } from "../enums";
 import {
 	buildDistanceFilter,
 	buildDistanceOrderBy,
+	buildStatusFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
-
 export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
-
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
 @repository()
@@ -141,8 +140,12 @@ export class HelpRequestRepository
 	) {
 		const offset = (page - 1) * pageSize;
 		const conditions: SQL[] = [];
+		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const distanceFilter = buildDistanceFilter(filters?.distance);
 
+		if (statusFilter) {
+			conditions.push(statusFilter);
+		}
 		if (distanceFilter) {
 			conditions.push(distanceFilter);
 		}

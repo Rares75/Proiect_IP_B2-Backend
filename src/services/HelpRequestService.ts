@@ -11,7 +11,6 @@ import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.
 import type { TaskFilterParams } from "../filters";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 
-// State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
@@ -43,22 +42,13 @@ export class HelpRequestService {
 		}
 	}
 
-	/**
-	 * Retrieves a task with the specified ID and includes the associated details (if any)
-	 *
-	 * @param id The ID of the help request task
-	 * @returns An object containing the task data and the `details` field (null if no details exist)
-	 */
 	async getHelpRequestById(id: number) {
-		//fetch the main task
 		const helpRequest = await this.helpRequestRepo.findById(id);
 
-		//if the task doesn't exist, I return `undefined` (the controller will handle the 404)
 		if (!helpRequest) {
 			return undefined;
 		}
 
-		//Get the details associated with the task
 		const details = await this.helpRequestDetailsRepo.findByHelpRequestId(id);
 		const location =
 			typeof this.helpRequestRepo.findLocationByHelpRequestId === "function"
@@ -78,14 +68,6 @@ export class HelpRequestService {
 		};
 	}
 
-	/**
-	 * Updates a HelpRequest status according to the allowed transitions
-	 * @param id - The UUID of the HelpRequest to update
-	 * @param newStatus - The target status to transition to
-	 * @returns The updated HelpRequest object
-	 * @throws {NotFoundError} If the HelpRequest is not found (404)
-	 * @throws {InvalidStatusTransitionError} If the transition is forbidden (400)
-	 */
 	async updateHelpRequestStatus(
 		id: number,
 		newStatus: RequestStatus,
@@ -109,6 +91,7 @@ export class HelpRequestService {
 
 		return updated;
 	}
+
 	private async resolveTaskFilters(
 		filters: TaskFilterParams | undefined,
 		userId?: string,
@@ -137,7 +120,6 @@ export class HelpRequestService {
 		};
 	}
 
-	//BE1-12 + BE1-13
 	async getPaginatedTasks(
 		page: number,
 		pageSize: number,
@@ -168,10 +150,10 @@ export class HelpRequestService {
 		return {
 			data: formattedData,
 			meta: {
-				page: page,
-				pageSize: pageSize,
-				total: total,
-				totalPages: totalPages,
+				page,
+				pageSize,
+				total,
+				totalPages,
 			},
 		};
 	}
