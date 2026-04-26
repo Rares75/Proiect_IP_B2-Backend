@@ -1,10 +1,21 @@
-import { type SQL, and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	type SQL,
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-import { buildStatusFilter, buildCityFilter, type TaskFilterParams } from "../../filters";
+import {
+	buildStatusFilter,
+	buildCityFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -16,7 +27,8 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
+		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
+{
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		const [newHelpRequest] = await db
 			.insert(helpRequests)
@@ -135,8 +147,12 @@ export class HelpRequestRepository
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
-		if (statusFilter) { conditions.push(statusFilter); }
-		if (cityFilter) { conditions.push(cityFilter); }
+		if (statusFilter) {
+			conditions.push(statusFilter);
+		}
+		if (cityFilter) {
+			conditions.push(cityFilter);
+		}
 
 		// Combine using AND if there are any conditions
 		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -160,7 +176,7 @@ export class HelpRequestRepository
 			)
 			.leftJoin(
 				requestLocations,
-				eq(requestLocations.helpRequestId, helpRequests.id)
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(whereClause)
 			.orderBy(...orderBy)
@@ -180,7 +196,6 @@ export class HelpRequestRepository
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(whereClause);
-
 
 		const total = countRows[0]?.value ?? 0;
 

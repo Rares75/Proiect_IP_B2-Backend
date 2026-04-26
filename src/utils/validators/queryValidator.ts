@@ -1,4 +1,8 @@
-import { parseStatusFilter, parseCityFilter, type TaskFilterParams } from "../../filters";
+import {
+	parseStatusFilter,
+	parseCityFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 type TaskSortBy = "createdAt" | "urgency";
 type SortOrder = "ASC" | "DESC";
@@ -47,9 +51,9 @@ export const validateTasksQuery = (
 	}
 
 	const cityValidation = parseCityFilter(query.city);
-    if (cityValidation.error) {
-        return { error: cityValidation.error };
-    }
+	if (cityValidation.error) {
+		return { error: cityValidation.error };
+	}
 
 	return {
 		validData: {
@@ -58,9 +62,9 @@ export const validateTasksQuery = (
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
 			filters: {
-                ...statusValidation.validData,
-                ...cityValidation.validData, 
-            }
+				...statusValidation.validData,
+				...cityValidation.validData,
+			},
 		} satisfies ValidTasksQuery,
 	};
 };

@@ -32,7 +32,7 @@ export class RequestDetailsService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
-	) { }
+	) {}
 
 	protected async getHelpRequestRepository() {
 		return this.helpRequestRepo;
@@ -59,7 +59,8 @@ export class RequestDetailsService {
 			}
 
 			// Check if details already exist for this task
-			const existing = await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
+			const existing =
+				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 
 			if (existing) {
 				// If exists -> update with full overwrite
