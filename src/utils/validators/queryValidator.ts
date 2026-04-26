@@ -45,15 +45,23 @@ export const validateTasksQuery = (
 		};
 	}
 
+	////////////Filters
+
+	const filters: TaskFilterParams = {};
+
+	//status filter
 	const statusValidation = parseStatusFilter(query.status);
 	if (statusValidation.error || !statusValidation.validData) {
 		return { error: statusValidation.error };
 	}
+	Object.assign(filters, statusValidation.validData);
 
+	//distance filter
 	const distanceValidation = parseDistanceFilter(query);
 	if (distanceValidation.error || !distanceValidation.validData) {
 		return { error: distanceValidation.error };
 	}
+	Object.assign(filters, distanceValidation.validData);
 
 	return {
 		validData: {
@@ -61,10 +69,7 @@ export const validateTasksQuery = (
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
-			filters: {
-				...statusValidation.validData,
-				...distanceValidation.validData,
-			},
+			filters,
 		} satisfies ValidTasksQuery,
 	};
 };
