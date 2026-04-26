@@ -1,10 +1,10 @@
 /// <reference types="bun-types" />
 import {afterEach, beforeAll, describe, expect, it, spyOn} from "bun:test";
 import {join} from "node:path";
-import app from "../../src/app";
-import auth from "../../src/auth";
-import {HelpRequestService} from "../../src/services/HelpRequestService";
-import {loadControllers} from "../../src/utils/controller";
+import app from "../../../src/app";
+import auth from "../../../src/auth";
+import {HelpRequestService} from "../../../src/services/HelpRequestService";
+import {loadControllers} from "../../../src/utils/controller";
 
 beforeAll(async () => {
     await loadControllers(join(import.meta.dir, "../../src/controllers"));
