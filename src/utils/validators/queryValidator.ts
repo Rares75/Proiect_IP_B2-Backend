@@ -1,33 +1,58 @@
-// src/utils/queryValidator.ts
+import { parseStatusFilter, type TaskFilterParams } from "../../filters";
 
-export const validateTasksQuery = (query: any) => {
-    //Paginare
-    const page = query.page ? Number(query.page) : 1;
-    const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+type TaskSortBy = "createdAt" | "urgency";
+type SortOrder = "ASC" | "DESC";
 
-    if (!Number.isInteger(page) || page < 1) {
-        return { error: "Eroare: 'page' trebuie sa fie minim 1." };
-    }
-    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
-        return { error: "Eroare: 'pageSize' trebuie sa fie intre 1 si 100." };
-    }
+type ValidTasksQuery = {
+	page: number;
+	pageSize: number;
+	sortBy: TaskSortBy;
+	order: SortOrder;
+	filters: TaskFilterParams;
+};
 
-    //Sortare 
-    const sortBy = query.sortBy !== undefined ? query.sortBy : 'createdAt';
-    const order = query.order !== undefined ? query.order.toUpperCase() : 'DESC';
+export const validateTasksQuery = (
+	query: Record<string, string | undefined>,
+) => {
+	const page = query.page ? Number(query.page) : 1;
+	const pageSize = query.pageSize ? Number(query.pageSize) : 10;
 
-    const validSortFields = ['createdAt', 'urgency'];
-    const validOrders = ['ASC', 'DESC'];
+	if (!Number.isInteger(page) || page < 1) {
+		return { error: "Eroare: 'page' trebuie sa fie minim 1." };
+	}
+	if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+		return { error: "Eroare: 'pageSize' trebuie sa fie intre 1 si 100." };
+	}
 
-    if (!validSortFields.includes(sortBy)) {
-        return { error: `Eroare: 'sortBy' accepta doar: ${validSortFields.join(', ')}.` };
-    }
-    if (!validOrders.includes(order)) {
-        return { error: `Eroare: 'order' accepta doar: ${validOrders.join(', ')}.` };
-    }
+	const sortBy = query.sortBy ?? "createdAt";
+	const order = query.order?.toUpperCase() ?? "DESC";
 
-    //Daca totul e valid, returnam parametrii curatati
-    return {
-        validData: { page, pageSize, sortBy, order }
-    };
+	const validSortFields: TaskSortBy[] = ["createdAt", "urgency"];
+	const validOrders: SortOrder[] = ["ASC", "DESC"];
+
+	if (!validSortFields.includes(sortBy as TaskSortBy)) {
+		return {
+			error: `Eroare: 'sortBy' accepta doar: ${validSortFields.join(", ")}.`,
+		};
+	}
+	if (!validOrders.includes(order as SortOrder)) {
+		return {
+			error: `Eroare: 'order' accepta doar: ${validOrders.join(", ")}.`,
+		};
+	}
+
+	const statusValidation = parseStatusFilter(query.status);
+	if (statusValidation.error || !statusValidation.validData) {
+		return { error: statusValidation.error };
+	}
+
+	return {
+		validData: {
+			page,
+			pageSize,
+			sortBy: sortBy as TaskSortBy,
+			order: order as SortOrder,
+			filters: statusValidation.validData,
+		} satisfies ValidTasksQuery,
+	};
 };
