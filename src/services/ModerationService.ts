@@ -7,7 +7,7 @@ import normalizationConfig from "../utils/moderation/normalization.json";
 export enum ModerationLevel {
 	CLEAN = "CLEAN",
 	FLAGGED = "FLAGGED",
-	BLOCKED = "BLOCKED"
+	BLOCKED = "BLOCKED",
 }
 
 export class ModerationError extends Error {
@@ -19,49 +19,51 @@ export class ModerationError extends Error {
 }
 
 interface ModerationResult {
-    level: ModerationLevel;
-    reason?: string;
+	level: ModerationLevel;
+	reason?: string;
 }
 
 @Service()
 export class ModerationService {
 	private blockedRegex: RegExp | null = null;
-    private flaggedRegex: RegExp | null = null;
+	private flaggedRegex: RegExp | null = null;
 
 	constructor() {
 		// add optional regex spaces in the string
-		const makeSpacedPattern = (term: string) => term.split('').join('\\s*');
+		const makeSpacedPattern = (term: string) => term.split("").join("\\s*");
 
 		const blockedTerms = blacklistConfig.keywords
-            .filter(k => k.severity === ModerationLevel.BLOCKED)
-            .map(k => makeSpacedPattern(k.term));
-        
-        const flaggedTerms = blacklistConfig.keywords
-            .filter(k => k.severity === ModerationLevel.FLAGGED)
-            .map(k => makeSpacedPattern(k.term));
+			.filter((k) => k.severity === ModerationLevel.BLOCKED)
+			.map((k) => makeSpacedPattern(k.term));
 
-        if (blockedTerms.length > 0) {
-            this.blockedRegex = new RegExp(`\\b(${blockedTerms.join("|")})\\b`, "i");
-        }
+		const flaggedTerms = blacklistConfig.keywords
+			.filter((k) => k.severity === ModerationLevel.FLAGGED)
+			.map((k) => makeSpacedPattern(k.term));
 
-        if (flaggedTerms.length > 0) {
-            this.flaggedRegex = new RegExp(`\\b(${flaggedTerms.join("|")})\\b`, "i");
-        }
+		if (blockedTerms.length > 0) {
+			this.blockedRegex = new RegExp(`\\b(${blockedTerms.join("|")})\\b`, "i");
+		}
+
+		if (flaggedTerms.length > 0) {
+			this.flaggedRegex = new RegExp(`\\b(${flaggedTerms.join("|")})\\b`, "i");
+		}
 	}
 
 	/**
-	* Normalizes "leet-speak" characters to regular letters
-	* e.g., "$c@m" becomes "scam"
-	*/
+	 * Normalizes "leet-speak" characters to regular letters
+	 * e.g., "$c@m" becomes "scam"
+	 */
 	private normalizeText(text: string): string {
 		let normalized = text.toLowerCase();
 
 		// apply mapping
-		for (const [target, symbols] of Object.entries(normalizationConfig.mappings)) {
+		for (const [target, symbols] of Object.entries(
+			normalizationConfig.mappings,
+		)) {
 			for (const symbol of symbols) {
 				// escape special regex characters in the symbol (like $ or |)
-				const escapedSymbol = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-				const regex = new RegExp(escapedSymbol, 'g');
+				const escapedSymbol = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				const regex = new RegExp(escapedSymbol, "g");
 				normalized = normalized.replace(regex, target);
 			}
 		}
@@ -86,31 +88,55 @@ export class ModerationService {
 
 		// check blocked
 		if (this.blockedRegex?.test(normalized)) {
-			logger.warn(`[Moderation Service] BLOCKED (Keyword). Snippet: "${normalized.substring(0, 50)}"`);
-            return { level: ModerationLevel.BLOCKED, reason: "Content violates safety policies." };
-        }
+			logger.warn(
+				`[Moderation Service] BLOCKED (Keyword). Snippet: "${normalized.substring(0, 50)}"`,
+			);
+			return {
+				level: ModerationLevel.BLOCKED,
+				reason: "Content violates safety policies.",
+			};
+		}
 
 		// check blocked patterns
-		for (const p of blacklistConfig.patterns.filter(p => p.severity === ModerationLevel.BLOCKED)) {
-            if (new RegExp(p.regex, "i").test(normalized)) {
-				logger.warn(`[Moderation Service] BLOCKED (Pattern). Snippet: "${normalized.substring(0, 50)}"`);
-                return { level: ModerationLevel.BLOCKED, reason: "Blacklisted pattern detected." };
-            }
-        }
+		for (const p of blacklistConfig.patterns.filter(
+			(p) => p.severity === ModerationLevel.BLOCKED,
+		)) {
+			if (new RegExp(p.regex, "i").test(normalized)) {
+				logger.warn(
+					`[Moderation Service] BLOCKED (Pattern). Snippet: "${normalized.substring(0, 50)}"`,
+				);
+				return {
+					level: ModerationLevel.BLOCKED,
+					reason: "Blacklisted pattern detected.",
+				};
+			}
+		}
 
 		// check flagged
 		if (this.flaggedRegex?.test(normalized)) {
-			logger.info(`[Moderation Service] FLAGGED (Keyword). Snippet: "${normalized.substring(0, 50)}"`);
-            return { level: ModerationLevel.FLAGGED, reason: "Suspicious activity detected." };
-        }
+			logger.info(
+				`[Moderation Service] FLAGGED (Keyword). Snippet: "${normalized.substring(0, 50)}"`,
+			);
+			return {
+				level: ModerationLevel.FLAGGED,
+				reason: "Suspicious activity detected.",
+			};
+		}
 
 		// check flagged patterns
-		for (const p of blacklistConfig.patterns.filter(p => p.severity === ModerationLevel.FLAGGED)) {
-            if (new RegExp(p.regex, "i").test(normalized)) {
-				logger.info(`[Moderation Service] FLAGGED (Pattern). Snippet: "${normalized.substring(0, 50)}"`);
-                return { level: ModerationLevel.FLAGGED, reason: "Request flagged for review." };
-            }
-        }
+		for (const p of blacklistConfig.patterns.filter(
+			(p) => p.severity === ModerationLevel.FLAGGED,
+		)) {
+			if (new RegExp(p.regex, "i").test(normalized)) {
+				logger.info(
+					`[Moderation Service] FLAGGED (Pattern). Snippet: "${normalized.substring(0, 50)}"`,
+				);
+				return {
+					level: ModerationLevel.FLAGGED,
+					reason: "Request flagged for review.",
+				};
+			}
+		}
 
 		return { level: ModerationLevel.CLEAN };
 	}

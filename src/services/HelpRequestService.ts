@@ -5,7 +5,11 @@ import {
 } from "../db/repositories/helpRequest.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
-import { ModerationService, ModerationError, ModerationLevel } from "./ModerationService";
+import {
+	ModerationService,
+	ModerationError,
+	ModerationLevel,
+} from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
@@ -34,24 +38,30 @@ export class HelpRequestService {
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
-    	const descResult = this.moderationService.scanContent(data.description);
+		const descResult = this.moderationService.scanContent(data.description);
 
 		let finalResult = ModerationLevel.CLEAN;
-		if (titleResult.level === ModerationLevel.BLOCKED || descResult.level === ModerationLevel.BLOCKED) {
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
 			finalResult = ModerationLevel.BLOCKED;
-		} else if (titleResult.level === ModerationLevel.FLAGGED || descResult.level === ModerationLevel.FLAGGED) {
+		} else if (
+			titleResult.level === ModerationLevel.FLAGGED ||
+			descResult.level === ModerationLevel.FLAGGED
+		) {
 			finalResult = ModerationLevel.FLAGGED;
 		}
 
 		const reason = titleResult.reason || descResult.reason;
 
 		if (finalResult === ModerationLevel.BLOCKED) {
-        	throw new ModerationError(reason ?? "Inappropriate content.");
-    	}
+			throw new ModerationError(reason ?? "Inappropriate content.");
+		}
 
 		if (finalResult === ModerationLevel.FLAGGED) {
 			// TODO: do something?
-    	}
+		}
 
 		try {
 			return await this.helpRequestRepo.create({
@@ -130,13 +140,15 @@ export class HelpRequestService {
 		}
 
 		return updated;
+	}
 
-    }
-
-
-    //BE1-12
-    async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
-        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, filters);
+	//BE1-12
+	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
+			page,
+			pageSize,
+			filters,
+		);
 
 		const totalPages = Math.ceil(total / pageSize);
 
