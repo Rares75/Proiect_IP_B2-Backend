@@ -8,8 +8,10 @@ import { notificationsSeed } from "./notifications.seed";
 import { profilesSeed } from "./profiles.seed";
 import { ratingsSeed } from "./ratings.seed";
 import { requestDetailsSeed } from "./requestDetails.seed";
+import { requestLocationsSeed } from "./requestLocations.seed";
 import { sessionSeed } from "./session.seed";
 import { taskAssignmentsSeed } from "./taskAssignments.seed";
+import { userAccessesSeed } from "./userAccesses.seed";
 import { userSeed } from "./user.seed";
 import { userVerificationsSeed } from "./userVerifications.seed";
 import { verificationSeed } from "./verification.seed";
@@ -26,11 +28,13 @@ export const entitySeeds: EntitySeed[] = [
 	sessionSeed,
 	verificationSeed,
 	profilesSeed,
+	userAccessesSeed,
 	volunteersSeed,
 	volunteerProfilesSeed,
 	volunteerKnownLocationsSeed,
 	userVerificationsSeed,
 	helpRequestsSeed,
+	requestLocationsSeed,
 	requestDetailsSeed,
 	helpOffersSeed,
 	taskAssignmentsSeed,

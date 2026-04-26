@@ -1,4 +1,4 @@
-import { AccountRepository } from "../db/repositories/account.repository";
+import { UserAccessRepository } from "../db/repositories/userAccess.repository";
 import { UserRepository } from "../db/repositories/user.repository";
 import { UsermanagementException as UserManagementException } from "../exceptions/user.management/UserManagementException";
 import { logger } from "../utils/logger";
@@ -11,7 +11,8 @@ export class UserManagementService {
 	constructor(
 		@inject(RatingsService) private readonly ratingService: RatingsService,
 		@inject(UserRepository) private readonly userRepo: UserRepository,
-		@inject(AccountRepository) private readonly accountRepo: AccountRepository,
+		@inject(UserAccessRepository)
+		private readonly userAccessRepo: UserAccessRepository,
 	) {}
 
 	/**
@@ -21,11 +22,8 @@ export class UserManagementService {
 	 */
 	async banUser(userId: string, banReson: string): Promise<boolean> {
 		const user = await this.userRepo.findById(userId);
-		const userAccount = await this.accountRepo.findFirstBy({ userId });
-		if (!user || !userAccount) {
-			logger.exception(
-				new UserManagementException("User or account not found"),
-			);
+		if (!user) {
+			logger.exception(new UserManagementException("User not found"));
 			return false;
 		}
 
@@ -52,16 +50,24 @@ export class UserManagementService {
 			`Banning user ${userId} because last 5 ratings are below 3 stars`,
 		);
 
-		const updatedAccount = await this.accountRepo.update(userAccount.id, {
-			status: "BLOCKED",
-			banned_at: new Date(),
+		const existingAccess = await this.userAccessRepo.findFirstBy({ userId });
+		const nextState = {
+			status: "BLOCKED" as const,
+			bannedAt: new Date(),
 			bannedReason: banReson,
-		});
+		};
 
-		if (!updatedAccount) {
+		const updatedAccess = existingAccess
+			? await this.userAccessRepo.update(existingAccess.id, nextState)
+			: await this.userAccessRepo.create({
+					userId,
+					...nextState,
+				});
+
+		if (!updatedAccess) {
 			logger.exception(
 				new UserManagementException(
-					"Failed to update account status to BLOCKED",
+					"Failed to update user access status to BLOCKED",
 				),
 			);
 			return false;

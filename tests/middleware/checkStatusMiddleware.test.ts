@@ -1,24 +1,27 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { container } from "../../src/di";
 
 type AccountStatus = "ACTIVE" | "BLOCKED" | null;
 
 let checkUserStatus = async (_userId: string): Promise<AccountStatus> =>
 	"ACTIVE";
 
-mock.module("../../src/services/AccountService", () => ({
-	AccountService: class AccountService {},
-	accountService: {
-		checkUserStatus: (userId: string) => checkUserStatus(userId),
-	},
-}));
+const originalGet = container.get;
 
 const { checkStatusMiddlware } = await import(
 	"../../src/middlware/checkStatusMiddleware"
 );
 
 describe("checkStatusMiddleware", () => {
+	beforeEach(() => {
+		container.get = (() => ({
+			checkUserStatus: (userId: string) => checkUserStatus(userId),
+		})) as typeof container.get;
+	});
+
 	afterEach(() => {
 		checkUserStatus = async () => "ACTIVE";
+		container.get = originalGet;
 	});
 
 	test("returns 401 when the context does not contain a user", async () => {

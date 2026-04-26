@@ -1,6 +1,6 @@
 import { helpRequests } from "../src/db/schema";
 import type { EntitySeed } from "./types";
-import { pick, point, seedDate } from "./helpers";
+import { pick, seedDate } from "./helpers";
 
 const urgencies = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 const statuses = [
@@ -19,6 +19,20 @@ const titles = [
 	"Check in call",
 ];
 
+const skills = [
+	"driving",
+	"it",
+	"web dev",
+	"gardening",
+	"cooking",
+	"cleaning",
+	"child care",
+	"elder care",
+	"pet care",
+	"language translation",
+];
+const categories = ["FACE_TO_FACE", "MESSAGES_ONLY"] as const;
+
 export const helpRequestsSeed: EntitySeed = {
 	name: "helpRequests",
 	run: async (db, context) => {
@@ -30,22 +44,18 @@ export const helpRequestsSeed: EntitySeed = {
 					const requester = pick(context.users, index);
 
 					return {
-						userId: anonymous ? null : requester.id,
+						requestedByUserId: anonymous ? null : requester.id,
 						guestSessionId: anonymous
 							? `guest-session-${String(index + 1).padStart(3, "0")}`
 							: null,
+						skillsNeeded: [pick(skills, index)],
+						category: pick(categories, index),
 						title: `${pick(titles, index)} #${index + 1}`,
 						description: `Seed request ${index + 1} for community support.`,
 						urgency: pick(urgencies, index),
 						status: pick(statuses, index),
 						anonymousMode: anonymous,
 						createdAt: seedDate(index + 1),
-						locationCity: pick(
-							["Bucharest", "Cluj-Napoca", "Iasi", "Timisoara", "Brasov"],
-							index,
-						),
-						locationAddressText: `Help request address ${index + 1}`,
-						location: point(index + 100),
 					};
 				}),
 			)
