@@ -16,7 +16,7 @@ export const parseCityFilter = (city?: string) => {
 			error: "Error: city requires valid value",
 		};
 	}
-    
+
 	return {
 		validData: { city: trimmedCity },
 	};

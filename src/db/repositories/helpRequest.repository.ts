@@ -12,6 +12,7 @@ import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
+	buildLanguageFilter,
 	buildStatusFilter,
 	buildCityFilter,
 	type TaskFilterParams,
@@ -27,8 +28,7 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
-{
+	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		const [newHelpRequest] = await db
 			.insert(helpRequests)
@@ -142,20 +142,17 @@ export class HelpRequestRepository
 	) {
 		const offset = (page - 1) * pageSize;
 
-		const conditions: SQL[] = [];
-
+		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
-		if (statusFilter) {
-			conditions.push(statusFilter);
-		}
-		if (cityFilter) {
-			conditions.push(cityFilter);
-		}
+		//group the filters into an array and remove any 'undefined' or null values
+		const whereClause = [statusFilter, languageFilter, cityFilter].filter(Boolean);
 
-		// Combine using AND if there are any conditions
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		//if there are active filters, combine them
+		const composedWhere =
+			whereClause.length > 0 ? and(...whereClause) : undefined;
 
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
@@ -178,7 +175,7 @@ export class HelpRequestRepository
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
-			.where(whereClause)
+			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
@@ -188,16 +185,21 @@ export class HelpRequestRepository
 			requestDetails,
 		}));
 
-		const countRows = await db
+		const countQuery = db
 			.select({ value: drizzleCount() })
 			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
 			.leftJoin(
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
-			.where(whereClause);
+			.where(composedWhere);
 
-		const total = countRows[0]?.value ?? 0;
+		const [{ value }] = await countQuery;
+		const total = value;
 
 		return { data, total };
 	}

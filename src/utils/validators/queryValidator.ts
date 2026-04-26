@@ -1,4 +1,5 @@
 import {
+	parseLanguageFilter,
 	parseStatusFilter,
 	parseCityFilter,
 	type TaskFilterParams,
@@ -45,15 +46,30 @@ export const validateTasksQuery = (
 		};
 	}
 
+	////////////Filters
+
+	const filters: TaskFilterParams = {};
+
+	//status filter
 	const statusValidation = parseStatusFilter(query.status);
 	if (statusValidation.error || !statusValidation.validData) {
 		return { error: statusValidation.error };
 	}
+	Object.assign(filters, statusValidation.validData);
+
+	//language filter
+	const languageValidation = parseLanguageFilter(query.language);
+	if (languageValidation.error) {
+		return { error: languageValidation.error };
+	}
+	Object.assign(filters, languageValidation.validData);
 
 	const cityValidation = parseCityFilter(query.city);
 	if (cityValidation.error) {
 		return { error: cityValidation.error };
 	}
+	Object.assign(filters, cityValidation.validData);
+
 
 	return {
 		validData: {
@@ -61,10 +77,8 @@ export const validateTasksQuery = (
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
-			filters: {
-				...statusValidation.validData,
-				...cityValidation.validData,
-			},
+			//ca sa nu trebuiasca de fiecare data sa modificam acelasi loc si sa apara conflicte la fiecare merge
+			filters,
 		} satisfies ValidTasksQuery,
 	};
 };
