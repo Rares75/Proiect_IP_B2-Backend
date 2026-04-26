@@ -28,13 +28,16 @@ export class ModerationService {
     private flaggedRegex: RegExp | null = null;
 
 	constructor() {
+		// add optional regex spaces in the string
+		const makeSpacedPattern = (term: string) => term.split('').join('\\s*');
+
 		const blockedTerms = blacklistConfig.keywords
             .filter(k => k.severity === ModerationLevel.BLOCKED)
-            .map(k => k.term);
+            .map(k => makeSpacedPattern(k.term));
         
         const flaggedTerms = blacklistConfig.keywords
             .filter(k => k.severity === ModerationLevel.FLAGGED)
-            .map(k => k.term);
+            .map(k => makeSpacedPattern(k.term));
 
         if (blockedTerms.length > 0) {
             this.blockedRegex = new RegExp(`\\b(${blockedTerms.join("|")})\\b`, "i");
