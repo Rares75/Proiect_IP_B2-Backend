@@ -70,7 +70,6 @@ export const validateTasksQuery = (
 	}
 	Object.assign(filters, cityValidation.validData);
 
-
 	return {
 		validData: {
 			page,

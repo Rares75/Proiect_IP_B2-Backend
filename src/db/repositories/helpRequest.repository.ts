@@ -1,5 +1,4 @@
 import {
-	type SQL,
 	and,
 	asc,
 	count as drizzleCount,
@@ -28,7 +27,8 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
+		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
+{
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		const [newHelpRequest] = await db
 			.insert(helpRequests)
@@ -148,7 +148,9 @@ export class HelpRequestRepository
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter, cityFilter].filter(Boolean);
+		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
+			Boolean,
+		);
 
 		//if there are active filters, combine them
 		const composedWhere =
