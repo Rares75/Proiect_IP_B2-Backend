@@ -1,0 +1,12 @@
+{
+    "exactWords": [
+        "scam",
+        "spam",
+        "crypto",
+        "hack"
+    ],
+    "patterns": [
+        "buy.*followers",
+        "click.*link"
+    ]
+}

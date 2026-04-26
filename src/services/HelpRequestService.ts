@@ -33,13 +33,13 @@ export class HelpRequestService {
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleCheck = this.moderationService.scanContent(data.title);
 		if (!titleCheck.isClean) {
-			throw new ModerationError("Inappropriate content detected in title");
+			throw new ModerationError(titleCheck.reason ?? "Inappropriate content detected in title.");
 		}
 
 		const descCheck = this.moderationService.scanContent(data.description);
 		if (!descCheck.isClean) {
 			throw new ModerationError(
-				"Inappropriate content detected in description",
+				descCheck.reason ?? "Inappropriate content detected in title."
 			);
 		}
 
