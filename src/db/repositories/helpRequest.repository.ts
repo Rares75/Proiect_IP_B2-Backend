@@ -1,10 +1,21 @@
-import { eq, and, count as drizzleCount, type SQL } from "drizzle-orm";  
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+	type SQL,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { helpRequests, requestLocations } from "../requests";
+import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-
+import {
+	buildDistanceFilter,
+	buildDistanceOrderBy,
+	type TaskFilterParams,
+} from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -59,7 +70,7 @@ export class HelpRequestRepository
 		for (const [key, value] of Object.entries(criteria)) {
 			if (value !== undefined) {
 				const column = helpRequests[key as keyof typeof helpRequests];
-				conditions.push(eq(column as any, value));
+				conditions.push(eq(column as never, value));
 			}
 		}
 
@@ -109,56 +120,80 @@ export class HelpRequestRepository
 		return value;
 	}
 
-    async updateStatus(
-        id: number,
-        newStatus: (typeof requestStatusEnum.enumValues)[number],
-    ): Promise<HelpRequest | undefined> {
-        const [updated] = await db
-            .update(helpRequests)
-            .set({ status: newStatus })
-            .where(eq(helpRequests.id, id))
-            .returning();
-        return updated;
-    }
+	async updateStatus(
+		id: number,
+		newStatus: (typeof requestStatusEnum.enumValues)[number],
+	): Promise<HelpRequest | undefined> {
+		const [updated] = await db
+			.update(helpRequests)
+			.set({ status: newStatus })
+			.where(eq(helpRequests.id, id))
+			.returning();
+		return updated;
+	}
 
+	async findPaginatedWithDetails(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const offset = (page - 1) * pageSize;
+		const conditions: SQL[] = [];
+		const distanceFilter = buildDistanceFilter(filters?.distance);
 
-    //BE1-12 + BE1-13
-    async findPaginatedWithDetails(
-        page: number, 
-        pageSize: number, 
-        sortBy: 'createdAt' | 'urgency' = 'createdAt', 
-        order: 'ASC' | 'DESC' = 'DESC',
-        filters?: SQL
-    ) {
-        const offset = (page - 1) * pageSize;
+		if (distanceFilter) {
+			conditions.push(distanceFilter);
+		}
 
-        const data = await db.query.helpRequests.findMany({
-            limit: pageSize,
-            offset: offset,
-            where: filters,
-            orderBy: (fields, { asc, desc }) => {
-                const primarySort = order === 'ASC' ? asc(fields[sortBy]) : desc(fields[sortBy]);
-                
-                if (sortBy === 'urgency') {
-                    //Departajare: Mai intai dupa data, apoi dupa ID dacă datele sunt identice
-                    return [primarySort, desc(fields.createdAt), desc(fields.id)];
-                }
-                
-                return [primarySort, desc(fields.id)]; 
-            },
-            with: {
-                requestDetails: true 
-            }
-        });
+		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
+		const primarySort =
+			order === "ASC"
+				? asc(helpRequests[sortBy] as typeof helpRequests.createdAt)
+				: desc(helpRequests[sortBy] as typeof helpRequests.createdAt);
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
+				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
+				: [primarySort, desc(helpRequests.id)];
 
-        const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
-        const countQuery = filters ? baseQuery.where(filters) : baseQuery;
-        
-        const [{ value }] = await countQuery;
-        const total = value;
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(whereClause)
+			.orderBy(...orderBy)
+			.limit(pageSize)
+			.offset(offset);
 
-        return { data, total };
-    }
+		const data = rows.map(({ helpRequest, requestDetails }) => ({
+			...helpRequest,
+			requestDetails,
+		}));
 
-	
+		const countRows = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(whereClause);
+
+		const total = countRows[0]?.value ?? 0;
+
+		return { data, total };
+	}
 }

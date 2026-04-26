@@ -44,6 +44,23 @@ export class VolunteerRepository {
 		return found;
 	}
 
+	async findDistancePreferencesByUserId(userId: string) {
+		const [result] = await db
+			.select({
+				volunteerId: volunteers.id,
+				maxDistanceKm: volunteerProfiles.maxDistanceKm,
+			})
+			.from(volunteers)
+			.leftJoin(
+				volunteerProfiles,
+				eq(volunteerProfiles.volunteerId, volunteers.id),
+			)
+			.where(eq(volunteers.userId, userId))
+			.limit(1);
+
+		return result;
+	}
+
 	/**
 	 * @param id id of Volunteer to be updated
 	 * @param data partial Volunteer object

@@ -8,6 +8,8 @@ import { Service } from "../di/decorators/service";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import type { TaskFilterParams } from "../filters";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -25,6 +27,8 @@ export class HelpRequestService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo?: VolunteerRepository,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -98,47 +102,77 @@ export class HelpRequestService {
 			throw new InvalidStatusTransitionError(currentStatus, newStatus);
 		}
 
-        const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
+		const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
 		if (!updated) {
 			throw new NotFoundError("HelpRequest", String(id));
 		}
 
 		return updated;
+	}
+	private async resolveTaskFilters(
+		filters: TaskFilterParams | undefined,
+		userId?: string,
+	): Promise<TaskFilterParams | undefined> {
+		if (!filters?.distance || filters.distance.radiusKm !== undefined) {
+			return filters;
+		}
 
-    }
+		if (!userId || !this.volunteerRepo) {
+			throw new Error("Radius is required");
+		}
 
+		const volunteerProfile =
+			await this.volunteerRepo.findDistancePreferencesByUserId(userId);
 
-    //BE1-12 + BE1-13
-    async getPaginatedTasks(
-        page: number, 
-        pageSize: number, 
-        sortBy: 'createdAt' | 'urgency' = 'createdAt', 
-        order: 'ASC' | 'DESC' = 'DESC', 
-        filters?: any
-    ) {
-        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, sortBy, order, filters);
+		if (!volunteerProfile?.maxDistanceKm) {
+			throw new Error("Radius is required");
+		}
 
-        const totalPages = Math.ceil(total / pageSize);
+		return {
+			...filters,
+			distance: {
+				...filters.distance,
+				radiusKm: volunteerProfile.maxDistanceKm,
+			},
+		};
+	}
 
-        const formattedData = data.map((task) => {
-            if (task.anonymousMode) {
-                const { requestedByUserId, ...restOfTask } = task;
-                return restOfTask;
-            }
-            return task;
-        });
+	//BE1-12 + BE1-13
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+		userId?: string,
+	) {
+		const resolvedFilters = await this.resolveTaskFilters(filters, userId);
+		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
+			page,
+			pageSize,
+			sortBy,
+			order,
+			resolvedFilters,
+		);
 
-        return {
-            data: formattedData,
-            meta: {
-                page: page,
-                pageSize: pageSize,
-                total: total,
-                totalPages: totalPages
-            }
-        };
-    }
+		const totalPages = Math.ceil(total / pageSize);
 
-		
+		const formattedData = data.map((task) => {
+			if (task.anonymousMode) {
+				const { requestedByUserId, ...restOfTask } = task;
+				return restOfTask;
+			}
+			return task;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
+	}
 }
-
