@@ -108,9 +108,15 @@ export class HelpRequestService {
     }
 
 
-    //BE1-12
-    async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
-        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, filters);
+    //BE1-12 + BE1-13
+    async getPaginatedTasks(
+        page: number, 
+        pageSize: number, 
+        sortBy: 'createdAt' | 'urgency' = 'createdAt', 
+        order: 'ASC' | 'DESC' = 'DESC', 
+        filters?: any
+    ) {
+        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, sortBy, order, filters);
 
         const totalPages = Math.ceil(total / pageSize);
 

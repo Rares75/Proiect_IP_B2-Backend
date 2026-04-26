@@ -6,6 +6,7 @@ import { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 
 import { authMiddleware } from "../middlware/authMiddleware";
+import { validateTasksQuery } from "../utils/validators/queryValidator";
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
@@ -135,5 +136,28 @@ export class HelpRequestController {
 
 				throw error;
 			}
-		});
+		})
+
+		// BE1-12 & BE1-13 (Paginare + Sortare)
+       .get("/", authMiddleware, async (c) => {
+         try {
+           //Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
+           const validation = validateTasksQuery(c.req.query());
+
+           //Daca validatorul gaseste o problema 
+           if (validation.error || !validation.validData) {
+               return c.json({ error: validation.error || "Eroare de validare." }, 400);
+            }
+
+           //Extragem parametrii 
+           const { page, pageSize, sortBy, order } = validation.validData;
+           const result = await this.helpRequestService.getPaginatedTasks(page, pageSize, sortBy, order);
+
+           return c.json(result, 200);
+         } catch (error) {
+           console.error("Eroare la GET /tasks paginat si sortat:", error);
+           return c.json({ error: "Eroare interna a serverului." }, 500);
+           }
+        });
+
 }
