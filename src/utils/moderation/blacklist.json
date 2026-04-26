@@ -6,6 +6,6 @@
   ],
   "patterns": [
     { "regex": "click.*link", "severity": "FLAGGED" },
-    { "regex": "offensive_regex_here", "severity": "BLOCKED" }
+    { "regex": "buy.*followers", "severity": "BLOCKED" }
   ]
 }

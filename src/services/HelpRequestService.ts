@@ -6,6 +6,7 @@ import {
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import { ModerationService, ModerationError, ModerationLevel } from "./ModerationService";
+import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
@@ -57,6 +58,7 @@ export class HelpRequestService {
 				status: "OPEN",
 			});
 		} catch (error) {
+			console.error("--- RAW DB ERROR ---", error);
 			logger.exception(error);
 			throw new Error("Could not create help request");
 		}
