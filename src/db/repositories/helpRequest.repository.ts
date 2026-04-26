@@ -1,10 +1,10 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import { type SQL, and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-import { buildStatusFilter, type TaskFilterParams } from "../../filters";
+import { buildStatusFilter, buildCityFilter, type TaskFilterParams } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -16,8 +16,7 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
-{
+	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		const [newHelpRequest] = await db
 			.insert(helpRequests)
@@ -130,7 +129,18 @@ export class HelpRequestRepository
 		filters?: TaskFilterParams,
 	) {
 		const offset = (page - 1) * pageSize;
+
+		const conditions: SQL[] = [];
+
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+
+		if (statusFilter) { conditions.push(statusFilter); }
+		if (cityFilter) { conditions.push(cityFilter); }
+
+		// Combine using AND if there are any conditions
+		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 		const orderBy =
@@ -148,7 +158,11 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
-			.where(statusFilter)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id)
+			)
+			.where(whereClause)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
@@ -158,11 +172,17 @@ export class HelpRequestRepository
 			requestDetails,
 		}));
 
-		const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
-		const countQuery = statusFilter ? baseQuery.where(statusFilter) : baseQuery;
+		const countRows = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(whereClause);
 
-		const [{ value }] = await countQuery;
-		const total = value;
+
+		const total = countRows[0]?.value ?? 0;
 
 		return { data, total };
 	}
