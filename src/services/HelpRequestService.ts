@@ -32,13 +32,15 @@ export class HelpRequestService {
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleCheck = this.moderationService.scanContent(data.title);
-        if (!titleCheck.isClean) {
+		if (!titleCheck.isClean) {
 			throw new ModerationError("Inappropriate content detected in title");
-        }
+		}
 
 		const descCheck = this.moderationService.scanContent(data.description);
 		if (!descCheck.isClean) {
-			throw new ModerationError("Inappropriate content detected in description");
+			throw new ModerationError(
+				"Inappropriate content detected in description",
+			);
 		}
 
 		try {
@@ -111,41 +113,40 @@ export class HelpRequestService {
 			throw new InvalidStatusTransitionError(currentStatus, newStatus);
 		}
 
-        const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
+		const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
 		if (!updated) {
 			throw new NotFoundError("HelpRequest", String(id));
 		}
 
 		return updated;
+	}
 
-    }
+	//BE1-12
+	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
+			page,
+			pageSize,
+			filters,
+		);
 
+		const totalPages = Math.ceil(total / pageSize);
 
-    //BE1-12
-    async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
-        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, filters);
+		const formattedData = data.map((task) => {
+			if (task.anonymousMode) {
+				const { requestedByUserId, ...restOfTask } = task;
+				return restOfTask;
+			}
+			return task;
+		});
 
-        const totalPages = Math.ceil(total / pageSize);
-
-        const formattedData = data.map((task) => {
-            if (task.anonymousMode) {
-                const { requestedByUserId, ...restOfTask } = task;
-                return restOfTask;
-            }
-            return task;
-        });
-
-        return {
-            data: formattedData,
-            meta: {
-                page: page,
-                pageSize: pageSize,
-                total: total,
-                totalPages: totalPages
-            }
-        };
-    }
-
-		
+		return {
+			data: formattedData,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
+	}
 }
-

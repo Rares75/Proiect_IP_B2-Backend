@@ -27,18 +27,18 @@ export class HelpRequestController {
 		.use("/", createValidationMiddleware(helpRequestInputSchema))
 
 		.post("/", async (c) => {
-				try {
-					const body = await c.req.json();
-					const result = await this.helpRequestService.createHelpRequest(body);
-					return c.json(result, 201);
-				} catch (error: any) {
-					// check if error comes from inappropriate request
-					if (error instanceof ModerationError) {
-						return c.json({ error: error.message }, 400);
-					}
+			try {
+				const body = await c.req.json();
+				const result = await this.helpRequestService.createHelpRequest(body);
+				return c.json(result, 201);
+			} catch (error: any) {
+				// check if error comes from inappropriate request
+				if (error instanceof ModerationError) {
+					return c.json({ error: error.message }, 400);
+				}
 
-					console.error(error);
-					return c.json({ error: "Internal server error" }, 500);
+				console.error(error);
+				return c.json({ error: "Internal server error" }, 500);
 			}
 		})
 
