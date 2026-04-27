@@ -152,8 +152,14 @@ const installSkillAwareMock = () =>
 			const requestedSkills = filters?.skills ?? [];
 			rows.sort((a, b) => {
 				if (requestedSkills.length > 0) {
-					const scoreA = calculateSkillMachScore(requestedSkills, a.skillsNeeded);
-					const scoreB = calculateSkillMachScore(requestedSkills, b.skillsNeeded);
+					const scoreA = calculateSkillMachScore(
+						requestedSkills,
+						a.skillsNeeded,
+					);
+					const scoreB = calculateSkillMachScore(
+						requestedSkills,
+						b.skillsNeeded,
+					);
 					if (scoreA !== scoreB) {
 						return scoreB - scoreA;
 					}
