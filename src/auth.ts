@@ -15,6 +15,11 @@ import { ProfileRepository } from "./db/repositories/profile.repository";
 
 const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
+	user: {
+		deleteUser: {
+			enabled: true,
+		},
+	},
 	baseURL: Bun.env.BETTER_AUTH_URL,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {
@@ -40,7 +45,8 @@ const auth = betterAuth({
 	advanced: {
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
-		trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
+		// trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
+		disableOriginCheck: true,
 		cookiePrefix: "my-app",
 		useSecureCookies: false,
 		cookies: {
