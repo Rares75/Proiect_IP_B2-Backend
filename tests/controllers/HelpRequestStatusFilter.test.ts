@@ -52,9 +52,16 @@ describe("GET /api/tasks status filter", () => {
 
 			expect(response.status).toBe(200);
 			expect(body.data.every((task: any) => task.status === "OPEN")).toBe(true);
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				status: "OPEN",
-			}, "user-123");
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					status: "OPEN",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -79,9 +86,16 @@ describe("GET /api/tasks status filter", () => {
 
 			expect(response.status).toBe(200);
 			expect(body.data).toEqual([{ id: 7, status: "COMPLETED" }]);
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				status: "COMPLETED",
-			}, "user-123");
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					status: "COMPLETED",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -149,7 +163,14 @@ describe("GET /api/tasks status filter", () => {
 
 			expect(response.status).toBe(200);
 			expect(body.data).toHaveLength(2);
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {}, "user-123");
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -182,9 +203,16 @@ describe("GET /api/tasks status filter", () => {
 				total: 6,
 				totalPages: 2,
 			});
-			expect(serviceSpy).toHaveBeenCalledWith(2, 5, "urgency", "ASC", {
-				status: "OPEN",
-			}, "user-123");
+			expect(serviceSpy).toHaveBeenCalledWith(
+				2,
+				5,
+				"urgency",
+				"ASC",
+				{
+					status: "OPEN",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
