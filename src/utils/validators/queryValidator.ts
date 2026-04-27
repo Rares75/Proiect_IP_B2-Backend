@@ -1,6 +1,7 @@
 import {
 	parseLanguageFilter,
 	parseStatusFilter,
+	parseSkillFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -17,6 +18,7 @@ type ValidTasksQuery = {
 
 export const validateTasksQuery = (
 	query: Record<string, string | undefined>,
+	skillParams?: string[] | string,
 ) => {
 	const page = query.page ? Number(query.page) : 1;
 	const pageSize = query.pageSize ? Number(query.pageSize) : 10;
@@ -45,7 +47,7 @@ export const validateTasksQuery = (
 		};
 	}
 
-	////////////Filters
+	////////////ffilters
 
 	const filters: TaskFilterParams = {};
 
@@ -62,6 +64,15 @@ export const validateTasksQuery = (
 		return { error: languageValidation.error };
 	}
 	Object.assign(filters, languageValidation.validData);
+
+	//skills filter
+	const skillSource =
+		skillParams && skillParams.length > 0 ? skillParams : query.skill;
+	const skillValidation = parseSkillFilter(skillSource);
+	if (skillValidation.error) {
+		return { error: skillValidation.error };
+	}
+	Object.assign(filters, skillValidation.validData);
 
 	return {
 		validData: {

@@ -142,7 +142,11 @@ export class HelpRequestController {
 		.get("/", authMiddleware, async (c) => {
 			try {
 				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
-				const validation = validateTasksQuery(c.req.query());
+				//UPDATE: acum valideaza si cu skill filters, care pot fi multiple (@ClsnDm)
+				const validation = validateTasksQuery(
+					c.req.query(),
+					c.req.queries("skill"),
+				);
 
 				//Daca validatorul gaseste o problema
 				if (validation.error || !validation.validData) {
