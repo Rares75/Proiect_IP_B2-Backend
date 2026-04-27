@@ -9,6 +9,7 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { logger } from "../utils/logger";
 import { ProfileService } from "../services/ProfileService";
 import { inject } from "../di";
+import { NotFoundError } from "../utils/Errors";
 
 @Controller("/profile")
 export class ProfileController {
@@ -16,8 +17,28 @@ export class ProfileController {
 		@inject(ProfileService) private readonly profileService: ProfileService,
 	) {}
 	controller = new Hono()
+
+		.get("/:userId", async (c, next) => {
+			const { userId } = c.req.param();
+
+			if (userId === "me") {
+				return next();
+			}
+
+			try {
+				const profile = await this.profileService.getProfileByUserId(userId);
+				return sendApiResponse(c, profile);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "notFound" });
+				}
+				logger.exception(error);
+				return sendApiResponse(c, null, { kind: "serverError" });
+			}
+		})
 		.use(authMiddlware)
-		.get("/", async (c) => {
+
+		.get("/me", async (c) => {
 			const session = c.get("session");
 			const user = c.get("user");
 			if (!session || !user) {
@@ -28,18 +49,9 @@ export class ProfileController {
 				const profile = await this.profileService.getProfileByUserId(user.id);
 				return sendApiResponse(c, profile);
 			} catch (error) {
-				logger.exception(error);
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		})
-
-		.get("/:userId", async (c) => {
-			const { userId } = c.req.param();
-
-			try {
-				const profile = await this.profileService.getProfileByUserId(userId);
-				return sendApiResponse(c, profile);
-			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "notFound" });
+				}
 				logger.exception(error);
 				return sendApiResponse(c, null, { kind: "serverError" });
 			}
@@ -66,6 +78,9 @@ export class ProfileController {
 				);
 				return sendApiResponse(c, profile, { kind: "created" });
 			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "notFound" });
+				}
 				logger.exception(error);
 				return sendApiResponse(c, null, { kind: "serverError" });
 			}
@@ -92,6 +107,9 @@ export class ProfileController {
 				);
 				return sendApiResponse(c, updated);
 			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "notFound" });
+				}
 				logger.exception(error);
 				return sendApiResponse(c, null, { kind: "serverError" });
 			}
@@ -113,8 +131,12 @@ export class ProfileController {
 					},
 				);
 			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "notFound" });
+				}
 				logger.exception(error);
 				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		});
 }
+

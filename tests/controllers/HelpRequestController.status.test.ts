@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { error } from "node:console";
 
 const Controller = () => (_target: unknown) => {};
 

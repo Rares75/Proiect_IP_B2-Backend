@@ -4,7 +4,11 @@ import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-import { buildStatusFilter, type TaskFilterParams } from "../../filters";
+import {
+	buildLanguageFilter,
+	buildStatusFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -130,7 +134,17 @@ export class HelpRequestRepository
 		filters?: TaskFilterParams,
 	) {
 		const offset = (page - 1) * pageSize;
+
+		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+
+		//group the filters into an array and remove any 'undefined' or null values
+		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+
+		//if there are active filters, combine them
+		const composedWhere =
+			whereClause.length > 0 ? and(...whereClause) : undefined;
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 		const orderBy =
@@ -148,7 +162,7 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
-			.where(statusFilter)
+			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
@@ -158,8 +172,14 @@ export class HelpRequestRepository
 			requestDetails,
 		}));
 
-		const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
-		const countQuery = statusFilter ? baseQuery.where(statusFilter) : baseQuery;
+		const countQuery = db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.where(composedWhere);
 
 		const [{ value }] = await countQuery;
 		const total = value;
