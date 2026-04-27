@@ -1,34 +1,46 @@
 import { Hono } from "hono";
 import { Controller } from "../utils/controller";
 import { InteractionsService } from "../services/InteractionsService";
-import { error } from "better-auth/api";
-import { inject } from "../di"
+import { sendApiResponse } from "../utils/apiReponse";
+import { logger } from "../utils/logger";
+import { inject } from "../di";
 
 @Controller("/users")
 export class InteractionsController {
-    constructor(
-        @inject(InteractionsService) 
-        private readonly interactionsService: InteractionsService,
-    ) {}
+	constructor(
+		@inject(InteractionsService)
+		private readonly interactionsService: InteractionsService,
+	) {}
 
-    controller = new Hono().get("/:userId/interactions", async (c) => {
-        try {
+	controller = new Hono().get("/:userId/interactions", async (c) => {
+		try {
+			const userId = c.req.param("userId");
+			const page = Number(c.req.query("page") ?? 1);
+			const limit = Number(c.req.query("limit") ?? 10);
 
-            const userId = c.req.param("userId");
-            const page = Number(c.req.query("page") ?? 1);
-            const limit = Number(c.req.query("limit") ?? 10);
+			if (
+				Number.isNaN(page) ||
+				page < 1 ||
+				Number.isNaN(limit) ||
+				limit < 1 ||
+				limit > 100
+			) {
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "Invalid pagination parameters.",
+				});
+			}
 
-            if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1 || limit > 100) {
-                return c.json({ error: "Invalid pagination parameters." }, 400);
-            }
+			const result = await this.interactionsService.getInteractionsForUser(
+				userId,
+				page,
+				limit,
+			);
 
-            const result = await this.interactionsService.getInteractionsForUser(userId, page, limit);
-
-            return c.json(result.body, result.status);
-
-        } catch (err) {
-            console.error("GET INTERACTIONS ERROR: ", err);
-            return c.json({error: "Internal server error" }, 500);
-        }
-    });
+			return sendApiResponse(c, result.body);
+		} catch (err) {
+			logger.exception(err);
+			return sendApiResponse(c, null, { kind: "serverError" });
+		}
+	});
 }
