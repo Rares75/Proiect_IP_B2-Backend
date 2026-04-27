@@ -2,12 +2,13 @@ import {
 	HelpRequestRepository,
 	type CreateHelpRequestDTO,
 	type HelpRequest,
-} from "../db/repositories/helpRequests.repository";
+} from "../db/repositories/helpRequest.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -104,5 +105,42 @@ export class HelpRequestService {
 		}
 
 		return updated;
+	}
+
+	//BE1-12 + BE1-13
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
+			page,
+			pageSize,
+			sortBy,
+			order,
+			filters,
+		);
+
+		const totalPages = Math.ceil(total / pageSize);
+
+		const formattedData = data.map((task) => {
+			if (task.anonymousMode) {
+				const { requestedByUserId, ...restOfTask } = task;
+				return restOfTask;
+			}
+			return task;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
 	}
 }

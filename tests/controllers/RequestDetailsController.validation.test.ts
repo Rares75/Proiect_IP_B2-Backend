@@ -7,7 +7,7 @@ mock.module("../../src/utils/controller", () => ({
 	Controller,
 }));
 
-const { HelpRequestDetailsController } = await import(
+const { RequestDetailsController } = await import(
 	"../../src/controllers/RequestDetailsController"
 );
 
@@ -30,7 +30,7 @@ describe("POST /tasks/:id/details validation", () => {
 			},
 		}));
 
-		const controller = new HelpRequestDetailsController({
+		const controller = new RequestDetailsController({
 			upsertDetails,
 		} as any);
 

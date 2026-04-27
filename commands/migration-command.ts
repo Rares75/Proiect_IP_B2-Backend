@@ -1,9 +1,10 @@
-﻿import postgres from "postgres";
+import postgres from "postgres";
 import chalk from "chalk";
 import figures from "figures";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import PrettyError from "pretty-error";
+
 const pe = new PrettyError();
 
 try {

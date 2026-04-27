@@ -1,9 +1,10 @@
-import { eq, and, count as drizzleCount } from "drizzle-orm";
+import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { helpRequests, requestLocations } from "../requests";
+import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
+import { buildStatusFilter, type TaskFilterParams } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -118,5 +119,51 @@ export class HelpRequestRepository
 			.where(eq(helpRequests.id, id))
 			.returning();
 		return updated;
+	}
+
+	//BE1-12 + BE1-13
+	async findPaginatedWithDetails(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const offset = (page - 1) * pageSize;
+		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const primarySort =
+			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
+		const orderBy =
+			sortBy === "urgency"
+				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
+				: [primarySort, desc(helpRequests.id)];
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.where(statusFilter)
+			.orderBy(...orderBy)
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(({ helpRequest, requestDetails }) => ({
+			...helpRequest,
+			requestDetails,
+		}));
+
+		const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
+		const countQuery = statusFilter ? baseQuery.where(statusFilter) : baseQuery;
+
+		const [{ value }] = await countQuery;
+		const total = value;
+
+		return { data, total };
 	}
 }
