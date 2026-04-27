@@ -53,6 +53,7 @@ jobs:
 
       - name: Tests
         run: |
+          bun fmt
           bunx @biomejs/biome ci
           bun test
 
