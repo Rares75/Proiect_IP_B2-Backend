@@ -1,11 +1,9 @@
-import { sql, type SQL } from "drizzle-orm";
-import { helpRequests } from "../db/schema";
-import type { TaskFilterParams } from "./types";
+import type {TaskFilterParams} from "./types";
 
 const normalizeSkill = (value: string) => value.trim().toLowerCase();
 
 const toSkillArray = (skill?: string | string[]) =>
-	skill === undefined ? undefined : Array.isArray(skill) ? skill : [skill];
+    skill === undefined ? undefined : Array.isArray(skill) ? skill : [skill];
 
 /**
  * Parse, normalize, and validate the skills filter
@@ -16,80 +14,49 @@ const toSkillArray = (skill?: string | string[]) =>
  *  or an `error` object with an explanatory message if validation fails
  */
 export const parseSkillFilter = (skill?: string | string[]) => {
-	const rawValues = toSkillArray(skill);
-	if (rawValues === undefined || rawValues.length === 0) {
-		return { validData: {} satisfies TaskFilterParams };
-	}
+    const rawValues = toSkillArray(skill);
+    if (rawValues === undefined || rawValues.length === 0) {
+        return {validData: {} satisfies TaskFilterParams};
+    }
 
-	if (rawValues.some((value) => value.trim().length === 0)) {
-		return {
-			error: "Error: 'skill' cannot be empty",
-		};
-	}
+    if (rawValues.some((value) => value.trim().length === 0)) {
+        return {
+            error: "Error: 'skill' cannot be empty",
+        };
+    }
 
-	return {
-		validData: {
-			skills: [...new Set(rawValues.map(normalizeSkill))],
-		} satisfies TaskFilterParams,
-	};
+    return {
+        validData: {
+            skills: [...new Set(rawValues.map(normalizeSkill))],
+        } satisfies TaskFilterParams,
+    };
 };
 
 /**
- *  Builds an SQL expression that evaluates whether a specific skill
- * @param normalizedSkill  The skill being searched for, normalized to lowercase and trimmed
- * @returns {SQL<number>} An SQL expression that returns 1 if the skill exists in the task, or 0 if it does not
+ * Calculate the match score between requested skills and task skills
+ * @param requestedSkills The array of skills the user is filtering by (in future the volunteer skills)
+ * @param taskSkills The array of skills required by the task
+ * @returns The total number of matching skills
  */
-const buildSingleSkillScoreExpr = (normalizedSkill: string): SQL<number> => {
-	let expr: SQL<number>;
-	expr = sql`
-        case when exists ( select 1 from jsonb_array_elements_text( coalesce(
-        ${helpRequests.skillsNeeded},
-        '[]'
-        :
-        :
-        jsonb
-        )
-        )
-        as
-        skill_item
-        (
-        value
-        )
-        where
-        lower
-        (
-        skill_item
-        .
-        value
-        )
-        =
-        ${normalizedSkill}
-        )
-        then
-        1
-        else
-        0
-        end
-    `;
+export const calculateSkillMachScore = (
+    requestedSkills: string[] | undefined,
+    taskSkills: string[] | null | undefined,
+): number => {
+    // Return 0 if either array is empty or missing
+    if (!requestedSkills || requestedSkills.length === 0) return 0;
+    if (!taskSkills || taskSkills.length === 0) return 0;
 
-	return expr;
-};
+    // Normalize task skills and put them in a Set
+    const taskSkillsSet = new Set(taskSkills.map(normalizeSkill));
 
-export const buildSkillMatchScore = ({
-	skills,
-}: TaskFilterParams): SQL<number> => {
-	if (!skills || skills.length === 0) {
-		return sql<number>`0`;
-	}
+    const normalizedRequested = requestedSkills.map(normalizeSkill);
 
-	const expressions = [...new Set(skills.map(normalizeSkill))].map(
-		buildSingleSkillScoreExpr,
-	);
+    let score = 0;
+    for (const skill of normalizedRequested) {
+        if (taskSkillsSet.has(skill)) {
+            score++;
+        }
+    }
 
-	return expressions.slice(1).reduce(
-		(acc, expr) => sql<number>`${acc}
-        +
-        ${expr}`,
-		expressions[0],
-	);
+    return score;
 };
