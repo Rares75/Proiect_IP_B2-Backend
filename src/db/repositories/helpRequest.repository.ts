@@ -208,13 +208,19 @@ export class HelpRequestRepository
 	}
 
 	private buildRowsWithSkillScore(
-		rows: Array<{ helpRequest: HelpRequest; requestDetails: typeof requestDetails.$inferSelect | null }>,
+		rows: Array<{
+			helpRequest: HelpRequest;
+			requestDetails: typeof requestDetails.$inferSelect | null;
+		}>,
 		requestedSkills: string[] | undefined,
 	) {
 		return rows.map(({ helpRequest, requestDetails }) => ({
 			...helpRequest,
 			requestDetails,
-			skillScore: calculateSkillMachScore(requestedSkills, helpRequest?.skillsNeeded),
+			skillScore: calculateSkillMachScore(
+				requestedSkills,
+				helpRequest?.skillsNeeded,
+			),
 		}));
 	}
 }
