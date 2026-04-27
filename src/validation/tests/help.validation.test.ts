@@ -63,13 +63,16 @@ describe("Help route validation integration", () => {
 	it("returns 400 with descriptive errors for a null helpRequest body", async () => {
 		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help/helpRequest", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
+		const response = await app.request(
+			"http://localhost/api/help/helpRequest",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: "null",
 			},
-			body: "null",
-		});
+		);
 
 		const payload = (await response.json()) as ValidationErrorResponse &
 			Record<string, unknown>;
@@ -90,16 +93,19 @@ describe("Help route validation integration", () => {
 	it("returns 400 and collects all missing required helpRequest fields", async () => {
 		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help/helpRequest", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
+		const response = await app.request(
+			"http://localhost/api/help/helpRequest",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					title: "",
+					description: "",
+				}),
 			},
-			body: JSON.stringify({
-				title: "",
-				description: "",
-			}),
-		});
+		);
 
 		const payload = (await response.json()) as ValidationErrorResponse &
 			Record<string, unknown>;
@@ -136,13 +142,16 @@ describe("Help route validation integration", () => {
 	it("passes /help/helpRequest without requestDetails", async () => {
 		const app = createApp();
 
-		const response = await app.request("http://localhost/api/help/helpRequest", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
+		const response = await app.request(
+			"http://localhost/api/help/helpRequest",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(validHelpRequestPayload),
 			},
-			body: JSON.stringify(validHelpRequestPayload),
-		});
+		);
 
 		const payload = (await response.json()) as HelpSuccessPayload &
 			Record<string, unknown>;

@@ -1,11 +1,12 @@
-import { eq, and, count as drizzleCount, type SQL } from "drizzle-orm";  
+import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { volunteers } from "../profile";
 import { helpRequests, requestLocations, taskAssignments } from "../requests";
+import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-
+import { buildStatusFilter, type TaskFilterParams } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -127,60 +128,49 @@ export class HelpRequestRepository
 		return updated;
 	}
 
-	async findAssignmentAuthorizationByHelpRequestId(
-		helpRequestId: number,
-	): Promise<HelpRequestAssignmentAuthorization | undefined> {
-		const [found] = await db
+	//BE1-12 + BE1-13
+	async findPaginatedWithDetails(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const offset = (page - 1) * pageSize;
+		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const primarySort =
+			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
+		const orderBy =
+			sortBy === "urgency"
+				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
+				: [primarySort, desc(helpRequests.id)];
+
+		const rows = await db
 			.select({
-				requestedByUserId: taskAssignments.requestedByUserId,
-				handledByVolunteerId: taskAssignments.handledByVolunteerId,
-				volunteerUserId: volunteers.userId,
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
 			})
-			.from(taskAssignments)
-			.innerJoin(
-				volunteers,
-				eq(taskAssignments.handledByVolunteerId, volunteers.id),
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
-			.where(eq(taskAssignments.helpRequestId, helpRequestId))
-			.limit(1);
+			.where(statusFilter)
+			.orderBy(...orderBy)
+			.limit(pageSize)
+			.offset(offset);
 
-		return found;
+		const data = rows.map(({ helpRequest, requestDetails }) => ({
+			...helpRequest,
+			requestDetails,
+		}));
+
+		const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
+		const countQuery = statusFilter ? baseQuery.where(statusFilter) : baseQuery;
+
+		const [{ value }] = await countQuery;
+		const total = value;
+
+		return { data, total };
 	}
-    async updateStatus(
-        id: number,
-        newStatus: (typeof requestStatusEnum.enumValues)[number],
-    ): Promise<HelpRequest | undefined> {
-        const [updated] = await db
-            .update(helpRequests)
-            .set({ status: newStatus })
-            .where(eq(helpRequests.id, id))
-            .returning();
-        return updated;
-    }
-
-
-    //BE1-12
-    async findPaginatedWithDetails(page: number, pageSize: number, filters?: SQL) {
-        const offset = (page - 1) * pageSize;
-
-        const data = await db.query.helpRequests.findMany({
-            limit: pageSize,
-            offset: offset,
-            where: filters, 
-			orderBy: (helpRequests, { desc }) => [desc(helpRequests.id)],
-            with: {
-                requestDetails: true 
-            }
-        });
-
-        const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
-        const countQuery = filters ? baseQuery.where(filters) : baseQuery;
-        
-        const [{ value }] = await countQuery;
-        const total = value;
-
-        return { data, total };
-    }
-
-	
 }

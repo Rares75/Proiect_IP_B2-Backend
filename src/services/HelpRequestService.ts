@@ -9,6 +9,7 @@ import { Service } from "../di/decorators/service";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -115,41 +116,48 @@ export class HelpRequestService {
 			throw new InvalidStatusTransitionError(currentStatus, newStatus);
 		}
 
-        const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
+		const updated = await this.helpRequestRepo.updateStatus(id, newStatus);
 		if (!updated) {
 			throw new NotFoundError("HelpRequest", String(id));
 		}
 
 		return updated;
+	}
 
-    }
+	//BE1-12 + BE1-13
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
+			page,
+			pageSize,
+			sortBy,
+			order,
+			filters,
+		);
 
+		const totalPages = Math.ceil(total / pageSize);
 
-    //BE1-12
-    async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
-        const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(page, pageSize, filters);
+		const formattedData = data.map((task) => {
+			if (task.anonymousMode) {
+				const { requestedByUserId, ...restOfTask } = task;
+				return restOfTask;
+			}
+			return task;
+		});
 
-        const totalPages = Math.ceil(total / pageSize);
-
-        const formattedData = data.map((task) => {
-            if (task.anonymousMode) {
-                const { requestedByUserId, ...restOfTask } = task;
-                return restOfTask;
-            }
-            return task;
-        });
-
-        return {
-            data: formattedData,
-            meta: {
-                page: page,
-                pageSize: pageSize,
-                total: total,
-                totalPages: totalPages
-            }
-        };
-    }
-
-		
+		return {
+			data: formattedData,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
+	}
 }
-

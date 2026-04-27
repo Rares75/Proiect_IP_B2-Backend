@@ -124,10 +124,10 @@ export class RequestDetailsController {
 
 			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);
 
-			if (result.status === 204) {
-				return c.body(null, 204);
-			}
+            if (result.status === 204) {
+                return c.body(null, 204);
+            }
 
-			return c.json(result.body, result.status);
-		});
+            return c.json(result.body, result.status);
+        });
 }
