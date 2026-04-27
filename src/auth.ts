@@ -91,6 +91,7 @@ const auth = betterAuth({
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			sendVerificationOnSignUp: true,
 			async sendVerificationOTP({ email, otp, type }) {
 				const mailer = getMailer();
 				try {
