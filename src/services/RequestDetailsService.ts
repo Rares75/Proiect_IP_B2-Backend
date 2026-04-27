@@ -32,15 +32,7 @@ export class RequestDetailsService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
-	) { }
-
-	protected async getHelpRequestRepository() {
-		return this.helpRequestRepo;
-	}
-
-	protected async getRequestDetailsRepository() {
-		return this.requestDetailsRepo;
-	}
+	) {}
 
 	async upsertDetails(
 		helpRequestId: number,
@@ -59,7 +51,8 @@ export class RequestDetailsService {
 			}
 
 			// Check if details already exist for this task
-			const existing = await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
+			const existing =
+				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 
 			if (existing) {
 				// If exists -> update with full overwrite
@@ -86,10 +79,7 @@ export class RequestDetailsService {
 		helpRequestId: number,
 	): Promise<DeleteHelpRequestDetailsResult> {
 		try {
-			const helpRequestRepo = await this.getHelpRequestRepository();
-			const requestDetailsRepo = await this.getRequestDetailsRepository();
-
-			const task = await helpRequestRepo.findById(helpRequestId);
+			const task = await this.helpRequestRepo.findById(helpRequestId);
 			if (!task) {
 				return {
 					status: 404,
@@ -108,7 +98,7 @@ export class RequestDetailsService {
 			}
 
 			const existingDetails =
-				await requestDetailsRepo.findByHelpRequestId(helpRequestId);
+				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 			if (!existingDetails) {
 				return {
 					status: 409,
@@ -117,7 +107,7 @@ export class RequestDetailsService {
 			}
 
 			const deleted =
-				await requestDetailsRepo.deleteByHelpRequestId(helpRequestId);
+				await this.requestDetailsRepo.deleteByHelpRequestId(helpRequestId);
 			if (!deleted) {
 				return {
 					status: 500,
