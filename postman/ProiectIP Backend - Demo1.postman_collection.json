@@ -1,0 +1,1301 @@
+{
+  "info": {
+    "_postman_id": "6cb2105b-28c0-4a27-b228-f468fcdfbe4f",
+    "name": "ProiectIP Backend - Demo1",
+    "description": "Repo-aligned Postman collection generated from Demo1.odt. The source document covers BK2-04 through BK2-07: user profiles, volunteer profiles, ratings/reputation, and email verification. Requests intentionally match the current implementation where the ODT differs from code. Protected profile requests rely on Better Auth's signed session cookie in Postman's cookie jar after email verification/sign-in; Authorization: Bearer is not the primary auth mechanism in this repo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Email Verification",
+      "description": "Better Auth routes currently implemented by src/controllers/AuthController.ts and src/auth.ts. Demo1.odt describes POST /auth/verify-email with { code }, but this repo exposes OTP verification at POST /auth/email-otp/verify-email with { email, otp }. The regular /auth/verify-email route is a token-based GET route from Better Auth.",
+      "item": [
+        {
+          "name": "Sign Up - Email Verification User",
+          "description": "Creates a fresh user and triggers email verification. A pre-request script generates a new authEmail so repeated runs do not collide. The auth hook also creates a blank profile for the new user.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = `demo1${Date.now()}@example.com`;",
+                  "pm.environment.set('authEmail', email);",
+                  "pm.environment.unset('otp');",
+                  "pm.environment.unset('authUserId');",
+                  "pm.environment.unset('sessionToken');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains user data', function () {",
+                  "  pm.expect(json).to.have.property('user');",
+                  "  pm.expect(json.user).to.have.property('email', pm.environment.get('authEmail'));",
+                  "});",
+                  "",
+                  "if (json.user && json.user.id) {",
+                  "  pm.environment.set('authUserId', json.user.id);",
+                  "}",
+                  "if (json.token) {",
+                  "  pm.environment.set('sessionToken', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\",\n  \"name\": \"{{authName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-up/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-up", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sign In With Unverified Email - Expected 403",
+          "description": "Repo-aligned negative case. Because emailAndPassword.requireEmailVerification is true, signing in before OTP verification returns 403 Email not verified, not the 200 shown in Demo1.odt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 403 for unverified email', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Response is JSON', function () {",
+                  "  pm.response.json();",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Verification Email - Token Link",
+          "description": "Implemented Better Auth token-link resend route from /auth/send-verification-email. Demo1.odt names this as an OTP resend route, but OTP resend is exposed separately at /auth/email-otp/send-verification-otp.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response confirms send status', function () {",
+                  "  pm.expect(json).to.have.property('status', true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/send-verification-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "send-verification-email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Verification OTP",
+          "description": "Sends the email-verification OTP. In local development, retrieve the OTP from MailDev at http://localhost:1080 and paste it into the otp environment variable before running Verify Email OTP.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response confirms OTP send', function () {",
+                  "  pm.expect(json).to.have.property('success', true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"type\": \"email-verification\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/email-otp/send-verification-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "email-otp", "send-verification-otp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email OTP",
+          "description": "Paste the MailDev OTP into {{otp}} before sending. On success, Better Auth returns a token and sets the signed session cookie that later profile requests use.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const otp = pm.environment.get('otp');",
+                  "",
+                  "if (!otp) {",
+                  "  pm.test('Missing otp is rejected until MailDev code is provided', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "  });",
+                  "",
+                  "  const json = pm.response.json();",
+                  "  pm.test('Email is verified and user is returned', function () {",
+                  "    pm.expect(json).to.have.property('status', true);",
+                  "    pm.expect(json).to.have.property('user');",
+                  "  });",
+                  "",
+                  "  if (json.user && json.user.id) {",
+                  "    pm.environment.set('authUserId', json.user.id);",
+                  "  }",
+                  "  if (json.token) {",
+                  "    pm.environment.set('sessionToken', json.token);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/email-otp/verify-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "email-otp", "verify-email"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sign In After Verification",
+          "description": "Signs in the verified user. Postman should retain the signed session cookie from this response for protected profile requests.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains token and user', function () {",
+                  "  pm.expect(json).to.have.property('token');",
+                  "  pm.expect(json).to.have.property('user');",
+                  "});",
+                  "",
+                  "if (json.user && json.user.id) {",
+                  "  pm.environment.set('authUserId', json.user.id);",
+                  "}",
+                  "if (json.token) {",
+                  "  pm.environment.set('sessionToken', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/sign-in/email",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "sign-in", "email"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "BK2-04 User Profiles",
+      "description": "Profile endpoints implemented by src/controllers/ProfileController.ts. All routes currently pass through authMiddlware, including GET /profile/:userId. Responses use sendApiResponse wrappers with data, message, status flags, app.url, and statusCode. The persisted profile data does not include name/image, even though create/update accepts those fields and writes them to the Better Auth user table.",
+      "item": [
+        {
+          "name": "Create User Profile",
+          "description": "Requires a valid Better Auth session cookie. Expected status is 201 for an authenticated user without an existing profile. If you use the Sign Up request first, the repo's auth hook may already have created a blank profile for that user.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response uses API wrapper with profile data', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json.data).to.include.keys(['id', 'userId']);",
+                  "  pm.expect(json).to.have.property('statusCode', 201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"image\": \"https://example.com/avatar.jpg\",\n  \"bio\": \"I'm a passionate volunteer helping the community\",\n  \"languages\": [\"English\", \"Romanian\"],\n  \"hiddenIdentity\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User Profile",
+          "description": "Returns the profile for the authenticated session user inside the repo's standard API wrapper.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response uses API wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json).to.have.property('statusCode', 200);",
+                  "  pm.expect(json.data).to.include.keys(['id', 'userId']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Specific User Profile by User ID",
+          "description": "Repo-aligned route: GET /profile/:userId expects a Better Auth user ID such as user-001, not numeric profile id 1. It still requires a session cookie because the controller-level middleware wraps all profile routes.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains requested user profile wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json.data).to.have.property('userId', pm.environment.get('profileUserId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/{{profileUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "{{profileUserId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "description": "Updates profile fields for the authenticated session user at PUT /profile/me. Name/image are accepted but live on the user table and are not returned in the profile row.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains updated profile wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json.data).to.include.keys(['id', 'userId']);",
+                  "  pm.expect(json).to.have.property('statusCode', 200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe Updated\",\n  \"bio\": \"New bio text\",\n  \"languages\": [\"English\", \"Romanian\", \"French\"],\n  \"hiddenIdentity\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User Profile",
+          "description": "Repo implementation returns 200 with a wrapper and { deleted: true }, not 204 No Content.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response confirms deletion', function () {",
+                  "  pm.expect(json).to.have.property('data');",
+                  "  pm.expect(json.data).to.have.property('deleted', true);",
+                  "  pm.expect(json).to.have.property('message', 'Profile deleted successfully');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profile/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Profile - Missing Required Field",
+          "description": "Validation example from Demo1.odt. Requires an authenticated session; once authenticated, missing name returns 400 via sendApiResponse.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response is client error wrapper', function () {",
+                  "  pm.expect(json).to.have.property('isClientError', true);",
+                  "  pm.expect(json).to.have.property('statusCode', 400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "BK2-05 Volunteer Profiles",
+      "description": "Volunteer profile lookup endpoint implemented by src/controllers/VolunteerController.ts. It is public and does not use auth middleware. Seed defaults use volunteer 2 for visible identity and volunteer 1 for hidden identity because profiles.seed.ts marks every seventh profile hidden starting at user-001.",
+      "item": [
+        {
+          "name": "Get Visible Volunteer Profile",
+          "description": "Public full volunteer profile. Current repo returns availability as a boolean and ratingInfo.ratings as repository rows.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains volunteer profile sections', function () {",
+                  "  pm.expect(json).to.have.property('id', Number(pm.environment.get('visibleVolunteerId')));",
+                  "  pm.expect(json).to.have.property('user');",
+                  "  pm.expect(json).to.have.property('profile');",
+                  "  pm.expect(json).to.have.property('ratingInfo');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/volunteers/{{visibleVolunteerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["volunteers", "{{visibleVolunteerId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Hidden Identity Volunteer Profile",
+          "description": "When hiddenIdentity is true, the controller nulls name, email, and phone while keeping image/profile/rating data.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Hidden identity fields are nulled', function () {",
+                  "  pm.expect(json).to.have.property('id', Number(pm.environment.get('hiddenVolunteerId')));",
+                  "  pm.expect(json.user).to.have.property('name', null);",
+                  "  pm.expect(json.user).to.have.property('email', null);",
+                  "  pm.expect(json.user).to.have.property('phone', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/volunteers/{{hiddenVolunteerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["volunteers", "{{hiddenVolunteerId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Non-Existent Volunteer",
+          "description": "Negative lookup for a valid positive integer that does not exist.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains not found error', function () {",
+                  "  pm.expect(json).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/volunteers/999",
+              "host": ["{{baseUrl}}"],
+              "path": ["volunteers", "999"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Invalid Volunteer ID",
+          "description": "Non-integer volunteer IDs are rejected before repository lookup.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response contains validation error', function () {",
+                  "  pm.expect(json).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/volunteers/abc",
+              "host": ["{{baseUrl}}"],
+              "path": ["volunteers", "abc"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "BK2-05/BK2-07 Ratings & Reputation",
+      "description": "Ratings routes implemented by src/controllers/RatingsController.ts. Current createRating service returns null for business-rule failures; the controller maps null to 404 { data: null }. Zod validation failures still return 400. Current get ratings returns a raw array, and summary returns { averageRating, ratingsCount }, not the Demo1.odt data wrapper/breakdown shape.",
+      "item": [
+        {
+          "name": "Create Rating - Requester Rates Volunteer",
+          "description": "Attempts to create a rating for a completed seeded assignment. With seeded data, the same rating may already exist; the smoke test accepts either 200 success or the repo's current 404 null result.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or seeded duplicate 404', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Created rating contains key fields', function () {",
+                  "    pm.expect(json).to.include.keys(['id', 'taskAssignmentId', 'writtenByUserId', 'receivedByUserId', 'stars']);",
+                  "  });",
+                  "  pm.environment.set('lastRatingId', String(json.id));",
+                  "} else {",
+                  "  pm.test('Business-rule failure uses current null body', function () {",
+                  "    pm.expect(json).to.have.property('data', null);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 5,\n  \"comment\": \"Outstanding help! Very professional and punctual.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Rating - Volunteer Rates Requester",
+          "description": "Second valid participant direction for the same completed assignment. Seeded databases may already contain this rating, so 404 null is accepted as the current duplicate/business-rule response.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or seeded duplicate 404', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Created rating contains reversed participants', function () {",
+                  "    pm.expect(json).to.include.keys(['id', 'writtenByUserId', 'receivedByUserId', 'stars']);",
+                  "    pm.expect(json.writtenByUserId).to.eql(pm.environment.get('receivedUserId'));",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Business-rule failure uses current null body', function () {",
+                  "    pm.expect(json).to.have.property('data', null);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{receivedUserId}}\",\n  \"receivedByUserId\": \"{{writtenByUserId}}\",\n  \"stars\": 4,\n  \"comment\": \"Good requester, clear instructions and polite.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Ratings Received by User",
+          "description": "Repo-aligned response is a raw array of rating rows, not { data: [...] } as in Demo1.odt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "  pm.expect(Array.isArray(json)).to.eql(true);",
+                  "});",
+                  "",
+                  "if (json.length > 0) {",
+                  "  pm.test('Ratings include receivedByUserId', function () {",
+                  "    pm.expect(json[0]).to.have.property('receivedByUserId');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ratings/user/{{receivedUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings", "user", "{{receivedUserId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Rating Summary for User",
+          "description": "Repo-aligned response is { averageRating, ratingsCount }. The ODT's ratingsBreakdown shape is not currently implemented.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Summary contains current aggregate fields', function () {",
+                  "  pm.expect(json).to.have.property('averageRating');",
+                  "  pm.expect(json).to.have.property('ratingsCount');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ratings/user/{{receivedUserId}}/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings", "user", "{{receivedUserId}}", "summary"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rate Yourself - Business Rule Failure",
+          "description": "The service rejects self-rating. Current controller maps the null service result to 404 { data: null }, even though Demo1.odt expects 400 with a specific error message.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is current 404 business-rule response', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response body is current null wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{receivedUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 5,\n  \"comment\": \"Rating myself\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Stars Value",
+          "description": "Schema validation failure from zValidator. This remains a 400 response.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response is JSON', function () {",
+                  "  pm.response.json();",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 10,\n  \"comment\": \"Great work!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Required Rating Field",
+          "description": "Schema validation failure for missing stars/comment. This remains a 400 response.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response is JSON', function () {",
+                  "  pm.response.json();",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Task Not Completed - Business Rule Failure",
+          "description": "Current service rejects non-COMPLETED task assignments and the controller maps that to 404 { data: null }.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is current 404 business-rule response', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response body is current null wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{incompleteTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 5,\n  \"comment\": \"Great!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate Rating Attempt",
+          "description": "Uses the same completed seeded assignment and participants as the create example. Seeded databases generally already contain this rating, so current expected status is 404 null.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is current 404 business-rule response', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response body is current null wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 3,\n  \"comment\": \"Changing my rating\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Rating Participants",
+          "description": "Participants do not match requester/volunteer for the completed assignment. Current expected response is 404 null.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is current 404 business-rule response', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response body is current null wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{completedTaskAssignmentId}},\n  \"writtenByUserId\": \"user-999\",\n  \"receivedByUserId\": \"user-888\",\n  \"stars\": 5,\n  \"comment\": \"Random rating\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Task Assignment Not Found",
+          "description": "Missing task assignment is a business-rule failure in the service. Current controller returns 404 null instead of Demo1.odt's 400 error message.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is current 404 business-rule response', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test('Response body is current null wrapper', function () {",
+                  "  pm.expect(json).to.have.property('data', null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskAssignmentId\": {{missingTaskAssignmentId}},\n  \"writtenByUserId\": \"{{writtenByUserId}}\",\n  \"receivedByUserId\": \"{{receivedUserId}}\",\n  \"stars\": 5,\n  \"comment\": \"Work\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ratings",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documented API Gaps",
+      "description": "Requests present in Demo1.odt or partially implemented internally, but not fully exposed by current controllers.",
+      "item": [
+        {
+          "name": "Get Recent Ratings for User - Missing Controller Route",
+          "description": "Demo1.odt includes GET /ratings/user/:userId/recent. RatingsService and RatingsRepository contain recent-ratings methods, but RatingsController currently does not expose this route. Expected status is therefore 404 until the controller route is added.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404 because route is not exposed', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ratings/user/{{receivedUserId}}/recent",
+              "host": ["{{baseUrl}}"],
+              "path": ["ratings", "user", "{{receivedUserId}}", "recent"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    }
+  ]
+}
