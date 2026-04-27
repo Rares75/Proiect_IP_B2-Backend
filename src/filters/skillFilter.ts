@@ -1,9 +1,9 @@
-import type {TaskFilterParams} from "./types";
+import type { TaskFilterParams } from "./types";
 
 const normalizeSkill = (value: string) => value.trim().toLowerCase();
 
 const toSkillArray = (skill?: string | string[]) =>
-    skill === undefined ? undefined : Array.isArray(skill) ? skill : [skill];
+	skill === undefined ? undefined : Array.isArray(skill) ? skill : [skill];
 
 /**
  * Parse, normalize, and validate the skills filter
@@ -14,22 +14,22 @@ const toSkillArray = (skill?: string | string[]) =>
  *  or an `error` object with an explanatory message if validation fails
  */
 export const parseSkillFilter = (skill?: string | string[]) => {
-    const rawValues = toSkillArray(skill);
-    if (rawValues === undefined || rawValues.length === 0) {
-        return {validData: {} satisfies TaskFilterParams};
-    }
+	const rawValues = toSkillArray(skill);
+	if (rawValues === undefined || rawValues.length === 0) {
+		return { validData: {} satisfies TaskFilterParams };
+	}
 
-    if (rawValues.some((value) => value.trim().length === 0)) {
-        return {
-            error: "Error: 'skill' cannot be empty",
-        };
-    }
+	if (rawValues.some((value) => value.trim().length === 0)) {
+		return {
+			error: "Error: 'skill' cannot be empty",
+		};
+	}
 
-    return {
-        validData: {
-            skills: [...new Set(rawValues.map(normalizeSkill))],
-        } satisfies TaskFilterParams,
-    };
+	return {
+		validData: {
+			skills: [...new Set(rawValues.map(normalizeSkill))],
+		} satisfies TaskFilterParams,
+	};
 };
 
 /**
@@ -39,24 +39,24 @@ export const parseSkillFilter = (skill?: string | string[]) => {
  * @returns The total number of matching skills
  */
 export const calculateSkillMachScore = (
-    requestedSkills: string[] | undefined,
-    taskSkills: string[] | null | undefined,
+	requestedSkills: string[] | undefined,
+	taskSkills: string[] | null | undefined,
 ): number => {
-    // Return 0 if either array is empty or missing
-    if (!requestedSkills || requestedSkills.length === 0) return 0;
-    if (!taskSkills || taskSkills.length === 0) return 0;
+	// Return 0 if either array is empty or missing
+	if (!requestedSkills || requestedSkills.length === 0) return 0;
+	if (!taskSkills || taskSkills.length === 0) return 0;
 
-    // Normalize task skills and put them in a Set
-    const taskSkillsSet = new Set(taskSkills.map(normalizeSkill));
+	// Normalize task skills and put them in a Set
+	const taskSkillsSet = new Set(taskSkills.map(normalizeSkill));
 
-    const normalizedRequested = requestedSkills.map(normalizeSkill);
+	const normalizedRequested = requestedSkills.map(normalizeSkill);
 
-    let score = 0;
-    for (const skill of normalizedRequested) {
-        if (taskSkillsSet.has(skill)) {
-            score++;
-        }
-    }
+	let score = 0;
+	for (const skill of normalizedRequested) {
+		if (taskSkillsSet.has(skill)) {
+			score++;
+		}
+	}
 
-    return score;
+	return score;
 };
