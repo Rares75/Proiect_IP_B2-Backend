@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
+import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 
@@ -24,21 +25,23 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		//.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.use("/", createValidationMiddleware(helpRequestInputSchema))
 
-		.post(
-			"/",
-			createValidationMiddleware(helpRequestInputSchema),
-			async (c) => {
-				try {
-					const body = await c.req.json();
-					const result = await this.helpRequestService.createHelpRequest(body);
-					return c.json(result, 201);
-				} catch {
-					return c.json({ error: "Internal server error" }, 500);
+		.post("/", async (c) => {
+			try {
+				const body = await c.req.json();
+				const result = await this.helpRequestService.createHelpRequest(body);
+				return c.json(result, 201);
+			} catch (error: any) {
+				// check if error comes from inappropriate request
+				if (error instanceof ModerationError) {
+					return c.json({ error: error.message }, 400);
 				}
-			},
-		)
+
+				console.error(error);
+				return c.json({ error: "Internal server error" }, 500);
+			}
+		})
 
 		.get("/:id", async (c) => {
 			try {
