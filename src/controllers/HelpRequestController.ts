@@ -167,10 +167,14 @@ export class HelpRequestController {
 					sortBy,
 					order,
 					filters,
+					c.get("user").id,
 				);
 
 				return c.json(result, 200);
 			} catch (error) {
+				if (error instanceof Error && error.message === "Radius is required") {
+					return c.json({ error: error.message }, 400);
+				}
 				console.error("Eroare la GET /tasks paginat si sortat:", error);
 				return c.json({ error: "Eroare interna a serverului." }, 500);
 			}

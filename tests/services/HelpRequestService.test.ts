@@ -51,6 +51,10 @@ const moderationService = {
 	scanContent: () => ({ level: "CLEAN" }),
 };
 
+const volunteerRepo = {
+	findDistancePreferencesByUserId: async () => undefined,
+};
+
 describe("HelpRequestService.updateHelpRequestStatus", () => {
 	test("valid Open -> Claimed (OPEN -> MATCHED) actualizeaza statusul in repo", async () => {
 		const repo = new InMemoryHelpRequestRepo();
@@ -59,6 +63,7 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 			repo as any,
 			detailsRepo as any,
 			moderationService as any,
+			volunteerRepo as any,
 		);
 
 		const updated = await service.updateHelpRequestStatus(1, "MATCHED");
@@ -75,6 +80,7 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 			repo as any,
 			detailsRepo as any,
 			moderationService as any,
+			volunteerRepo as any,
 		);
 
 		const updated = await service.updateHelpRequestStatus(2, "COMPLETED");
@@ -91,6 +97,7 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 			repo as any,
 			detailsRepo as any,
 			moderationService as any,
+			volunteerRepo as any,
 		);
 
 		expect(
@@ -111,6 +118,7 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 			repo as any,
 			detailsRepo as any,
 			moderationService as any,
+			volunteerRepo as any,
 		);
 
 		expect(

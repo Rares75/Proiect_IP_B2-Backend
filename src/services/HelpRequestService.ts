@@ -15,6 +15,7 @@ import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { TaskFilterParams } from "../filters";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -34,6 +35,8 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -142,12 +145,50 @@ export class HelpRequestService {
 		return updated;
 	}
 
+	private async resolveTaskFilters(
+		filters: TaskFilterParams | undefined,
+		userId?: string,
+	): Promise<TaskFilterParams | undefined> {
+		if (!filters?.distance || filters.distance.radiusKm !== undefined) {
+			return filters;
+		}
+
+		if (!userId) {
+			throw new Error("Radius is required");
+		}
+
+		const volunteerProfile =
+			await this.volunteerRepo.findDistancePreferencesByUserId(userId);
+
+		if (!volunteerProfile?.maxDistanceKm) {
+			throw new Error("Radius is required");
+		}
+
+		return {
+			...filters,
+			distance: {
+				...filters.distance,
+				radiusKm: volunteerProfile.maxDistanceKm,
+			},
+		};
+	}
+
 	//BE1-12
-	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+		userId?: string,
+	) {
+		const resolvedFilters = await this.resolveTaskFilters(filters, userId);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
-			filters,
+			sortBy,
+			order,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);

@@ -1,10 +1,19 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+	type SQL,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
+	buildDistanceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
 	type TaskFilterParams,
@@ -12,9 +21,7 @@ import {
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
-
 export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
-
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
 @repository()
@@ -63,7 +70,7 @@ export class HelpRequestRepository
 		for (const [key, value] of Object.entries(criteria)) {
 			if (value !== undefined) {
 				const column = helpRequests[key as keyof typeof helpRequests];
-				conditions.push(eq(column as any, value));
+				conditions.push(eq(column as never, value));
 			}
 		}
 
@@ -137,18 +144,27 @@ export class HelpRequestRepository
 
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [statusFilter, distanceFilter, languageFilter].filter(
+			Boolean,
+		) as SQL[];
 
 		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
 		const primarySort =
-			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
-		const orderBy =
-			sortBy === "urgency"
+			order === "ASC"
+				? asc(helpRequests[sortBy] as typeof helpRequests.createdAt)
+				: desc(helpRequests[sortBy] as typeof helpRequests.createdAt);
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
@@ -162,6 +178,10 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
@@ -172,17 +192,20 @@ export class HelpRequestRepository
 			requestDetails,
 		}));
 
-		const countQuery = db
+		const countRows = await db
 			.select({ value: drizzleCount() })
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere);
 
-		const [{ value }] = await countQuery;
-		const total = value;
+		const total = countRows[0]?.value ?? 0;
 
 		return { data, total };
 	}

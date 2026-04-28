@@ -69,7 +69,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		});
 		expect(response.status).toBe(200);
 
-		expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			1,
+			10,
+			"createdAt",
+			"DESC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 
@@ -99,7 +106,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(body.data[0].urgency).toBe("CRITICAL");
 		expect(body.data[1].urgency).toBe("LOW");
 
-		expect(serviceSpy).toHaveBeenCalledWith(1, 10, "urgency", "DESC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			1,
+			10,
+			"urgency",
+			"DESC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 
@@ -128,7 +142,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		const body: any = await response.json();
 		expect(body.data[0].urgency).toBe("LOW");
 
-		expect(serviceSpy).toHaveBeenCalledWith(1, 10, "urgency", "ASC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			1,
+			10,
+			"urgency",
+			"ASC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 
@@ -161,7 +182,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(body.data[0].createdAt).toBe("2023-01-01");
 		expect(body.data[1].createdAt).toBe("2024-01-01");
 
-		expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "ASC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			1,
+			10,
+			"createdAt",
+			"ASC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 
@@ -193,7 +221,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		const body: any = await response.json();
 		expect(body.data[0].createdAt).toBe("2024-01-01");
 
-		expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			1,
+			10,
+			"createdAt",
+			"DESC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 
@@ -220,7 +255,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		);
 		expect(response.status).toBe(200);
 
-		expect(serviceSpy).toHaveBeenCalledWith(2, 5, "urgency", "DESC", {});
+		expect(serviceSpy).toHaveBeenCalledWith(
+			2,
+			5,
+			"urgency",
+			"DESC",
+			{},
+			"user-123",
+		);
 		serviceSpy.mockRestore();
 	});
 });

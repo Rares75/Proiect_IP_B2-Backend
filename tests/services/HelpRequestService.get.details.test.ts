@@ -18,6 +18,8 @@ describe("HelpRequestService - getHelpRequestById", () => {
 	let service: any;
 	let mockHelpRequestRepo: any;
 	let mockDetailsRepo: any;
+	let mockModerationService: any;
+	let mockVolunteerRepo: any;
 
 	beforeEach(() => {
 		// Mock repositories
@@ -32,8 +34,21 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			update: vi.fn(),
 		};
 
+		mockModerationService = {
+			scanContent: vi.fn(),
+		};
+
+		mockVolunteerRepo = {
+			findDistancePreferencesByUserId: vi.fn(),
+		};
+
 		// Instantiate service with mocked dependencies
-		service = new HelpRequestService(mockHelpRequestRepo, mockDetailsRepo);
+		service = new HelpRequestService(
+			mockHelpRequestRepo,
+			mockDetailsRepo,
+			mockModerationService,
+			mockVolunteerRepo,
+		);
 	});
 
 	describe("Success Cases with Details", () => {

@@ -1,4 +1,5 @@
 import {
+	parseDistanceFilter,
 	parseLanguageFilter,
 	parseStatusFilter,
 	type TaskFilterParams,
@@ -55,6 +56,13 @@ export const validateTasksQuery = (
 		return { error: statusValidation.error };
 	}
 	Object.assign(filters, statusValidation.validData);
+
+	//distance filter
+	const distanceValidation = parseDistanceFilter(query);
+	if (distanceValidation.error || !distanceValidation.validData) {
+		return { error: distanceValidation.error };
+	}
+	Object.assign(filters, distanceValidation.validData);
 
 	//language filter
 	const languageValidation = parseLanguageFilter(query.language);
