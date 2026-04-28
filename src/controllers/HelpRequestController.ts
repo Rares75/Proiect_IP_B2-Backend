@@ -5,9 +5,10 @@ import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
 import {
+	ConflictError,
+	ForbiddenError,
 	InvalidStatusTransitionError,
 	NotFoundError,
-	ForbiddenError,
 } from "../utils/Errors";
 
 import { authMiddleware } from "../middlware/authMiddleware";
@@ -18,6 +19,7 @@ type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
+	helpOfferInputSchema,
 	helpRequestInputSchema,
 } from "../validation";
 
@@ -29,23 +31,25 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.post(
+			"/",
+			createValidationMiddleware(helpRequestInputSchema),
+			async (c) => {
+				try {
+					const body = await c.req.json();
+					const result = await this.helpRequestService.createHelpRequest(body);
+					return c.json(result, 201);
+				} catch (error: any) {
+					// check if error comes from inappropriate request
+					if (error instanceof ModerationError) {
+						return c.json({ error: error.message }, 400);
+					}
 
-		.post("/", async (c) => {
-			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
-				return c.json(result, 201);
-			} catch (error: any) {
-				// check if error comes from inappropriate request
-				if (error instanceof ModerationError) {
-					return c.json({ error: error.message }, 400);
+					console.error(error);
+					return c.json({ error: "Internal server error" }, 500);
 				}
-
-				console.error(error);
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		})
+			},
+		)
 
 		.get("/:id", async (c) => {
 			try {
@@ -149,6 +153,55 @@ export class HelpRequestController {
 			}
 		})
 
+		.post(
+			"/:id/offers",
+			authMiddleware,
+			createValidationMiddleware(helpOfferInputSchema),
+			async (c) => {
+				const requestId = Number(c.req.param("id"));
+				if (
+					!Number.isInteger(requestId) ||
+					requestId <= 0 ||
+					requestId > Number.MAX_SAFE_INTEGER
+				) {
+					return c.json(
+						{
+							error:
+								"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
+						},
+						400,
+					);
+				}
+
+				try {
+					const body = await c.req.json();
+					const session = c.get("session");
+					const result = await this.helpRequestService.createOfferForTask(
+						requestId,
+						session.userId,
+						body,
+					);
+
+					return c.json(result, 201);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return c.json({ error: error.message }, 404);
+					}
+
+					if (error instanceof ForbiddenError) {
+						return c.json({ error: error.message }, 403);
+					}
+
+					if (error instanceof ConflictError) {
+						return c.json({ error: error.message }, 409);
+					}
+
+					console.error(error);
+					return c.json({ error: "Internal server error" }, 500);
+				}
+			},
+		)
+
 		// BE1-12 & BE1-13 (Paginare + Sortare)
 		.get("/", authMiddleware, async (c) => {
 			try {
@@ -164,7 +217,7 @@ export class HelpRequestController {
 				}
 
 				//Extragem parametrii
-				const { page, pageSize, sortBy, order, filters } = validation.validData;
+				const { page, pageSize, sortBy } = validation.validData;
 				const result = await this.helpRequestService.getPaginatedTasks(
 					page,
 					pageSize,
@@ -184,7 +237,7 @@ export class HelpRequestController {
 			try {
 				// Extragem user-ul curent pus de middleware-ul de auth
 				const user = c.get("user");
-				if (!user || !user.id) {
+				if (!user?.id) {
 					return c.json({ error: "Unauthorized" }, 401);
 				}
 
@@ -225,7 +278,6 @@ export class HelpRequestController {
 					| "REJECTED"
 					| undefined;
 
-				// Apelăm noul service
 				const result =
 					await this.helpRequestService.getPaginatedOffersForTaskOwner(
 						taskId,
@@ -240,9 +292,11 @@ export class HelpRequestController {
 				if (error instanceof NotFoundError) {
 					return c.json({ error: "The task was not found" }, 404);
 				}
+
 				if (error instanceof ForbiddenError) {
 					return c.json({ error: error.message }, 403);
 				}
+
 				return c.json({ error: "Internal server error" }, 500);
 			}
 		});

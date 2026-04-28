@@ -1,93 +1,37 @@
 import { and, count as drizzleCount, desc, eq } from "drizzle-orm";
-import { db } from "../../db";
+import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import type { IRepository } from "./base.repository";
 import { helpOffers } from "../requests";
 import { userProfiles, volunteers } from "../profile";
 import { user } from "../auth-schema"; // Ajustează calea dacă este necesar
 
 export type HelpOffer = typeof helpOffers.$inferSelect;
 export type CreateHelpOfferDTO = typeof helpOffers.$inferInsert;
-export type UpdateHelpOfferDTO = Partial<CreateHelpOfferDTO>;
 
 @repository()
-export class HelpOfferRepository
-	implements
-		IRepository<HelpOffer, CreateHelpOfferDTO, UpdateHelpOfferDTO, number>
-{
+export class HelpOfferRepository {
 	async create(data: CreateHelpOfferDTO): Promise<HelpOffer> {
-		const [newHelpOffer] = await db.insert(helpOffers).values(data).returning();
-		return newHelpOffer;
+		const [created] = await db.insert(helpOffers).values(data).returning();
+		return created;
 	}
 
-	async findById(id: number): Promise<HelpOffer | undefined> {
-		const [found] = await db
-			.select()
-			.from(helpOffers)
-			.where(eq(helpOffers.id, id));
-		return found;
-	}
-
-	async findMany(limit: number = 50, offset: number = 0): Promise<HelpOffer[]> {
-		return await db.select().from(helpOffers).limit(limit).offset(offset);
-	}
-
-	async findFirstBy(
-		criteria: Partial<HelpOffer>,
+	async findPendingByHelpRequestIdAndVolunteerId(
+		helpRequestId: number,
+		volunteerId: number,
 	): Promise<HelpOffer | undefined> {
-		const conditions = [];
-
-		for (const [key, value] of Object.entries(criteria)) {
-			if (value !== undefined) {
-				const column = helpOffers[key as keyof typeof helpOffers];
-				conditions.push(eq(column as any, value));
-			}
-		}
-
-		if (conditions.length === 0) return undefined;
-
 		const [found] = await db
 			.select()
 			.from(helpOffers)
-			.where(and(...conditions))
+			.where(
+				and(
+					eq(helpOffers.helpRequestId, helpRequestId),
+					eq(helpOffers.volunteerId, volunteerId),
+					eq(helpOffers.status, "PENDING"),
+				),
+			)
 			.limit(1);
 
 		return found;
-	}
-
-	async update(
-		id: number,
-		data: UpdateHelpOfferDTO,
-	): Promise<HelpOffer | undefined> {
-		const [updated] = await db
-			.update(helpOffers)
-			.set(data)
-			.where(eq(helpOffers.id, id))
-			.returning();
-		return updated;
-	}
-
-	async delete(id: number): Promise<boolean> {
-		const result = await db
-			.delete(helpOffers)
-			.where(eq(helpOffers.id, id))
-			.returning({ id: helpOffers.id });
-		return result.length > 0;
-	}
-
-	async exists(id: number): Promise<boolean> {
-		const [{ value }] = await db
-			.select({ value: drizzleCount() })
-			.from(helpOffers)
-			.where(eq(helpOffers.id, id));
-		return value > 0;
-	}
-
-	async count(): Promise<number> {
-		const [{ value }] = await db
-			.select({ value: drizzleCount() })
-			.from(helpOffers);
-		return value;
 	}
 
 	async findPaginatedOffersByTaskId(

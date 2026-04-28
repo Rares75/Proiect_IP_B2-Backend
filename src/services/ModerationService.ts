@@ -1,4 +1,3 @@
-import { testUtils } from "better-auth/plugins";
 import { Service } from "../di/decorators/service";
 import { logger } from "../utils/logger";
 import blacklistConfig from "../utils/moderation/blacklist.json";

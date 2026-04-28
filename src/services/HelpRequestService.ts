@@ -3,6 +3,11 @@ import {
 	type CreateHelpRequestDTO,
 	type HelpRequest,
 } from "../db/repositories/helpRequest.repository";
+import {
+	HelpOfferRepository,
+	type HelpOffer,
+} from "../db/repositories/helpOffer.repository";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
@@ -13,13 +18,13 @@ import {
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import {
+	ConflictError,
+	ForbiddenError,
 	InvalidStatusTransitionError,
 	NotFoundError,
-	ForbiddenError,
 } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
-import { HelpOfferRepository } from "../db/repositories/helpOffers.repository";
-import type { TaskFilterParams } from "../filters";
+import type { HelpOfferInput } from "../validation";
 import { RatingsRepository } from "../db/repositories/ratings.repository";
 
 // State machine
@@ -36,12 +41,14 @@ export class HelpRequestService {
 	constructor(
 		@inject(HelpRequestRepository)
 		private readonly helpRequestRepo: HelpRequestRepository,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService,
-		@inject(HelpOfferRepository)
-		private readonly helpOfferRepo: HelpOfferRepository,
 		@inject(RatingsRepository)
 		private readonly ratingsRepo: RatingsRepository,
 	) {}
@@ -150,6 +157,49 @@ export class HelpRequestService {
 		}
 
 		return updated;
+	}
+
+	async createOfferForTask(
+		helpRequestId: number,
+		userId: string,
+		input: HelpOfferInput,
+	): Promise<HelpOffer> {
+		const helpRequest = await this.helpRequestRepo.findById(helpRequestId);
+		if (!helpRequest) {
+			throw new NotFoundError("HelpRequest", String(helpRequestId));
+		}
+
+		if (helpRequest.status !== "OPEN") {
+			throw new ConflictError("HelpRequest is not OPEN");
+		}
+
+		const volunteer = await this.volunteerRepo.findByUserId(userId);
+		if (!volunteer) {
+			throw new ForbiddenError("Only volunteers can create offers");
+		}
+
+		if (helpRequest.requestedByUserId === userId) {
+			throw new ForbiddenError("Task owner cannot create offers");
+		}
+
+		const existingPendingOffer =
+			await this.helpOfferRepo.findPendingByHelpRequestIdAndVolunteerId(
+				helpRequestId,
+				volunteer.id,
+			);
+
+		if (existingPendingOffer) {
+			throw new ConflictError(
+				"Volunteer already has a pending offer for this task",
+			);
+		}
+
+		return this.helpOfferRepo.create({
+			helpRequestId,
+			volunteerId: volunteer.id,
+			message: input.message ?? null,
+			status: "PENDING",
+		});
 	}
 
 	//BE1-12
