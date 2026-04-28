@@ -4,7 +4,11 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	InvalidStatusTransitionError,
+	NotFoundError,
+	ForbiddenError,
+} from "../utils/Errors";
 
 import { authMiddleware } from "../middlware/authMiddleware";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
@@ -165,14 +169,81 @@ export class HelpRequestController {
 					page,
 					pageSize,
 					sortBy,
-					order,
-					filters,
+					//order,
+					//filters,
 				);
 
 				return c.json(result, 200);
 			} catch (error) {
 				console.error("Eroare la GET /tasks paginat si sortat:", error);
 				return c.json({ error: "Eroare interna a serverului." }, 500);
+			}
+		})
+
+		.get("/:id/offers", authMiddleware, async (c) => {
+			try {
+				// Extragem user-ul curent pus de middleware-ul de auth
+				const user = c.get("user");
+				if (!user || !user.id) {
+					return c.json({ error: "Unauthorized" }, 401);
+				}
+
+				const taskId = Number(c.req.param("id"));
+				if (!Number.isInteger(taskId) || taskId <= 0) {
+					return c.json({ error: "invalid id" }, 400);
+				}
+
+				// Extragem și validăm query params cu defaults
+				const query = c.req.query();
+				const page = query.page ? Number(query.page) : 1;
+				const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+				if (
+					!Number.isInteger(page) ||
+					page < 1 ||
+					!Number.isInteger(pageSize) ||
+					pageSize < 1 ||
+					pageSize > 50
+				) {
+					return c.json({ error: "Invalid page params" }, 400);
+				}
+
+				const statusRaw = query.status?.toUpperCase();
+				if (
+					statusRaw &&
+					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
+				) {
+					return c.json(
+						{ error: "Invalid status; accepted: PENDING, ACCEPTED, REJECTED" },
+						400,
+					);
+				}
+
+				const status = statusRaw as
+					| "PENDING"
+					| "ACCEPTED"
+					| "REJECTED"
+					| undefined;
+
+				// Apelăm noul service
+				const result =
+					await this.helpRequestService.getPaginatedOffersForTaskOwner(
+						taskId,
+						user.id,
+						page,
+						pageSize,
+						status,
+					);
+
+				return c.json(result, 200);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return c.json({ error: "The task was not found" }, 404);
+				}
+				if (error instanceof ForbiddenError) {
+					return c.json({ error: error.message }, 403);
+				}
+				return c.json({ error: "Internal server error" }, 500);
 			}
 		});
 }

@@ -21,3 +21,11 @@ export class ValidationError extends Error {
 		this.name = "ValidationError";
 	}
 }
+
+//nu are permisiunea de a vizualiza
+export class ForbiddenError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ForbidenError";
+	}
+}

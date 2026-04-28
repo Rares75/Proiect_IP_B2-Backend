@@ -12,9 +12,15 @@ import {
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	InvalidStatusTransitionError,
+	NotFoundError,
+	ForbiddenError,
+} from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { HelpOfferRepository } from "../db/repositories/helpOffers.repository";
 import type { TaskFilterParams } from "../filters";
+import { RatingsRepository } from "../db/repositories/ratings.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -34,6 +40,10 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
+		@inject(RatingsRepository)
+		private readonly ratingsRepo: RatingsRepository,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -162,6 +172,90 @@ export class HelpRequestService {
 
 		return {
 			data: formattedData,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
+	}
+
+	async getPaginatedOffersForTaskOwner(
+		taskId: number,
+		requesterUserId: string,
+		page: number,
+		pageSize: number,
+		status?: "PENDING" | "ACCEPTED" | "REJECTED",
+	) {
+		// verif existența task-ului și ownership-ul
+		const task = await this.helpRequestRepo.findById(taskId);
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(taskId));
+		}
+
+		if (task.requestedByUserId !== requesterUserId) {
+			//console.log(task.requestedByUserId + " " + requesterUserId);
+			throw new ForbiddenError("You don't have permission to see this task.");
+		}
+
+		// 2. ofertele
+		const { data, total } =
+			await this.helpOfferRepo.findPaginatedOffersByTaskId(
+				taskId,
+				page,
+				pageSize,
+				status,
+			);
+
+		// averageRating pentru fiecare voluntar
+		// toate userId-urile voluntarilor din rezultatele paginii curente
+		const volunteerUserIds = [
+			...new Set(data.map((offer) => offer.volunteerUserId)),
+		];
+
+		// dicționar pentru acces rapid la rating-uri
+		const ratingsMap: Record<string, number | null> = {};
+
+		if (volunteerUserIds.length > 0) {
+			await Promise.all(
+				volunteerUserIds.map(async (vId) => {
+					const summary = await this.ratingsRepo.getRatingsSummaryByUserId(vId);
+					ratingsMap[vId] = summary[0]?.averageRating
+						? Number(summary[0].averageRating)
+						: null;
+				}),
+			);
+		}
+
+		// răspunsul cerut
+		const formattedOffers = data.map((offer) => {
+			//datele vizibile garantat
+			const volunteerInfo: any = {
+				username: offer.username,
+				trustScore: offer.trustScore,
+				averageRating: ratingsMap[offer.volunteerUserId] ?? null,
+				bio: offer.bio || null,
+			};
+
+			if (offer.hiddenIdentity === false) {
+				volunteerInfo.name = offer.name;
+			}
+
+			return {
+				id: offer.id,
+				volunteerId: offer.volunteerId,
+				message: offer.message,
+				status: offer.status,
+				createdAt: offer.createdAt,
+				volunteer: volunteerInfo,
+			};
+		});
+
+		const totalPages = Math.ceil(total / pageSize);
+
+		return {
+			data: formattedOffers,
 			meta: {
 				page: page,
 				pageSize: pageSize,
