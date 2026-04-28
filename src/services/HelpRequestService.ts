@@ -5,15 +5,21 @@ import {
 } from "../db/repositories/helpRequest.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
+import {
+	ModerationService,
+	ModerationError,
+	ModerationLevel,
+} from "./ModerationService";
+import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { TaskFilterParams } from "../filters";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 
+// State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
-// State machine
 const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
 	OPEN: ["MATCHED", "CANCELLED"],
 	MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
@@ -27,18 +33,47 @@ export class HelpRequestService {
 		private readonly helpRequestRepo: HelpRequestRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
+		@inject(ModerationService)
+		private readonly moderationService: ModerationService,
 		@inject(VolunteerRepository)
-		private readonly volunteerRepo?: VolunteerRepository,
+		private readonly volunteerRepo: VolunteerRepository,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
+		const titleResult = this.moderationService.scanContent(data.title);
+		const descResult = this.moderationService.scanContent(data.description);
+
+		let finalResult = ModerationLevel.CLEAN;
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
+			finalResult = ModerationLevel.BLOCKED;
+		} else if (
+			titleResult.level === ModerationLevel.FLAGGED ||
+			descResult.level === ModerationLevel.FLAGGED
+		) {
+			finalResult = ModerationLevel.FLAGGED;
+		}
+
+		const reason = titleResult.reason || descResult.reason;
+
+		if (finalResult === ModerationLevel.BLOCKED) {
+			throw new ModerationError(reason ?? "Inappropriate content.");
+		}
+
+		if (finalResult === ModerationLevel.FLAGGED) {
+			// TODO: do something?
+		}
+
 		try {
 			return await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
 		} catch (error) {
-			console.error("Failed to create help request:", error);
+			console.error("--- RAW DB ERROR ---", error);
+			logger.exception(error);
 			throw new Error("Could not create help request");
 		}
 	}
@@ -118,7 +153,7 @@ export class HelpRequestService {
 			return filters;
 		}
 
-		if (!userId || !this.volunteerRepo) {
+		if (!userId) {
 			throw new Error("Radius is required");
 		}
 
@@ -138,6 +173,7 @@ export class HelpRequestService {
 		};
 	}
 
+	//BE1-12
 	async getPaginatedTasks(
 		page: number,
 		pageSize: number,
@@ -168,10 +204,10 @@ export class HelpRequestService {
 		return {
 			data: formattedData,
 			meta: {
-				page,
-				pageSize,
-				total,
-				totalPages,
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
 			},
 		};
 	}

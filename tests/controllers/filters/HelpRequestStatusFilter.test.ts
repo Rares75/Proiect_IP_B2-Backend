@@ -1,17 +1,22 @@
 /// <reference types="bun-types" />
-import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { join } from "node:path";
-import app from "../../src/app";
-import auth from "../../src/auth";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { loadControllers } from "../../src/utils/controller";
-
-beforeAll(async () => {
-	await loadControllers(join(import.meta.dir, "../../src/controllers"));
-});
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { Hono } from "hono";
+import auth from "../../../src/auth";
+import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
 
 describe("GET /api/tasks status filter", () => {
 	let authSpy: ReturnType<typeof spyOn> | undefined;
+	let app: Hono;
+
+	beforeEach(() => {
+		const controller = new HelpRequestController(
+			HelpRequestService.prototype as any,
+		);
+
+		app = new Hono().basePath("/api");
+		app.route("/tasks", controller.controller);
+	});
 
 	afterEach(() => {
 		authSpy?.mockRestore();
@@ -26,7 +31,9 @@ describe("GET /api/tasks status filter", () => {
 	};
 
 	it("returns 401 when request is unauthenticated", async () => {
-		const response = await app.request("/api/tasks?status=OPEN");
+		const response = await app.request(
+			"http://localhost/api/tasks?status=OPEN",
+		);
 		expect(response.status).toBe(401);
 	});
 
@@ -45,9 +52,12 @@ describe("GET /api/tasks status filter", () => {
 		});
 
 		try {
-			const response = await app.request("/api/tasks?status=OPEN", {
-				headers: { Authorization: "Bearer fake-test-token" },
-			});
+			const response = await app.request(
+				"http://localhost/api/tasks?status=OPEN",
+				{
+					headers: { Authorization: "Bearer fake-test-token" },
+				},
+			);
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
@@ -79,9 +89,12 @@ describe("GET /api/tasks status filter", () => {
 		});
 
 		try {
-			const response = await app.request("/api/tasks?status=COMPLETED", {
-				headers: { Authorization: "Bearer fake-test-token" },
-			});
+			const response = await app.request(
+				"http://localhost/api/tasks?status=COMPLETED",
+				{
+					headers: { Authorization: "Bearer fake-test-token" },
+				},
+			);
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
@@ -113,9 +126,12 @@ describe("GET /api/tasks status filter", () => {
 		});
 
 		try {
-			const response = await app.request("/api/tasks?status=OPEN", {
-				headers: { Authorization: "Bearer fake-test-token" },
-			});
+			const response = await app.request(
+				"http://localhost/api/tasks?status=OPEN",
+				{
+					headers: { Authorization: "Bearer fake-test-token" },
+				},
+			);
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
@@ -129,9 +145,12 @@ describe("GET /api/tasks status filter", () => {
 	it("returns 400 with descriptive error for unknown status", async () => {
 		authenticate();
 
-		const response = await app.request("/api/tasks?status=DONE", {
-			headers: { Authorization: "Bearer fake-test-token" },
-		});
+		const response = await app.request(
+			"http://localhost/api/tasks?status=DONE",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
 		const body: any = await response.json();
 
 		expect(response.status).toBe(400);
@@ -156,7 +175,7 @@ describe("GET /api/tasks status filter", () => {
 		});
 
 		try {
-			const response = await app.request("/api/tasks", {
+			const response = await app.request("http://localhost/api/tasks", {
 				headers: { Authorization: "Bearer fake-test-token" },
 			});
 			const body: any = await response.json();
@@ -189,7 +208,7 @@ describe("GET /api/tasks status filter", () => {
 
 		try {
 			const response = await app.request(
-				"/api/tasks?status=OPEN&sortBy=urgency&order=ASC&page=2&pageSize=5",
+				"http://localhost/api/tasks?status=OPEN&sortBy=urgency&order=ASC&page=2&pageSize=5",
 				{
 					headers: { Authorization: "Bearer fake-test-token" },
 				},

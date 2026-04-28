@@ -25,6 +25,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 		const service = new HelpRequestService(
 			helpRequestRepo as any,
 			{} as any,
+			{} as any,
 			volunteerRepo as any,
 		);
 
@@ -65,6 +66,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 					total: 0,
 				}),
 			} as any,
+			{} as any,
 			{} as any,
 			{
 				findDistancePreferencesByUserId: async () => ({

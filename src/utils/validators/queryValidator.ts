@@ -1,5 +1,6 @@
 import {
 	parseDistanceFilter,
+	parseLanguageFilter,
 	parseStatusFilter,
 	type TaskFilterParams,
 } from "../../filters";
@@ -63,12 +64,20 @@ export const validateTasksQuery = (
 	}
 	Object.assign(filters, distanceValidation.validData);
 
+	//language filter
+	const languageValidation = parseLanguageFilter(query.language);
+	if (languageValidation.error) {
+		return { error: languageValidation.error };
+	}
+	Object.assign(filters, languageValidation.validData);
+
 	return {
 		validData: {
 			page,
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
+			//ca sa nu trebuiasca de fiecare data sa modificam acelasi loc si sa apara conflicte la fiecare merge
 			filters,
 		} satisfies ValidTasksQuery,
 	};

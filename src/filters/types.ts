@@ -11,4 +11,5 @@ export type TaskDistanceFilterParams = {
 export type TaskFilterParams = {
 	status?: RequestStatus;
 	distance?: TaskDistanceFilterParams;
+	language?: string;
 };

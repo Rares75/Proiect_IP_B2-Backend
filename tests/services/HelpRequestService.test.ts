@@ -47,11 +47,24 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const moderationService = {
+	scanContent: () => ({ level: "CLEAN" }),
+};
+
+const volunteerRepo = {
+	findDistancePreferencesByUserId: async () => undefined,
+};
+
 describe("HelpRequestService.updateHelpRequestStatus", () => {
 	test("valid Open -> Claimed (OPEN -> MATCHED) actualizeaza statusul in repo", async () => {
 		const repo = new InMemoryHelpRequestRepo();
 		repo.seed({ id: 1, status: "OPEN" });
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			detailsRepo as any,
+			moderationService as any,
+			volunteerRepo as any,
+		);
 
 		const updated = await service.updateHelpRequestStatus(1, "MATCHED");
 
@@ -63,7 +76,12 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 	test("valid Claimed -> Done (echivalent flux actual: IN_PROGRESS -> COMPLETED) actualizeaza statusul", async () => {
 		const repo = new InMemoryHelpRequestRepo();
 		repo.seed({ id: 2, status: "IN_PROGRESS" });
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			detailsRepo as any,
+			moderationService as any,
+			volunteerRepo as any,
+		);
 
 		const updated = await service.updateHelpRequestStatus(2, "COMPLETED");
 
@@ -75,7 +93,12 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 	test("invalid Open -> Done (OPEN -> COMPLETED) arunca eroare explicita", async () => {
 		const repo = new InMemoryHelpRequestRepo();
 		repo.seed({ id: 3, status: "OPEN" });
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			detailsRepo as any,
+			moderationService as any,
+			volunteerRepo as any,
+		);
 
 		expect(
 			service.updateHelpRequestStatus(3, "COMPLETED"),
@@ -91,7 +114,12 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 	test("invalid Done -> Claimed (COMPLETED -> MATCHED) arunca eroare explicita", async () => {
 		const repo = new InMemoryHelpRequestRepo();
 		repo.seed({ id: 4, status: "COMPLETED" });
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			detailsRepo as any,
+			moderationService as any,
+			volunteerRepo as any,
+		);
 
 		expect(
 			service.updateHelpRequestStatus(4, "MATCHED"),

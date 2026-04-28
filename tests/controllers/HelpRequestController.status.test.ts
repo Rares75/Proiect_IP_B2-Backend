@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { error } from "node:console";
 
 const Controller = () => (_target: unknown) => {};
 
@@ -62,6 +61,14 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const moderationService = {
+	scanContent: () => ({ level: "CLEAN" }),
+};
+
+const volunteerRepo = {
+	findDistancePreferencesByUserId: async () => undefined,
+};
+
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
 
@@ -75,7 +82,12 @@ describe("PATCH /tasks/:id/status", () => {
 	beforeEach(() => {
 		store = new Map<number, Task>();
 
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			detailsRepo as any,
+			moderationService as any,
+			volunteerRepo as any,
+		);
 		const controller = new HelpRequestController(service as any);
 
 		app = new Hono();

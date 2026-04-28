@@ -14,6 +14,7 @@ import type { requestStatusEnum } from "../enums";
 import {
 	buildDistanceFilter,
 	buildDistanceOrderBy,
+	buildLanguageFilter,
 	buildStatusFilter,
 	type TaskFilterParams,
 } from "../../filters";
@@ -131,6 +132,7 @@ export class HelpRequestRepository
 		return updated;
 	}
 
+	//BE1-12 + BE1-13
 	async findPaginatedWithDetails(
 		page: number,
 		pageSize: number,
@@ -138,16 +140,24 @@ export class HelpRequestRepository
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
 	) {
-		//BE1-12 + BE1-13
 		const offset = (page - 1) * pageSize;
+
+		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const distanceFilter = filters
 			? buildDistanceFilter(filters.distance)
 			: undefined;
-		const whereClause = [statusFilter, distanceFilter].filter(Boolean) as SQL[];
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
+		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+
+		//group the filters into an array and remove any 'undefined' or null values
+		const whereClause = [statusFilter, distanceFilter, languageFilter].filter(
+			Boolean,
+		) as SQL[];
+
+		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
-		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 		const primarySort =
 			order === "ASC"
 				? asc(helpRequests[sortBy] as typeof helpRequests.createdAt)
@@ -185,6 +195,10 @@ export class HelpRequestRepository
 		const countRows = await db
 			.select({ value: drizzleCount() })
 			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
 			.leftJoin(
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
