@@ -17,9 +17,9 @@ type HelpSuccessPayload = {
 	anonymousMode: boolean;
 	category: string;
 	location: {
-        x: number;
-        y: number;
-    };
+		x: number;
+		y: number;
+	};
 };
 
 type RequestDetailsSuccessPayload = {
@@ -35,7 +35,7 @@ const validHelpRequestPayload: HelpSuccessPayload = {
 	status: "OPEN",
 	anonymousMode: false,
 	category: "FACE_TO_FACE",
-    location: { x: 47.15, y: 27.58 },
+	location: { x: 47.15, y: 27.58 },
 };
 
 const validRequestDetailsPayload: RequestDetailsSuccessPayload = {
@@ -141,9 +141,9 @@ describe("Help route validation integration", () => {
 				field: "category",
 				message: "Category is required",
 			},
-            {
-                field: "location",
-                message: "Invalid input: expected object, received undefined",
+			{
+				field: "location",
+				message: "Invalid input: expected object, received undefined",
 			},
 		]);
 	});

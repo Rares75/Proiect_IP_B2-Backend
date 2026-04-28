@@ -1,9 +1,7 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 
-const Controller = () => (_target: unknown) => {};
-
-
+//const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
 	"../../src/controllers/RequestDetailsController"
@@ -125,7 +123,7 @@ describe("DELETE /tasks/:id/details", () => {
 		expect(deleteResponse.status).toBe(204);
 
 		const getResponse = await getTask(1);
-		const body = await getResponse.json() as any;
+		const body = (await getResponse.json()) as any;
 
 		expect(getResponse.status).toBe(200);
 		expect(body.requestDetails).toBeNull();

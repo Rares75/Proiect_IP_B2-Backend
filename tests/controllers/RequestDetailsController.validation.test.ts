@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 
-const Controller = () => (_target: unknown) => {};
-
-
+//const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
 	"../../src/controllers/RequestDetailsController"

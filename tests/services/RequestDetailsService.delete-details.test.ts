@@ -27,9 +27,9 @@ describe("RequestDetailsService.deleteHelpRequestDetails", () => {
 
 		//requestDetailsService = new RequestDetailsService();
 		requestDetailsService = new RequestDetailsService(
-            helpRequestRepository as any,
-            requestDetailsRepository as any
-        );
+			helpRequestRepository as any,
+			requestDetailsRepository as any,
+		);
 	});
 
 	test("returns 404 when task does not exist", async () => {

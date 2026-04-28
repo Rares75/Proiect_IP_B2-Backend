@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 
-
-const Controller = () => (_target: unknown) => {};
-
-
+//const Controller = () => (_target: unknown) => {};
 
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
@@ -18,7 +15,6 @@ const validPayload = {
 	anonymousMode: false,
 	category: "FACE_TO_FACE",
 	location: { x: 47.15, y: 27.58 },
-
 };
 
 describe("POST /tasks validation", () => {
@@ -73,13 +69,13 @@ describe("POST /tasks validation", () => {
 					message: "Anonymous mode is required",
 				},
 				{
-                    field: "category",
-                    message: "Category is required",
-                },
-                {
-                    field: "location",
-                    message: "Invalid input: expected object, received undefined",
-                },
+					field: "category",
+					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
+				},
 			],
 		});
 		expect(createHelpRequest).not.toHaveBeenCalled();
@@ -102,7 +98,6 @@ describe("POST /tasks validation", () => {
 					field: "body",
 					message: 'Unrecognized key: "extraField"',
 				},
-				
 			],
 		});
 		expect(createHelpRequest).not.toHaveBeenCalled();

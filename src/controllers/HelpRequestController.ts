@@ -26,15 +26,19 @@ export class HelpRequestController {
 	controller = new Hono()
 		//.use("/", createValidationMiddleware(helpRequestInputSchema))
 
-		.post("/", createValidationMiddleware(helpRequestInputSchema), async (c) => {
-			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
-				return c.json(result, 201);
-			} catch {
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		})
+		.post(
+			"/",
+			createValidationMiddleware(helpRequestInputSchema),
+			async (c) => {
+				try {
+					const body = await c.req.json();
+					const result = await this.helpRequestService.createHelpRequest(body);
+					return c.json(result, 201);
+				} catch {
+					return c.json({ error: "Internal server error" }, 500);
+				}
+			},
+		)
 
 		.get("/:id", async (c) => {
 			try {
