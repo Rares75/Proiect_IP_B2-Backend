@@ -61,6 +61,19 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const helpOfferRepo = {
+	findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
+	create: async (data: any) => data,
+};
+
+const volunteerRepo = {
+	findByUserId: async () => undefined,
+};
+
+const moderationService = {
+	scanContent: () => ({ level: "CLEAN" }),
+};
+
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
 
@@ -74,7 +87,13 @@ describe("PATCH /tasks/:id/status", () => {
 	beforeEach(() => {
 		store = new Map<number, Task>();
 
-		const service = new HelpRequestService(repo as any, detailsRepo as any);
+		const service = new HelpRequestService(
+			repo as any,
+			helpOfferRepo as any,
+			volunteerRepo as any,
+			detailsRepo as any,
+			moderationService as any,
+		);
 		const controller = new HelpRequestController(service as any);
 
 		app = new Hono();

@@ -17,7 +17,10 @@ const { HelpRequestService } = await import(
 describe("HelpRequestService - getHelpRequestById", () => {
 	let service: any;
 	let mockHelpRequestRepo: any;
+	let mockHelpOfferRepo: any;
+	let mockVolunteerRepo: any;
 	let mockDetailsRepo: any;
+	let mockModerationService: any;
 
 	beforeEach(() => {
 		// Mock repositories
@@ -26,14 +29,33 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			create: vi.fn(),
 		};
 
+		mockHelpOfferRepo = {
+			findPendingByHelpRequestIdAndVolunteerId: vi.fn(),
+			create: vi.fn(),
+		};
+
+		mockVolunteerRepo = {
+			findByUserId: vi.fn(),
+		};
+
 		mockDetailsRepo = {
 			findByHelpRequestId: vi.fn(),
 			create: vi.fn(),
 			update: vi.fn(),
 		};
 
+		mockModerationService = {
+			scanContent: vi.fn(() => ({ level: "CLEAN" })),
+		};
+
 		// Instantiate service with mocked dependencies
-		service = new HelpRequestService(mockHelpRequestRepo, mockDetailsRepo);
+		service = new HelpRequestService(
+			mockHelpRequestRepo,
+			mockHelpOfferRepo,
+			mockVolunteerRepo,
+			mockDetailsRepo,
+			mockModerationService,
+		);
 	});
 
 	describe("Success Cases with Details", () => {

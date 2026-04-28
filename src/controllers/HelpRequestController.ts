@@ -4,16 +4,23 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 
 import { authMiddleware } from "../middlware/authMiddleware";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
+import { sendApiResponse } from "../utils/apiReponse";
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
+	helpOfferInputSchema,
 	helpRequestInputSchema,
 } from "../validation";
 
@@ -25,23 +32,25 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.post(
+			"/",
+			createValidationMiddleware(helpRequestInputSchema),
+			async (c) => {
+				try {
+					const body = await c.req.json();
+					const result = await this.helpRequestService.createHelpRequest(body);
+					return c.json(result, 201);
+				} catch (error: any) {
+					// check if error comes from inappropriate request
+					if (error instanceof ModerationError) {
+						return c.json({ error: error.message }, 400);
+					}
 
-		.post("/", async (c) => {
-			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
-				return c.json(result, 201);
-			} catch (error: any) {
-				// check if error comes from inappropriate request
-				if (error instanceof ModerationError) {
-					return c.json({ error: error.message }, 400);
+					console.error(error);
+					return c.json({ error: "Internal server error" }, 500);
 				}
-
-				console.error(error);
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		})
+			},
+		)
 
 		.get("/:id", async (c) => {
 			try {
@@ -144,6 +153,62 @@ export class HelpRequestController {
 				throw error;
 			}
 		})
+
+		.post(
+			"/:id/offers",
+			authMiddleware,
+			createValidationMiddleware(helpOfferInputSchema),
+			async (c) => {
+				const requestId = Number(c.req.param("id"));
+				if (
+					!Number.isInteger(requestId) ||
+					requestId <= 0 ||
+					requestId > Number.MAX_SAFE_INTEGER
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message:
+							"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
+					});
+				}
+
+				try {
+					const body = await c.req.json();
+					const session = c.get("session");
+					const result = await this.helpRequestService.createOfferForTask(
+						requestId,
+						session.userId,
+						body,
+					);
+
+					return sendApiResponse(c, result, { kind: "created" });
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					if (error instanceof ConflictError) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					console.error(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
 
 		// BE1-12 & BE1-13 (Paginare + Sortare)
 		.get("/", authMiddleware, async (c) => {
