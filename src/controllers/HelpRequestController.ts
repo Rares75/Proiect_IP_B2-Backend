@@ -13,6 +13,7 @@ import {
 
 import { authMiddleware } from "../middlware/authMiddleware";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
+import { sendApiResponse } from "../utils/apiReponse";
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
@@ -238,12 +239,12 @@ export class HelpRequestController {
 				// Extragem user-ul curent pus de middleware-ul de auth
 				const user = c.get("user");
 				if (!user?.id) {
-					return c.json({ error: "Unauthorized" }, 401);
+					return sendApiResponse(c, null, { kind: "unauthorized" });
 				}
 
 				const taskId = Number(c.req.param("id"));
 				if (!Number.isInteger(taskId) || taskId <= 0) {
-					return c.json({ error: "invalid id" }, 400);
+					return sendApiResponse(c, null, { kind: "clientError" });
 				}
 
 				// Extragem și validăm query params cu defaults
@@ -258,7 +259,7 @@ export class HelpRequestController {
 					pageSize < 1 ||
 					pageSize > 50
 				) {
-					return c.json({ error: "Invalid page params" }, 400);
+					return sendApiResponse(c, null, { kind: "clientError" });
 				}
 
 				const statusRaw = query.status?.toUpperCase();
@@ -266,10 +267,7 @@ export class HelpRequestController {
 					statusRaw &&
 					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
 				) {
-					return c.json(
-						{ error: "Invalid status; accepted: PENDING, ACCEPTED, REJECTED" },
-						400,
-					);
+					return sendApiResponse(c, null, { kind: "clientError" });
 				}
 
 				const status = statusRaw as
@@ -287,17 +285,17 @@ export class HelpRequestController {
 						status,
 					);
 
-				return c.json(result, 200);
+				return sendApiResponse(c, result);
 			} catch (error) {
 				if (error instanceof NotFoundError) {
-					return c.json({ error: "The task was not found" }, 404);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 
 				if (error instanceof ForbiddenError) {
-					return c.json({ error: error.message }, 403);
+					return sendApiResponse(c, null, { kind: "forbidden" });
 				}
 
-				return c.json({ error: "Internal server error" }, 500);
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		});
 }
