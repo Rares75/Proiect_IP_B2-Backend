@@ -13,6 +13,7 @@ import {
 
 import { authMiddleware } from "../middlware/authMiddleware";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
+import { sendApiResponse } from "../utils/apiReponse";
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
@@ -164,13 +165,11 @@ export class HelpRequestController {
 					requestId <= 0 ||
 					requestId > Number.MAX_SAFE_INTEGER
 				) {
-					return c.json(
-						{
-							error:
-								"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
-						},
-						400,
-					);
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message:
+							"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
+					});
 				}
 
 				try {
@@ -182,22 +181,31 @@ export class HelpRequestController {
 						body,
 					);
 
-					return c.json(result, 201);
+					return sendApiResponse(c, result, { kind: "created" });
 				} catch (error) {
 					if (error instanceof NotFoundError) {
-						return c.json({ error: error.message }, 404);
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
 					}
 
 					if (error instanceof ForbiddenError) {
-						return c.json({ error: error.message }, 403);
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
 					}
 
 					if (error instanceof ConflictError) {
-						return c.json({ error: error.message }, 409);
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
 					}
 
 					console.error(error);
-					return c.json({ error: "Internal server error" }, 500);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)

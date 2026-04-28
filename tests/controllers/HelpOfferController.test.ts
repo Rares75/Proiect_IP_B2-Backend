@@ -84,13 +84,21 @@ describe("POST /api/tasks/:id/offers", () => {
 
 			const body: any = await response.json();
 			expect(body).toMatchObject({
-				id: 77,
-				helpRequestId: 1,
-				volunteerId: 15,
-				message: "Pot sa ajut",
-				status: "PENDING",
+				data: {
+					id: 77,
+					helpRequestId: 1,
+					volunteerId: 15,
+					message: "Pot sa ajut",
+					status: "PENDING",
+				},
+				message: "Resource created successfully",
+				notFound: false,
+				isUnauthorized: false,
+				isServerError: false,
+				isClientError: false,
+				statusCode: 201,
 			});
-			expect(body.createdAt).toBe(createdAt.toISOString());
+			expect(body.data.createdAt).toBe(createdAt.toISOString());
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -120,6 +128,13 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			expect(response.status).toBe(403);
+			const body: any = await response.json();
+			expect(body).toMatchObject({
+				data: null,
+				message: "Only volunteers can create offers",
+				isClientError: true,
+				statusCode: 403,
+			});
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -147,6 +162,13 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			expect(response.status).toBe(403);
+			const body: any = await response.json();
+			expect(body).toMatchObject({
+				data: null,
+				message: "Task owner cannot create offers",
+				isClientError: true,
+				statusCode: 403,
+			});
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -174,6 +196,13 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			expect(response.status).toBe(404);
+			const body: any = await response.json();
+			expect(body).toMatchObject({
+				data: null,
+				message: "HelpRequest with id 999 not found",
+				notFound: true,
+				statusCode: 404,
+			});
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -201,6 +230,13 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			expect(response.status).toBe(409);
+			const body: any = await response.json();
+			expect(body).toMatchObject({
+				data: null,
+				message: "HelpRequest is not OPEN",
+				isClientError: true,
+				statusCode: 409,
+			});
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -230,6 +266,13 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			expect(response.status).toBe(409);
+			const body: any = await response.json();
+			expect(body).toMatchObject({
+				data: null,
+				message: "Volunteer already has a pending offer for this task",
+				isClientError: true,
+				statusCode: 409,
+			});
 		} finally {
 			serviceSpy.mockRestore();
 		}

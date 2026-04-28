@@ -96,22 +96,26 @@ describe("POST /api/tasks/:id/offers integration", () => {
 		expect(response.status).toBe(201);
 		const body: any = await response.json();
 		expect(body).toMatchObject({
-			helpRequestId: createdTaskId,
-			volunteerId: createdVolunteerId,
-			message: "Integration offer message",
-			status: "PENDING",
+			data: {
+				helpRequestId: createdTaskId,
+				volunteerId: createdVolunteerId,
+				message: "Integration offer message",
+				status: "PENDING",
+			},
+			message: "Resource created successfully",
+			statusCode: 201,
 		});
-		expect(body.id).toBeNumber();
-		expect(body.createdAt).toBeString();
+		expect(body.data.id).toBeNumber();
+		expect(body.data.createdAt).toBeString();
 
 		const [fromDb] = await db
 			.select()
 			.from(helpOffers)
-			.where(eq(helpOffers.id, body.id));
+			.where(eq(helpOffers.id, body.data.id));
 
 		expect(fromDb).toBeDefined();
 		expect(fromDb).toMatchObject({
-			id: body.id,
+			id: body.data.id,
 			helpRequestId: createdTaskId,
 			volunteerId: createdVolunteerId,
 			message: "Integration offer message",
