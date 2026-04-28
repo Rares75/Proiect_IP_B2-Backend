@@ -4,16 +4,23 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 
 import { authMiddleware } from "../middlware/authMiddleware";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
+import { sendApiResponse } from "../utils/apiReponse";
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
+	helpOfferInputSchema,
 	helpRequestInputSchema,
 } from "../validation";
 
@@ -25,23 +32,25 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.post(
+			"/",
+			createValidationMiddleware(helpRequestInputSchema),
+			async (c) => {
+				try {
+					const body = await c.req.json();
+					const result = await this.helpRequestService.createHelpRequest(body);
+					return c.json(result, 201);
+				} catch (error: any) {
+					// check if error comes from inappropriate request
+					if (error instanceof ModerationError) {
+						return c.json({ error: error.message }, 400);
+					}
 
-		.post("/", async (c) => {
-			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
-				return c.json(result, 201);
-			} catch (error: any) {
-				// check if error comes from inappropriate request
-				if (error instanceof ModerationError) {
-					return c.json({ error: error.message }, 400);
+					console.error(error);
+					return c.json({ error: "Internal server error" }, 500);
 				}
-
-				console.error(error);
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		})
+			},
+		)
 
 		.get("/:id", async (c) => {
 			try {
@@ -145,6 +154,55 @@ export class HelpRequestController {
 			}
 		})
 
+		.post(
+			"/:id/offers",
+			authMiddleware,
+			createValidationMiddleware(helpOfferInputSchema),
+			async (c) => {
+				const requestId = Number(c.req.param("id"));
+				if (
+					!Number.isInteger(requestId) ||
+					requestId <= 0 ||
+					requestId > Number.MAX_SAFE_INTEGER
+				) {
+					return c.json(
+						{
+							error:
+								"Eroare: ID-ul furnizat este invalid. Trebuie sa fie un numar intreg pozitiv.",
+						},
+						400,
+					);
+				}
+
+				try {
+					const body = await c.req.json();
+					const session = c.get("session");
+					const result = await this.helpRequestService.createOfferForTask(
+						requestId,
+						session.userId,
+						body,
+					);
+
+					return c.json(result, 201);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return c.json({ error: error.message }, 404);
+					}
+
+					if (error instanceof ForbiddenError) {
+						return c.json({ error: error.message }, 403);
+					}
+
+					if (error instanceof ConflictError) {
+						return c.json({ error: error.message }, 409);
+					}
+
+					console.error(error);
+					return c.json({ error: "Internal server error" }, 500);
+				}
+			},
+		)
+
 		// BE1-12 & BE1-13 (Paginare + Sortare)
 		.get("/", authMiddleware, async (c) => {
 			try {
@@ -160,19 +218,84 @@ export class HelpRequestController {
 				}
 
 				//Extragem parametrii
-				const { page, pageSize, sortBy, order, filters } = validation.validData;
+				const { page, pageSize, sortBy } = validation.validData;
 				const result = await this.helpRequestService.getPaginatedTasks(
 					page,
 					pageSize,
 					sortBy,
-					order,
-					filters,
+					//order,
+					//filters,
 				);
 
 				return c.json(result, 200);
 			} catch (error) {
 				console.error("Eroare la GET /tasks paginat si sortat:", error);
 				return c.json({ error: "Eroare interna a serverului." }, 500);
+			}
+		})
+
+		.get("/:id/offers", authMiddleware, async (c) => {
+			try {
+				// Extragem user-ul curent pus de middleware-ul de auth
+				const user = c.get("user");
+				if (!user?.id) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				const taskId = Number(c.req.param("id"));
+				if (!Number.isInteger(taskId) || taskId <= 0) {
+					return sendApiResponse(c, null, { kind: "clientError" });
+				}
+
+				// Extragem și validăm query params cu defaults
+				const query = c.req.query();
+				const page = query.page ? Number(query.page) : 1;
+				const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+				if (
+					!Number.isInteger(page) ||
+					page < 1 ||
+					!Number.isInteger(pageSize) ||
+					pageSize < 1 ||
+					pageSize > 50
+				) {
+					return sendApiResponse(c, null, { kind: "clientError" });
+				}
+
+				const statusRaw = query.status?.toUpperCase();
+				if (
+					statusRaw &&
+					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
+				) {
+					return sendApiResponse(c, null, { kind: "clientError" });
+				}
+
+				const status = statusRaw as
+					| "PENDING"
+					| "ACCEPTED"
+					| "REJECTED"
+					| undefined;
+
+				const result =
+					await this.helpRequestService.getPaginatedOffersForTaskOwner(
+						taskId,
+						user.id,
+						page,
+						pageSize,
+						status,
+					);
+
+				return sendApiResponse(c, result);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+
+				if (error instanceof ForbiddenError) {
+					return sendApiResponse(c, null, { kind: "forbidden" });
+				}
+
+				return sendApiResponse(c, null, { kind: "serverError" });
 			}
 		});
 }

@@ -14,10 +14,25 @@ export class InvalidStatusTransitionError extends Error {
 	}
 }
 
+export class ConflictError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ConflictError";
+	}
+}
+
 //400 date de intrare invalide sau lipsa
 export class ValidationError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "ValidationError";
+	}
+}
+
+//nu are permisiunea de a vizualiza
+export class ForbiddenError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ForbidenError";
 	}
 }
