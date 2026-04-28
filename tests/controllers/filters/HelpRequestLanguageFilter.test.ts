@@ -1,13 +1,15 @@
 /// <reference types="bun-types" />
 import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import auth from "../../src/auth";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { loadControllers } from "../../src/utils/controller";
+import app from "../../../src/app";
+import auth from "../../../src/auth";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import { loadControllers } from "../../../src/utils/controller";
 
 beforeAll(async () => {
-	await loadControllers(join(import.meta.dir, "../../src/controllers"));
+	// test file is in tests/controllers/filters -> need to go up 3 levels to reach project root
+	// then into src/controllers. Using '../../src/controllers' would point to tests/src/controllers
+	await loadControllers(join(import.meta.dir, "../../../src/controllers"));
 });
 
 describe("GET /api/tasks language filter", () => {
