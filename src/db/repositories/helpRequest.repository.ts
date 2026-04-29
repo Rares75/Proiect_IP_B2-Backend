@@ -1,10 +1,20 @@
-import { eq, and, count as drizzleCount } from "drizzle-orm";
+import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { volunteers } from "../profile";
-import { helpRequests, requestLocations, taskAssignments } from "../requests";
+import {
+	helpRequests,
+	requestDetails,
+	requestLocations,
+	taskAssignments,
+} from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
+import {
+	buildLanguageFilter,
+	buildStatusFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
@@ -144,5 +154,67 @@ export class HelpRequestRepository
 			.limit(1);
 
 		return found;
+	}
+
+	//BE1-12 + BE1-13
+	async findPaginatedWithDetails(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
+		const offset = (page - 1) * pageSize;
+
+		//filtrele
+		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+
+		//group the filters into an array and remove any 'undefined' or null values
+		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+
+		//if there are active filters, combine them
+		const composedWhere =
+			whereClause.length > 0 ? and(...whereClause) : undefined;
+		const primarySort =
+			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
+		const orderBy =
+			sortBy === "urgency"
+				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
+				: [primarySort, desc(helpRequests.id)];
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.where(composedWhere)
+			.orderBy(...orderBy)
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(({ helpRequest, requestDetails }) => ({
+			...helpRequest,
+			requestDetails,
+		}));
+
+		const countQuery = db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.where(composedWhere);
+
+		const [{ value }] = await countQuery;
+		const total = value;
+
+		return { data, total };
 	}
 }

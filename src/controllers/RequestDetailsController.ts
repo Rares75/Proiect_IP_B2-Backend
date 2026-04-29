@@ -56,8 +56,8 @@ export class RequestDetailsController {
 
 			try {
 				const id = Number(c.req.param("id"));
-				if (Number.isNaN(id)) {
-					return c.json({ message: "Invalid id" }, 400);
+				if (!Number.isInteger(id)) {
+					return c.json({ error: "Invalid id" }, 400);
 				}
 
 				const authorization =
@@ -66,16 +66,15 @@ export class RequestDetailsController {
 						c.get("session").userId,
 					);
 				if (authorization.status === "notFound") {
-					return c.json({ message: "Task not found" }, 404);
+					return c.json({ error: "Task not found" }, 404);
 				}
 				if (authorization.status === "forbidden") {
-					return c.json({ message: "Forbidden" }, 403);
+					return c.json({ error: "Forbidden" }, 403);
 				}
 				if (authorization.status === "invalidStatus") {
 					return c.json(
 						{
-							message:
-								"Details can only be updated when task status is OPEN.",
+							error: "Details can only be updated when task status is OPEN.",
 						},
 						409,
 					);
@@ -86,19 +85,20 @@ export class RequestDetailsController {
 					parsedBody.data,
 				);
 
-				if (result.notFound) {
-					return c.json({ message: "Task not found" }, 404);
+				if ("message" in result) {
+					return c.json({ error: result.message }, result.status);
 				}
 
-				return c.json(result.data, 200);
+				return c.json(result.data, result.status);
 			} catch (_error) {
-				return c.json({ message: "Could not update help request details" }, 500);
+				return c.json({ error: "Could not update help request details" }, 500);
 			}
 		})
+
 		.delete("/:id/details", async (c) => {
 			const id = Number(c.req.param("id"));
-			if (Number.isNaN(id)) {
-				return c.json({ message: "Invalid id" }, 400);
+			if (!Number.isInteger(id)) {
+				return c.json({ error: "Invalid id" }, 400);
 			}
 
 			const authorization =
@@ -122,7 +122,8 @@ export class RequestDetailsController {
 				);
 			}
 
-			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);
+			const result =
+				await this.requestDetailsService.deleteHelpRequestDetails(id);
 
 			if (result.status === 204) {
 				return c.body(null, 204);
