@@ -76,8 +76,12 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			body: JSON.stringify(payload),
 		});
 
-		expect(response.status).toBe(201);
 		const body: any = await response.json();
+		// Verificarea speciala:
+        if (response.status === 500) {
+            throw new Error(`EROARE BAZA DE DATE TEST 2: ${JSON.stringify(body)}`);
+        }
+		expect(response.status).toBe(201);
 		createdTaskIds.push(body.id);
 
 		const [dbTask] = await db
