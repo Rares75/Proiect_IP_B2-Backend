@@ -37,8 +37,8 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			status: "OPEN",
 			anonymousMode: false,
 			category: "FACE_TO_FACE",
-			locationCity: "Iasi",
-			locationAddressText: "Strada Palat 1",
+			city: "Iasi",
+			addressText: "Strada Palat 1",
 			location: { x: 47.15, y: 27.58 },
 		};
 
@@ -137,8 +137,8 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			status: "OPEN",
 			anonymousMode: false,
 			category: "FACE_TO_FACE", // Modificat din "Household" in "FACE_TO_FACE"
-			locationCity: "Iasi",
-			locationAddressText: "Centru",
+			city: "Iasi",
+			addressText: "Centru",
 			location: { x: 47.162, y: 27.588 },
 		};
 
@@ -190,7 +190,7 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 		expect(dbTask).toBeUndefined();
 	});
 
-	it("GET /tasks/{id} dupa POST returneaza locationCity, locationAddressText, location populate (nu null)", async () => {
+	it("GET /tasks/{id} dupa POST returneaza city, addressText, location populate (nu null)", async () => {
 		const payload = {
 			title: "GET Location Test",
 			description: "Testing GET endpoint",
@@ -198,8 +198,8 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			status: "OPEN",
 			anonymousMode: false,
 			category: "FACE_TO_FACE",
-			locationCity: "Bucuresti",
-			locationAddressText: "Strada Victoriei",
+			city: "Bucuresti",
+			addressText: "Strada Victoriei",
 			location: { x: 44.42, y: 26.1 },
 		};
 
@@ -216,8 +216,8 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 		const getBody: any = await getResponse.json();
 
 		expect(getResponse.status).toBe(200);
-		expect(getBody.locationCity).toBe("Bucuresti");
-		expect(getBody.locationAddressText).toBe("Strada Victoriei");
+		expect(getBody.city).toBe("Bucuresti");
+		expect(getBody.addressText).toBe("Strada Victoriei");
 		expect(getBody.location).toEqual({ x: 44.42, y: 26.1 });
 	});
 });
