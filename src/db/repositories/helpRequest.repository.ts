@@ -31,8 +31,7 @@ export class HelpRequestRepository
 		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
 		return await db.transaction(async (tx) => {
 			// 1. Separam datele de locatie de restul datelor pentru task
-			const { location, city, addressText, ...taskData } =
-				data as any;
+			const { location, city, addressText, ...taskData } = data as any;
 
 			// 2. Inseram datele principale in tabelul help_requests
 			const [newHelpRequest] = await tx
