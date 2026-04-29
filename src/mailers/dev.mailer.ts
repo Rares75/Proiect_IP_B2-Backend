@@ -7,12 +7,7 @@ export class DevMailer implements Mailer {
 	private mailer: ReturnType<typeof createTransport>;
 	constructor() {
 		this.mailer = createTransport({
-			host: "gmail",
-			port: 587,
-			auth: {
-				user: process.env.GMAIL_USER,
-				pass: process.env.GMAIL_APP_PASSWORD,
-			},
+			url: "smtp://localhost:1025",
 		});
 	}
 	async send({
