@@ -30,8 +30,8 @@ export const helpRequestInputSchema = z
 		anonymousMode: z.boolean({
 			error: "Anonymous mode is required",
 		}),
-		locationCity: z.string().max(100).optional(),
-		locationAddressText: z.string().optional(),
+		City: z.string().max(100).optional(),
+		AddressText: z.string().optional(),
 
 		// MODIFICARE 1: Categoria este acum obligatorie si de tip enum
 		category: z.enum(helpRequestCategoryEnum.enumValues, {
