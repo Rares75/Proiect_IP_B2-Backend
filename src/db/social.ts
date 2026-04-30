@@ -1,5 +1,6 @@
 import { type InferSelectModel, relations } from "drizzle-orm";
 import {
+	index,
 	integer,
 	pgTable,
 	serial,
@@ -8,7 +9,7 @@ import {
 	unique,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
-import { conversationStatusEnum, notificationTypeEnum } from "./enums";
+import { accountStatusEnum, conversationStatusEnum, notificationTypeEnum } from "./enums";
 import { helpRequests, taskAssignments } from "./requests";
 
 export const conversations = pgTable("conversations", {
@@ -170,3 +171,44 @@ export type InteractionHistoryType = InferSelectModel<
 	typeof interactionHistories
 >;
 export type NotificationType = InferSelectModel<typeof notifications>;
+
+
+/**
+ * Stores a log entry every time a user's account is disabled.
+ * Used for auditing, preventing duplicate notifications, and
+ * retrieving the disable reason later.
+ */
+export const disableNotifications = pgTable(
+	"disable_notifications",
+	{
+		id: serial("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		reason: text("reason").notNull(),
+		status: accountStatusEnum("status").notNull().default("BLOCKED"),
+		notifiedAt: timestamp("notified_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		index("idx_disable_notifications_user_id").on(t.userId),
+	],
+);
+ 
+export const disableNotificationsRelations = relations(
+	disableNotifications,
+	({ one }) => ({
+		user: one(user, {
+			fields: [disableNotifications.userId],
+			references: [user.id],
+		}),
+	}),
+);
+ 
+export type DisableNotification = typeof disableNotifications.$inferSelect;
+export type CreateDisableNotificationDTO =
+	typeof disableNotifications.$inferInsert;
