@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const allowedSortFields = ["title", "date", "status", "city"] as const;
+const allowedSortFields = ["createdAt", "urgency"] as const;
 const allowedOrderValues = ["ASC", "DESC"] as const;
 const allowedRequestStatuses = [
 	"OPEN",
@@ -63,7 +63,12 @@ export const queryParamsSchema = z
 			})
 			.optional(),
 		city: z.string().trim().min(1, "City must not be empty").optional(),
-		language: z.string().trim().min(1, "Language must not be empty").optional(),
+		language: z
+			.string()
+			.trim()
+			.min(1, "Language must not be empty")
+			.max(50, "Language must be at most 50 characters")
+			.optional(),
 		skill: skillSchema,
 		lat: optionalCoercedNumber("Latitude must be a number").refine(
 			(value) => value === undefined || (value >= -90 && value <= 90),

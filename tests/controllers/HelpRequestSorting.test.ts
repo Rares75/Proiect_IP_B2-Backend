@@ -32,7 +32,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expect(body.error).toContain("accepta doar");
+		expect(body.errors).toContainEqual({
+			field: "sortBy",
+			message: "Sort by must be one of: createdAt, urgency",
+		});
 	});
 
 	it("ar trebui sa returneze 400 daca order este invalid (ex: RANDOM)", async () => {
@@ -47,7 +50,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expect(body.error).toContain("accepta doar");
+		expect(body.errors).toContainEqual({
+			field: "order",
+			message: "Order must be either ASC or DESC",
+		});
 	});
 
 	it("ar trebui sa foloseasca createdAt si DESC implicit daca nu sunt trimisi parametri", async () => {

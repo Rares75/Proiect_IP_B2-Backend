@@ -1,28 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import "../../src/app";
-import { Controller } from "../../src/di/decorators/controller";
 
-const loadControllers = async (dir: string) => {
-	const controllersDir = existsSync(dir)
-		? dir
-		: join(import.meta.dir, "../../src/controllers");
-	for (const file of readdirSync(controllersDir)) {
-		const fullPath = join(controllersDir, file);
-		if (statSync(fullPath).isDirectory()) {
-			await loadControllers(fullPath);
-		} else if (file.endsWith(".ts")) {
-			await import(fullPath);
-		}
-	}
-};
-
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-	loadControllers,
-}));
+//const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
 	"../../src/controllers/RequestDetailsController"
@@ -57,7 +36,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("returns 400 for languageNeeded longer than 50 on the real route", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				...validPayload,
@@ -79,7 +58,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("returns 400 for extra fields on the real route", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				...validPayload,
@@ -101,7 +80,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("lets a valid requestDetails body reach the handler without wrapping the response", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(validPayload),
 		});

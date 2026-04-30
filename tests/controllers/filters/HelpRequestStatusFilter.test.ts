@@ -122,8 +122,12 @@ describe("GET /api/tasks status filter", () => {
 
 		expect(response.status).toBe(400);
 		expect(body).toEqual({
-			error:
-				"Eroare: 'status' accepta doar: OPEN, MATCHED, IN_PROGRESS, COMPLETED, CANCELLED, REJECTED.",
+			errors: [
+				{
+					field: "status",
+					message: "Status must be a valid request status",
+				},
+			],
 		});
 	});
 

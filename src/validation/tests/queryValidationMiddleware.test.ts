@@ -43,7 +43,7 @@ describe("queryValidationMiddleware", () => {
 				},
 				{
 					field: "sortBy",
-					message: "Sort by must be one of: title, date, status, city",
+					message: "Sort by must be one of: createdAt, urgency",
 				},
 				{
 					field: "order",
@@ -182,7 +182,7 @@ describe("queryValidationMiddleware", () => {
 	it("lets valid GET query params reach the handler without modifying them", async () => {
 		const app = createQueryApp();
 		const url =
-			"http://localhost/tasks?page=2&pageSize=20&sortBy=title&order=ASC&status=OPEN&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
+			"http://localhost/tasks?page=2&pageSize=20&sortBy=urgency&order=ASC&status=OPEN&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
 
 		const response = await app.request(url);
 
@@ -192,7 +192,7 @@ describe("queryValidationMiddleware", () => {
 			query: {
 				page: "2",
 				pageSize: "20",
-				sortBy: "title",
+				sortBy: "urgency",
 				order: "ASC",
 				status: "OPEN",
 				city: "Bucharest",
@@ -249,6 +249,10 @@ describe("queryValidationMiddleware", () => {
 				{
 					field: "category",
 					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
 				},
 			],
 		});

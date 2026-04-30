@@ -15,6 +15,7 @@ const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 
 @Controller("/tasks")
@@ -146,7 +147,7 @@ export class HelpRequestController {
 		})
 
 		// BE1-12 & BE1-13 (Paginare + Sortare)
-		.get("/", authMiddleware, async (c) => {
+		.get("/", authMiddleware, queryValidationMiddleware, async (c) => {
 			try {
 				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
 				const validation = validateTasksQuery({

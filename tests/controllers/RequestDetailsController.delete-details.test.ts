@@ -1,31 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import "../../src/app";
-import { Controller } from "../../src/di/decorators/controller";
 
-const loadControllers = async (dir: string) => {
-	const controllersDir = existsSync(dir)
-		? dir
-		: join(import.meta.dir, "../../src/controllers");
-	for (const file of readdirSync(controllersDir)) {
-		const fullPath = join(controllersDir, file);
-		if (statSync(fullPath).isDirectory()) {
-			await loadControllers(fullPath);
-		} else if (file.endsWith(".ts")) {
-			await import(fullPath);
-		}
-	}
-};
-
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-	loadControllers,
-}));
+//const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
-	"../../src/controllers/requestDetailsController"
+	"../../src/controllers/RequestDetailsController"
 );
 
 type TaskStatus =
@@ -144,7 +123,7 @@ describe("DELETE /tasks/:id/details", () => {
 		expect(deleteResponse.status).toBe(204);
 
 		const getResponse = await getTask(1);
-		const body = await getResponse.json();
+		const body = (await getResponse.json()) as any;
 
 		expect(getResponse.status).toBe(200);
 		expect(body.requestDetails).toBeNull();

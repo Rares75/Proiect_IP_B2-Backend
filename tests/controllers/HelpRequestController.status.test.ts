@@ -1,29 +1,9 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import "../../src/app";
-import { Controller } from "../../src/di/decorators/controller";
 
-const loadControllers = async (dir: string) => {
-	const controllersDir = existsSync(dir)
-		? dir
-		: join(import.meta.dir, "../../src/controllers");
-	for (const file of readdirSync(controllersDir)) {
-		const fullPath = join(controllersDir, file);
-		if (statSync(fullPath).isDirectory()) {
-			await loadControllers(fullPath);
-		} else if (file.endsWith(".ts")) {
-			await import(fullPath);
-		}
-	}
-};
+//const Controller = () => (_target: unknown) => {};
 
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-	loadControllers,
-}));
 //trebuie neparat dupa mock)
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
