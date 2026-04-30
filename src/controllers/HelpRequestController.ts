@@ -149,7 +149,10 @@ export class HelpRequestController {
 		.get("/", authMiddleware, async (c) => {
 			try {
 				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
-				const validation = validateTasksQuery(c.req.query());
+				const validation = validateTasksQuery({
+					...c.req.query(),
+					...(c.req.queries("skill") ? { skill: c.req.queries("skill") } : {}),
+				});
 
 				//Daca validatorul gaseste o problema
 				if (validation.error || !validation.validData) {

@@ -125,6 +125,38 @@ describe("queryValidationMiddleware", () => {
 		});
 	});
 
+	it("returns 400 when skill is empty", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?skill=");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
+				},
+			],
+		});
+	});
+
+	it("returns 400 when skill is only spaces after trim", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?skill=%20%20");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
+				},
+			],
+		});
+	});
+
 	it("skips query validation for non-GET requests", async () => {
 		const app = new Hono();
 
@@ -150,7 +182,7 @@ describe("queryValidationMiddleware", () => {
 	it("lets valid GET query params reach the handler without modifying them", async () => {
 		const app = createQueryApp();
 		const url =
-			"http://localhost/tasks?page=2&pageSize=20&sortBy=title&order=ASC&status=OPEN&city=Bucharest&language=Romanian&lat=47&lng=25&radius=15";
+			"http://localhost/tasks?page=2&pageSize=20&sortBy=title&order=ASC&status=OPEN&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
 
 		const response = await app.request(url);
 
@@ -165,6 +197,7 @@ describe("queryValidationMiddleware", () => {
 				status: "OPEN",
 				city: "Bucharest",
 				language: "Romanian",
+				skill: "sofer",
 				lat: "47",
 				lng: "25",
 				radius: "15",

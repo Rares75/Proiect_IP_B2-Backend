@@ -10,7 +10,14 @@ export const validateQueryParams = async (
 	schema: ValidationSchema,
 ): Promise<void> => {
 	try {
-		await schema.parseAsync(context.req.query());
+		const queryParams = {
+			...context.req.query(),
+			...(context.req.queries("skill")
+				? { skill: context.req.queries("skill") }
+				: {}),
+		};
+
+		await schema.parseAsync(queryParams);
 	} catch (error) {
 		if (error instanceof ZodError) {
 			throw new RequestValidationError(formatValidationIssues(error.issues));

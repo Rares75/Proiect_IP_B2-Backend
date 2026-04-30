@@ -21,6 +21,22 @@ const optionalCoercedNumber = (message: string) =>
 		return trimmedValue === "" ? Number.NaN : trimmedValue;
 	}, z.coerce.number({ error: message }).optional());
 
+const skillSchema = z
+	.preprocess((value) => {
+		if (value === undefined) {
+			return undefined;
+		}
+
+		return Array.isArray(value) ? value : [value];
+	}, z.array(z.string()).optional())
+	.refine(
+		(skills) =>
+			skills === undefined || skills.every((skill) => skill.trim().length > 0),
+		{
+			message: "Skill must not be empty",
+		},
+	);
+
 export const queryParamsSchema = z
 	.object({
 		page: optionalCoercedNumber("Page must be a number"),
@@ -48,6 +64,7 @@ export const queryParamsSchema = z
 			.optional(),
 		city: z.string().trim().min(1, "City must not be empty").optional(),
 		language: z.string().trim().min(1, "Language must not be empty").optional(),
+		skill: skillSchema,
 		lat: optionalCoercedNumber("Latitude must be a number").refine(
 			(value) => value === undefined || (value >= -90 && value <= 90),
 			{

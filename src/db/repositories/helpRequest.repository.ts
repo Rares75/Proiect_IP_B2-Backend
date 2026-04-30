@@ -6,6 +6,7 @@ import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
 	buildLanguageFilter,
+	buildSkillFilter,
 	buildStatusFilter,
 	type TaskFilterParams,
 } from "../../filters";
@@ -138,9 +139,12 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		const skillFilter = filters ? buildSkillFilter(filters) : undefined;
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [statusFilter, languageFilter, skillFilter].filter(
+			Boolean,
+		);
 
 		//if there are active filters, combine them
 		const composedWhere =
