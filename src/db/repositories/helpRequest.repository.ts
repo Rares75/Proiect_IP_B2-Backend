@@ -4,12 +4,21 @@ import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
-import { buildStatusFilter, type TaskFilterParams } from "../../filters";
+import {
+	buildLanguageFilter,
+	buildStatusFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
 
-export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
+// Extindem tipul de baza cu campurile optionale de locatie, pentru ca repository-ul sa le astepte
+export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert & {
+	location?: { x: number; y: number };
+	city?: string;
+	addressText?: string;
+};
 
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
@@ -19,11 +28,31 @@ export class HelpRequestRepository
 		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
 {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
-		const [newHelpRequest] = await db
-			.insert(helpRequests)
-			.values(data)
-			.returning();
-		return newHelpRequest;
+		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
+		return await db.transaction(async (tx) => {
+			// 1. Separam datele de locatie de restul datelor pentru task
+			const { location, city, addressText, ...taskData } = data as any;
+
+			// 2. Inseram datele principale in tabelul help_requests
+			const [newHelpRequest] = await tx
+				.insert(helpRequests)
+				.values(taskData)
+				.returning();
+
+			// 3. Daca am primit locatie, o salvam in tabelul ei separat (request_locations)
+			if (location) {
+				await tx.insert(requestLocations).values({
+					helpRequestId: newHelpRequest.id,
+					location: location,
+					city: city,
+					addressText: addressText,
+				});
+			}
+
+			// Daca totul a mers bine, tranzactia se inchide automat (Commit)
+			// Daca pica pasul 3, tranzactia anuleaza automat pasul 2 (Rollback)
+			return newHelpRequest;
+		});
 	}
 
 	async findById(id: number): Promise<HelpRequest | undefined> {
@@ -130,7 +159,17 @@ export class HelpRequestRepository
 		filters?: TaskFilterParams,
 	) {
 		const offset = (page - 1) * pageSize;
+
+		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
+		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+
+		//group the filters into an array and remove any 'undefined' or null values
+		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+
+		//if there are active filters, combine them
+		const composedWhere =
+			whereClause.length > 0 ? and(...whereClause) : undefined;
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 		const orderBy =
@@ -148,7 +187,7 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
-			.where(statusFilter)
+			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
@@ -158,8 +197,14 @@ export class HelpRequestRepository
 			requestDetails,
 		}));
 
-		const baseQuery = db.select({ value: drizzleCount() }).from(helpRequests);
-		const countQuery = statusFilter ? baseQuery.where(statusFilter) : baseQuery;
+		const countQuery = db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.where(composedWhere);
 
 		const [{ value }] = await countQuery;
 		const total = value;

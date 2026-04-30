@@ -64,8 +64,7 @@ const auth = betterAuth({
 	advanced: {
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
-		// trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
-		disableOriginCheck: true,
+		trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
 		cookiePrefix: "my-app",
 		useSecureCookies: false,
 		cookies: {

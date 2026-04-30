@@ -57,6 +57,20 @@
 			"when": 1777038355467,
 			"tag": "0007_adorable_shinko_yamashiro",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1777300238673,
+			"tag": "0008_ambiguous_molten_man",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1777310982019,
+			"tag": "0009_cultured_miracleman",
+			"breakpoints": true
 		}
 	]
 }
