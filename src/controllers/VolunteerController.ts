@@ -9,6 +9,7 @@ export class VolunteerController {
 		@inject(VolunteerRepository)
 		private readonly volunteerRepository: VolunteerRepository,
 	) {}
+
 	controller = new Hono().get("/:id", async (c) => {
 		const idParam = c.req.param("id");
 		const volunteerId = Number(idParam);

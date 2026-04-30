@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { db } from "../../db";
-import { container } from "../../di/container";
-import { volunteers } from "../profile";
-import { UserRepository } from "./user.repository";
-import { VolunteerRepository } from "./volunteer.repository";
+import { db } from "../../src/db";
+import { container } from "../../src/di";
+import { volunteers } from "../../src/db/profile";
+import { UserRepository } from "../../src/db/repositories/user.repository";
+import { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";
 
 describe("VolunteerRepository tests", () => {
 	const userRepository = container.get(UserRepository);
