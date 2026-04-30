@@ -1,7 +1,16 @@
 /// <reference types="bun-types" />
-import { describe, expect, it, beforeAll, afterEach } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	spyOn,
+} from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
+import auth from "../../src/auth";
 import { loadControllers } from "../../src/utils/controller";
 import { db } from "../../src/db";
 import { helpRequests, requestLocations } from "../../src/db/requests";
@@ -18,6 +27,14 @@ beforeAll(async () => {
 
 describe("POST /api/tasks (Integration BE1-34)", () => {
 	let createdTaskIds: number[] = [];
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	beforeEach(() => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
+	});
 
 	afterEach(async () => {
 		for (const id of createdTaskIds) {
@@ -27,6 +44,7 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			await db.delete(helpRequests).where(eq(helpRequests.id, id));
 		}
 		createdTaskIds = [];
+		authSpy?.mockRestore();
 	});
 
 	it("POST /tasks cu body valid (title, description, urgency, anonymousMode, category, location) -> 201", async () => {

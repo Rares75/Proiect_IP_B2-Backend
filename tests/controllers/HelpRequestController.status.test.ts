@@ -1,9 +1,18 @@
-import { beforeEach, describe, expect, test, mock } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import "../../src/app";
+import auth from "../../src/auth";
 import { Controller } from "../../src/di/decorators/controller";
 
 const loadControllers = async (dir: string) => {
@@ -83,6 +92,7 @@ const detailsRepo = {
 
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
 
 	const patchStatus = (id: number, status: RequestStatus) =>
 		app.request(`http://localhost/tasks/${id}/status`, {
@@ -92,6 +102,11 @@ describe("PATCH /tasks/:id/status", () => {
 		});
 
 	beforeEach(() => {
+		authSpy?.mockRestore();
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
 		store = new Map<number, Task>();
 
 		const service = new HelpRequestService(repo as any, detailsRepo as any);
@@ -99,6 +114,10 @@ describe("PATCH /tasks/:id/status", () => {
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);
+	});
+
+	afterEach(() => {
+		authSpy?.mockRestore();
 	});
 
 	test("200 - valid Open -> Claimed (OPEN -> MATCHED)", async () => {
