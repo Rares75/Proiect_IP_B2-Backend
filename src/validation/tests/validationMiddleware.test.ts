@@ -11,7 +11,8 @@ const validPayload = {
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
-	category: "Transport",
+	category: "FACE_TO_FACE",
+	location: { x: 47.15, y: 27.58 },
 };
 
 const createTestApp = (): Hono => {
@@ -82,6 +83,10 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
+				},
 			],
 		});
 	});
@@ -101,6 +106,7 @@ describe("validationMiddleware", () => {
 				status: "PENDING",
 				anonymousMode: "no",
 				category: 999,
+				location: "Bucuresti",
 			}),
 		});
 
@@ -130,6 +136,10 @@ describe("validationMiddleware", () => {
 				{
 					field: "category",
 					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received string",
 				},
 			],
 		});

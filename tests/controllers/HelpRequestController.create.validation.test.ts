@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 
-const Controller = () => (_target: unknown) => {};
-
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-}));
+//const Controller = () => (_target: unknown) => {};
 
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
@@ -17,6 +13,8 @@ const validPayload = {
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
+	category: "FACE_TO_FACE",
+	location: { x: 47.15, y: 27.58 },
 };
 
 describe("POST /tasks validation", () => {
@@ -69,6 +67,14 @@ describe("POST /tasks validation", () => {
 				{
 					field: "anonymousMode",
 					message: "Anonymous mode is required",
+				},
+				{
+					field: "category",
+					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
 				},
 			],
 		});
