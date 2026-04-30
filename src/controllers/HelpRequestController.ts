@@ -1,21 +1,51 @@
 import { Hono } from "hono";
+import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
-
+import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddleware } from "../middlware/authMiddleware";
+import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
-
-type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-
-const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
 	helpRequestInputSchema,
 } from "../validation";
+
+type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
+type HelpRequestResponse = Awaited<
+	ReturnType<HelpRequestService["getHelpRequestById"]>
+>;
+type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
+
+const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
+
+const removeClientOwnerFields = (
+	body: CreateHelpRequestDTO & { userId?: unknown },
+): Omit<CreateHelpRequestDTO, "requestedByUserId"> => {
+	const safeBody = { ...body };
+	delete safeBody.userId;
+	delete safeBody.requestedByUserId;
+
+	return safeBody;
+};
+
+const sanitizeAnonymousTask = (
+	task: ExistingHelpRequestResponse,
+): ExistingHelpRequestResponse | Record<string, unknown> => {
+	if (!task.anonymousMode) {
+		return task;
+	}
+
+	const safeTask: Record<string, unknown> = { ...task };
+	delete safeTask.requestedByUserId;
+	delete safeTask.userId;
+	delete safeTask.ownerId;
+
+	return safeTask;
+};
 
 @Controller("/tasks")
 export class HelpRequestController {
@@ -24,22 +54,55 @@ export class HelpRequestController {
 		private readonly helpRequestService: HelpRequestService,
 	) {}
 
-	controller = new Hono()
+	controller = new Hono<AppEnv>()
 		.use("/", createValidationMiddleware(helpRequestInputSchema))
 
 		.post("/", async (c) => {
 			try {
-				const body = await c.req.json();
-				const result = await this.helpRequestService.createHelpRequest(body);
+				const body = (await c.req.json()) as CreateHelpRequestDTO & {
+					userId?: unknown;
+				};
+				const safeBody = removeClientOwnerFields(body);
+				const session = c.get("session");
+				const result = await this.helpRequestService.createHelpRequest({
+					...safeBody,
+					...(session?.userId ? { requestedByUserId: session.userId } : {}),
+				});
 				return c.json(result, 201);
 			} catch (error: any) {
-				// check if error comes from inappropriate request
 				if (error instanceof ModerationError) {
 					return c.json({ error: error.message }, 400);
 				}
 
 				console.error(error);
 				return c.json({ error: "Internal server error" }, 500);
+			}
+		})
+
+		.get("/", authMiddleware, async (c) => {
+			try {
+				const validation = validateTasksQuery(c.req.query());
+
+				if (validation.error || !validation.validData) {
+					return c.json(
+						{ error: validation.error || "Eroare de validare." },
+						400,
+					);
+				}
+
+				const { page, pageSize, sortBy, order, filters } = validation.validData;
+				const result = await this.helpRequestService.getPaginatedTasks(
+					page,
+					pageSize,
+					sortBy,
+					order,
+					filters,
+				);
+
+				return c.json(result, 200);
+			} catch (error) {
+				console.error("Eroare la GET /tasks paginat si sortat:", error);
+				return c.json({ error: "Eroare interna a serverului." }, 500);
 			}
 		})
 
@@ -80,7 +143,7 @@ export class HelpRequestController {
 				const dataToReturn = Array.isArray(foundTask)
 					? foundTask[0]
 					: foundTask;
-				return c.json(dataToReturn, 200);
+				return c.json(sanitizeAnonymousTask(dataToReturn), 200);
 			} catch (error) {
 				console.error(
 					`Eroare critica la GET /tasks/${c.req.param("id")} :`,
@@ -96,7 +159,7 @@ export class HelpRequestController {
 			}
 		})
 
-		.patch("/:id/status", async (c) => {
+		.on(["POST", "PATCH"], "/:id/status", async (c) => {
 			const requestId = Number(c.req.param("id"));
 			if (!Number.isInteger(requestId)) {
 				return c.json(
@@ -142,37 +205,6 @@ export class HelpRequestController {
 				}
 
 				throw error;
-			}
-		})
-
-		// BE1-12 & BE1-13 (Paginare + Sortare)
-		.get("/", authMiddleware, async (c) => {
-			try {
-				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
-				const validation = validateTasksQuery(c.req.query());
-
-				//Daca validatorul gaseste o problema
-				if (validation.error || !validation.validData) {
-					return c.json(
-						{ error: validation.error || "Eroare de validare." },
-						400,
-					);
-				}
-
-				//Extragem parametrii
-				const { page, pageSize, sortBy, order, filters } = validation.validData;
-				const result = await this.helpRequestService.getPaginatedTasks(
-					page,
-					pageSize,
-					sortBy,
-					order,
-					filters,
-				);
-
-				return c.json(result, 200);
-			} catch (error) {
-				console.error("Eroare la GET /tasks paginat si sortat:", error);
-				return c.json({ error: "Eroare interna a serverului." }, 500);
 			}
 		});
 }

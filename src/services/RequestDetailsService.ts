@@ -13,6 +13,14 @@ type DeleteHelpRequestDetailsResult =
 	| { status: 204 }
 	| { status: 404 | 409 | 500; body: { message: string } };
 
+type DetailsAuthorizationResult =
+	| { status: "allowed" }
+	| { status: "notFound" }
+	| { status: "forbidden" }
+	| { status: "invalidStatus" };
+
+const OPEN_STATUS: RequestStatus = "OPEN";
+
 type UpsertHelpRequestDetailsResult =
 	| { status: 200 | 201; data: any }
 	| { status: 404 | 409 | 500; message: string };
@@ -40,6 +48,26 @@ export class RequestDetailsService {
 
 	protected async getRequestDetailsRepository() {
 		return this.requestDetailsRepo;
+	}
+
+	async authorizeDetailsMutation(
+		helpRequestId: number,
+		userId: string,
+	): Promise<DetailsAuthorizationResult> {
+		const task = await this.helpRequestRepo.findById(helpRequestId);
+		if (!task) {
+			return { status: "notFound" };
+		}
+
+		if (task.requestedByUserId !== userId) {
+			return { status: "forbidden" };
+		}
+
+		if (task.status !== OPEN_STATUS) {
+			return { status: "invalidStatus" };
+		}
+
+		return { status: "allowed" };
 	}
 
 	async upsertDetails(

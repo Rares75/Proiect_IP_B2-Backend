@@ -36,7 +36,7 @@ export class RequestDetailsController {
 	) {}
 
 	controller = new Hono()
-		.put("/:id/details", async (c) => {
+		.on(["POST", "PUT"], "/:id/details", async (c) => {
 			const body = await c.req.json().catch(() => null);
 			const parsedBody = requestDetailsSchema.safeParse(body);
 			if (!parsedBody.success) {
@@ -61,6 +61,12 @@ export class RequestDetailsController {
 				parsedBody.data,
 			);
 
+			if ("notFound" in result) {
+				return result.notFound
+					? c.json({ message: "Task not found" }, 404)
+					: c.json(result.data, 200);
+			}
+
 			if ("message" in result) {
 				return c.json({ error: result.message }, result.status);
 			}
@@ -70,8 +76,11 @@ export class RequestDetailsController {
 
 		.delete("/:id/details", async (c) => {
 			const id = Number(c.req.param("id"));
-			const result =
-				await this.requestDetailsService.deleteHelpRequestDetails(id);
+			if (Number.isNaN(id)) {
+				return c.json({ message: "Invalid id" }, 400);
+			}
+
+			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);
 
 			if (result.status === 204) {
 				return c.body(null, 204);
