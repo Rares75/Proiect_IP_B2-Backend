@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
 import { z } from "zod";
 import { inject } from "../di";
+import type { AppEnv } from "../app";
+import { authMiddlware } from "../middlware/authMiddleware";
 import { RatingsService } from "../services/RatingsService";
 import { Controller } from "../utils/controller";
 
@@ -58,7 +60,7 @@ export class RatingsController {
 	constructor(
 		@inject(RatingsService) private readonly ratingService: RatingsService,
 	) {}
-	controller = new Hono()
+	controller = new Hono<AppEnv>()
 		.post(
 			"/",
 			describeRoute({
@@ -105,6 +107,7 @@ export class RatingsController {
 				},
 			}),
 			zValidator("json", createRatingSchema),
+			authMiddlware,
 			async (c) => {
 				try {
 					const body = c.req.valid("json");

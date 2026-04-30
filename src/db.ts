@@ -1,4 +1,13 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./db/schema";
 
-// biome-ignore lint/style/noNonNullAssertion: <trust me>
-export const db = drizzle(process.env.DATABASE_URL!);
+if (!process.env.DATABASE_URL) {
+	throw new Error("DATABASE_URL not found");
+}
+
+const pool = new Pool({
+	connectionString: process.env.DATABASE_URL,
+});
+
+export const db = drizzle(pool, { schema });
