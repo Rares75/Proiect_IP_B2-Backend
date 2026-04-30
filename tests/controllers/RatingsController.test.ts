@@ -58,7 +58,9 @@ describe("RatingsController", () => {
 			};
 
 			expect(createRatingSchema.safeParse(invalidStarsLow).success).toBe(false);
-			expect(createRatingSchema.safeParse(invalidStarsHigh).success).toBe(false);
+			expect(createRatingSchema.safeParse(invalidStarsHigh).success).toBe(
+				false,
+			);
 		});
 
 		test("should validate comment is not empty", async () => {
@@ -185,7 +187,8 @@ describe("RatingsController", () => {
 		test("should return null when user has no ratings", async () => {
 			mockService.getRatingsSummaryForUser = async () => null;
 
-			const result = await mockService.getRatingsSummaryForUser("user-no-ratings");
+			const result =
+				await mockService.getRatingsSummaryForUser("user-no-ratings");
 			expect(result).toBeNull();
 		});
 
