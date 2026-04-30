@@ -18,7 +18,7 @@ export class ProfileController {
 	) {}
 	controller = new Hono()
 
-		.get("/:userId", async (c, next) => {
+		.get("/:userId", async (c) => {
 			const { userId } = c.req.param();
 
 			try {
