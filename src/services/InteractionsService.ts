@@ -1,4 +1,3 @@
-import { rateLimitSchema } from "better-auth";
 import { InteractionsRepository } from "../db/repositories/interactions.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
@@ -71,7 +70,7 @@ export class InteractionsService {
 					interaction.taskAssignmentId,
 				);
 				const receivedRating =
-					ratings.find((rating) => rating.receivedByUserId == userId) ?? null;
+					ratings.find((rating) => rating.receivedByUserId === userId) ?? null;
 				return {
 					interactionId: interaction.id,
 					taskAssignmentId: interaction.taskAssignmentId,
