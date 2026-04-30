@@ -14,7 +14,8 @@ type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
-	helpRequestInputSchema,
+	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 
 @Controller("/tasks")
@@ -25,7 +26,7 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
 
 		.post("/", async (c) => {
 			try {
@@ -146,10 +147,13 @@ export class HelpRequestController {
 		})
 
 		// BE1-12 & BE1-13 (Paginare + Sortare)
-		.get("/", authMiddleware, async (c) => {
+		.get("/", authMiddleware, queryValidationMiddleware, async (c) => {
 			try {
 				//Apelam validatorul nostru curat, trimitându-i toți parametrii din URL
-				const validation = validateTasksQuery(c.req.query());
+				const validation = validateTasksQuery({
+					...c.req.query(),
+					...(c.req.queries("skill") ? { skill: c.req.queries("skill") } : {}),
+				});
 
 				//Daca validatorul gaseste o problema
 				if (validation.error || !validation.validData) {

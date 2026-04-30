@@ -127,7 +127,10 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
 		});
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.error).toContain("intre 1 si 100");
+		expect(body.errors).toContainEqual({
+			field: "pageSize",
+			message: "Page size must be greater than 0",
+		});
 	});
 
 	it("ar trebui sa returneze 400 daca page este numar negativ", async () => {

@@ -64,7 +64,12 @@ describe("GET /api/tasks language filter", () => {
 
 		expect(response.status).toBe(400);
 		expect(body).toEqual({
-			error: "Error: 'language' cannot be empty",
+			errors: [
+				{
+					field: "language",
+					message: "Language must not be empty",
+				},
+			],
 		});
 	});
 

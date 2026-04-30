@@ -1,7 +1,8 @@
-import { describe, expect, it, beforeAll } from "bun:test";
+import { describe, expect, it, beforeAll, spyOn } from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
+import { RequestDetailsService } from "../../src/services/RequestDetailsService";
 
 describe("PUT /api/tasks/:id/details", () => {
 	beforeAll(async () => {
@@ -65,18 +66,27 @@ describe("PUT /api/tasks/:id/details", () => {
 	});
 
 	it("returneaza 404 daca task-ul nu exista", async () => {
-		const response = await app.request(`/api/tasks/999999/details`, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				notes: "Nota de test",
-				languageNeeded: "RO",
-				safetyNotes: "Fara pericole",
-			}),
-		});
+		const mockNotFound = spyOn(
+			RequestDetailsService.prototype,
+			"upsertDetails",
+		).mockResolvedValue({ status: 404, message: "Task not found" });
 
-		expect(response.status).toBe(404);
-		const body: any = await response.json();
-		expect(body.error).toBe("Task not found");
+		try {
+			const response = await app.request(`/api/tasks/999999/details`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					notes: "Nota de test",
+					languageNeeded: "RO",
+					safetyNotes: "Fara pericole",
+				}),
+			});
+
+			expect(response.status).toBe(404);
+			const body: any = await response.json();
+			expect(body.error).toBe("Task not found");
+		} finally {
+			mockNotFound.mockRestore();
+		}
 	});
 });
