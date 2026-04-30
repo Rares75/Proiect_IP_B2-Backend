@@ -14,7 +14,7 @@ import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
-import type { TaskFilterParams } from "../filters";
+//import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -101,8 +101,8 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						locationCity: location?.city ?? null,
-						locationAddressText: location?.addressText ?? null,
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
 						location: location?.location ?? null,
 					}
 				: {}),
