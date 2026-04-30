@@ -49,7 +49,11 @@ type RequestStatus =
 	| "CANCELLED"
 	| "REJECTED";
 
-type Task = { id: number; status: RequestStatus };
+type Task = {
+	id: number;
+	status: RequestStatus;
+	requestedByUserId?: string | null;
+};
 
 let store = new Map<number, Task>();
 
@@ -131,6 +135,19 @@ describe("PATCH /tasks/:id/status", () => {
 
 		const fromDb = store.get(10);
 		expect(fromDb?.status).toBe("MATCHED");
+	});
+
+	test("403 - alt user autentificat nu poate schimba statusul taskului ownerului", async () => {
+		seed({ id: 14, status: "OPEN", requestedByUserId: "owner-user" });
+
+		const response = await patchStatus(14, "MATCHED");
+		const body = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(body).toEqual({ message: "Forbidden" });
+
+		const unchanged = store.get(14);
+		expect(unchanged?.status).toBe("OPEN");
 	});
 
 	test("200 - valid Claimed -> Done (echivalent flux actual: IN_PROGRESS -> COMPLETED)", async () => {
