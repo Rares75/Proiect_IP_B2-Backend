@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { logger } from "../../src/utils/logger";
-import { RatingException } from "../../src/exceptions/ratings/RatingException";
+import type { RatingException } from "../../src/exceptions/ratings/RatingException";
 
 const { RatingsService } = await import("../../src/services/RatingsService");
 
@@ -157,9 +157,7 @@ describe("RatingsService", () => {
 
 			expect(result).toBeNull();
 			expect(loggedExceptions).toHaveLength(1);
-			expect(loggedExceptions[0]?.message).toContain(
-				"Rating already exists",
-			);
+			expect(loggedExceptions[0]?.message).toContain("Rating already exists");
 		});
 
 		test("should successfully create a rating when requester rates volunteer", async () => {
@@ -182,7 +180,7 @@ describe("RatingsService", () => {
 				],
 				getVolunteerById: async () => [{ userId: "user-2" }],
 				findRating: async () => [],
-				createRating: async (data: unknown) => [createdRating],
+				createRating: async (_data: unknown) => [createdRating],
 			});
 
 			const result = await service.createRating({
@@ -249,9 +247,7 @@ describe("RatingsService", () => {
 
 			expect(result).toBeNull();
 			expect(loggedExceptions).toHaveLength(1);
-			expect(loggedExceptions[0]?.message).toContain(
-				"Failed to create rating",
-			);
+			expect(loggedExceptions[0]?.message).toContain("Failed to create rating");
 		});
 
 		test("should return null when createRating returns empty array", async () => {
