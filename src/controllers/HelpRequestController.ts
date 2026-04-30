@@ -14,7 +14,7 @@ type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 import {
 	createValidationMiddleware,
-	helpRequestInputSchema,
+	helpRequestCreateInputSchema,
 } from "../validation";
 
 @Controller("/tasks")
@@ -25,7 +25,7 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono()
-		.use("/", createValidationMiddleware(helpRequestInputSchema))
+		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
 
 		.post("/", async (c) => {
 			try {

@@ -36,7 +36,7 @@ export class RequestDetailsController {
 	) {}
 
 	controller = new Hono()
-		.put("/:id/details", async (c) => {
+		.on(["POST", "PUT"], "/:id/details", async (c) => {
 			const body = await c.req.json().catch(() => null);
 			const parsedBody = requestDetailsSchema.safeParse(body);
 			if (!parsedBody.success) {

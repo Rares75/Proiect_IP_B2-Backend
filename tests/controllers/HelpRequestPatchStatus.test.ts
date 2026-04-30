@@ -1,7 +1,9 @@
-import { describe, expect, it, beforeAll } from "bun:test";
+import { describe, expect, it, beforeAll, spyOn } from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
+import { HelpRequestService } from "../../src/services/HelpRequestService";
+import { NotFoundError } from "../../src/utils/Errors";
 
 describe("PATCH /api/tasks/:id/status", () => {
 	beforeAll(async () => {
@@ -68,15 +70,24 @@ describe("PATCH /api/tasks/:id/status", () => {
 	});
 
 	it("returneaza 404 cand task-ul nu exista in baza de date", async () => {
-		const response = await app.request(`/api/tasks/999999/status`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ status: "IN_PROGRESS" }),
-		});
+		const mockNotFound = spyOn(
+			HelpRequestService.prototype,
+			"updateHelpRequestStatus",
+		).mockRejectedValue(new NotFoundError("HelpRequest", "999999"));
 
-		expect(response.status).toBe(404);
-		const body: any = await response.json();
-		expect(body.error).toBeDefined();
+		try {
+			const response = await app.request(`/api/tasks/999999/status`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ status: "IN_PROGRESS" }),
+			});
+
+			expect(response.status).toBe(404);
+			const body: any = await response.json();
+			expect(body.error).toBeDefined();
+		} finally {
+			mockNotFound.mockRestore();
+		}
 	});
 
 	it("returneaza 409 pentru o tranzitie invalida de status (ex. pe un task deja finalizat)", async () => {

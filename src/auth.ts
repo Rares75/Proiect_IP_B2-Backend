@@ -20,7 +20,8 @@ const auth = betterAuth({
 			enabled: true,
 		},
 	},
-	baseURL: Bun.env.BETTER_AUTH_URL,
+	baseURL:
+		Bun.env.BETTER_AUTH_URL ?? Bun.env.SERVER_URL ?? "http://localhost:3000",
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {
 		disableColors: false,
