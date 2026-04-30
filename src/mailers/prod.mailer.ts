@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { Mailer as MailerDecorator } from "../di/decorators/mailer";
 import type { Mailer } from "./mailer.interface";
+import { MailerException } from "../exceptions/mailer/MailerException";
+import { logger } from "../utils/logger";
 
 @MailerDecorator()
 export class ProdMailer implements Mailer {
@@ -17,12 +19,19 @@ export class ProdMailer implements Mailer {
 		subject: string;
 		html: string;
 	}) {
-		await this.resend.emails.send({
-			// biome-ignore lint/style/noNonNullAssertion: <for now>
-			from: process.env.EMAIL_FROM!,
-			to,
-			subject,
-			html,
-		});
+		try {
+			const res = await this.resend.emails.send({
+				// biome-ignore lint/style/noNonNullAssertion: <for now>
+				from: Bun.env.EMAIL_FROM!,
+				to,
+				subject,
+				html,
+			});
+			if (res.error) {
+				throw new MailerException(res.error.message);
+			}
+		} catch (error) {
+			logger.exception(error);
+		}
 	}
 }
