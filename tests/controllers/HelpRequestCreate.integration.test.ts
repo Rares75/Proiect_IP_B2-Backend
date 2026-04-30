@@ -26,13 +26,14 @@ beforeAll(async () => {
 });
 
 describe("POST /api/tasks (Integration BE1-34)", () => {
+	const authenticatedUserId = "user-001";
 	let createdTaskIds: number[] = [];
 	let authSpy: ReturnType<typeof spyOn> | undefined;
 
 	beforeEach(() => {
 		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
-			user: { id: "user-123" } as any,
-			session: { id: "session-123", userId: "user-123" } as any,
+			user: { id: authenticatedUserId } as any,
+			session: { id: "session-123", userId: authenticatedUserId } as any,
 		});
 	});
 
