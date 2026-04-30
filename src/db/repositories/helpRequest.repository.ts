@@ -1,4 +1,10 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpRequests, requestDetails, requestLocations } from "../requests";
@@ -7,6 +13,7 @@ import type { requestStatusEnum } from "../enums";
 import {
 	buildLanguageFilter,
 	buildStatusFilter,
+	buildCityFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -163,13 +170,17 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
+			Boolean,
+		);
 
 		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
+
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 		const orderBy =
@@ -187,6 +198,10 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
@@ -203,6 +218,10 @@ export class HelpRequestRepository
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere);
 
