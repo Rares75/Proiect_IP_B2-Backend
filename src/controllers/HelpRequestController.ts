@@ -29,7 +29,7 @@ export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) { }
+	) {}
 
 	controller = new Hono()
 		.post(
@@ -269,7 +269,7 @@ export class HelpRequestController {
 				) {
 					return sendApiResponse(c, null, {
 						kind: "clientError",
-						message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED"
+						message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED",
 					});
 				}
 
@@ -293,7 +293,7 @@ export class HelpRequestController {
 				if (error instanceof NotFoundError) {
 					return sendApiResponse(c, null, {
 						kind: "notFound",
-						message: "the task does not exist"
+						message: "the task does not exist",
 					});
 				}
 
