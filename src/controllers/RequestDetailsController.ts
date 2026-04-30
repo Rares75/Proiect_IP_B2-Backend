@@ -1,10 +1,8 @@
 import { Hono } from "hono";
-import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { z } from "zod";
 import { RequestDetailsService } from "../services/RequestDetailsService";
-import { authMiddlware } from "../middlware/authMiddleware";
 
 const requestDetailsSchema = z
 	.object({
@@ -37,8 +35,7 @@ export class RequestDetailsController {
 		private readonly requestDetailsService: RequestDetailsService,
 	) {}
 
-	controller = new Hono<AppEnv>()
-		.use("*", authMiddlware)
+	controller = new Hono()
 		.on(["POST", "PUT"], "/:id/details", async (c) => {
 			const body = await c.req.json().catch(() => null);
 			const parsedBody = requestDetailsSchema.safeParse(body);
@@ -54,81 +51,33 @@ export class RequestDetailsController {
 				);
 			}
 
-			try {
-				const id = Number(c.req.param("id"));
-				if (Number.isNaN(id)) {
-					return c.json({ message: "Invalid id" }, 400);
-				}
-
-				const authorization =
-					await this.requestDetailsService.authorizeDetailsMutation(
-						id,
-						c.get("session").userId,
-					);
-				if (authorization.status === "notFound") {
-					return c.json({ message: "Task not found" }, 404);
-				}
-				if (authorization.status === "forbidden") {
-					return c.json({ message: "Forbidden" }, 403);
-				}
-				if (authorization.status === "invalidStatus") {
-					return c.json(
-						{
-							message:
-								"Details can only be updated when task status is OPEN.",
-						},
-						409,
-					);
-				}
-
-
-			try {
-				const id = Number(c.req.param("id"));
-				if (Number.isNaN(id)) {
-					return c.json({ message: "Invalid id" }, 400);
-				}
-				const result = await this.requestDetailsService.upsertDetails(
-					id,
-					parsedBody.data,
-				);
-
-				if (result.notFound) {
-					return c.json({ message: "Task not found" }, 404);
-				}
-
-				return c.json(result.data, 200);
-			} catch (_error) {
-				return c.json(
-					{ message: "Could not update help request details" },
-					500,
-				);
+			const id = Number(c.req.param("id"));
+			if (!Number.isInteger(id)) {
+				return c.json({ error: "Invalid id" }, 400);
 			}
+
+			const result = await this.requestDetailsService.upsertDetails(
+				id,
+				parsedBody.data,
+			);
+
+			if ("notFound" in result) {
+				return result.notFound
+					? c.json({ message: "Task not found" }, 404)
+					: c.json(result.data, 200);
+			}
+
+			if ("message" in result) {
+				return c.json({ error: result.message }, result.status);
+			}
+
+			return c.json(result.data, result.status);
 		})
+
 		.delete("/:id/details", async (c) => {
 			const id = Number(c.req.param("id"));
 			if (Number.isNaN(id)) {
 				return c.json({ message: "Invalid id" }, 400);
-			}
-
-			const authorization =
-				await this.requestDetailsService.authorizeDetailsMutation(
-					id,
-					c.get("session").userId,
-				);
-			if (authorization.status === "notFound") {
-				return c.json({ message: "Task not found." }, 404);
-			}
-			if (authorization.status === "forbidden") {
-				return c.json({ message: "Forbidden" }, 403);
-			}
-			if (authorization.status === "invalidStatus") {
-				return c.json(
-					{
-						message:
-							"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
-					},
-					409,
-				);
 			}
 
 			const result = await this.requestDetailsService.deleteHelpRequestDetails(id);

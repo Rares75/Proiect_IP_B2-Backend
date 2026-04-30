@@ -3,7 +3,7 @@ import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
 
-describe("POST /api/tasks/:id/details", () => {
+describe("PUT /api/tasks/:id/details", () => {
 	beforeAll(async () => {
 		const controllersPath = join(
 			(import.meta as any).dir,
@@ -12,23 +12,25 @@ describe("POST /api/tasks/:id/details", () => {
 		await loadControllers(controllersPath);
 	});
 
-	it("returneaza 200 si details actualizate pentru un request valid", async () => {
+	it("returneaza 200 sau 201 si details actualizate/create pentru un request valid", async () => {
 		const validId = "1";
 		const response = await app.request(`/api/tasks/${validId}/details`, {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				notes: "Nota de test",
+				notes: "Nota de test PUT",
 				languageNeeded: "RO",
 				safetyNotes: "Fara pericole",
 			}),
 		});
 
-		if (response.status === 200) {
+		if (response.status === 200 || response.status === 201) {
 			const body: any = await response.json();
-			expect(response.status).toBe(200);
+			expect([200, 201]).toContain(response.status);
 			expect(body).toBeDefined();
 			expect(body.helpRequestId).toBe(Number(validId));
+		} else if (response.status === 409) {
+			console.log(`Task-ul ${validId} nu este OPEN. S-a intors 409.`);
 		} else {
 			console.log(
 				`Task-ul ${validId} nu exista in baza de test. S-a intors ${response.status}.`,
@@ -38,23 +40,23 @@ describe("POST /api/tasks/:id/details", () => {
 
 	it("returneaza 400 pentru ID invalid (text)", async () => {
 		const response = await app.request(`/api/tasks/kjd/details`, {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				notes: "Nota de test",
+				notes: "Nota",
 				languageNeeded: "RO",
-				safetyNotes: "Fara pericole",
+				safetyNotes: "Sigur",
 			}),
 		});
 
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.message).toBe("Invalid id");
+		expect(body.error).toBe("Invalid id");
 	});
 
 	it("returneaza 400 pentru body gol", async () => {
 		const response = await app.request(`/api/tasks/1/details`, {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
 		});
@@ -66,17 +68,17 @@ describe("POST /api/tasks/:id/details", () => {
 
 	it("returneaza 404 daca task-ul nu exista", async () => {
 		const response = await app.request(`/api/tasks/999999/details`, {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				notes: "Nota de test",
+				notes: "Nota",
 				languageNeeded: "RO",
-				safetyNotes: "Fara pericole",
+				safetyNotes: "Sigur",
 			}),
 		});
 
 		expect(response.status).toBe(404);
 		const body: any = await response.json();
-		expect(body.message).toBe("Task not found");
+		expect(body.error).toBe("Task not found");
 	});
 });

@@ -1,12 +1,9 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
 
-const Controller = () => (_target: unknown) => {};
+//const Controller = () => (_target: unknown) => {};
 
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-}));
 //trebuie neparat dupa mock)
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
@@ -61,12 +58,12 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
-describe("POST /tasks/:id/status", () => {
+describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
 
-	const postStatus = (id: number, status: RequestStatus) =>
+	const patchStatus = (id: number, status: RequestStatus) =>
 		app.request(`http://localhost/tasks/${id}/status`, {
-			method: "POST",
+			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ status }),
 		});
@@ -84,7 +81,7 @@ describe("POST /tasks/:id/status", () => {
 	test("200 - valid Open -> Claimed (OPEN -> MATCHED)", async () => {
 		seed({ id: 10, status: "OPEN" });
 
-		const response = await postStatus(10, "MATCHED");
+		const response = await patchStatus(10, "MATCHED");
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
@@ -97,7 +94,7 @@ describe("POST /tasks/:id/status", () => {
 	test("200 - valid Claimed -> Done (echivalent flux actual: IN_PROGRESS -> COMPLETED)", async () => {
 		seed({ id: 11, status: "IN_PROGRESS" });
 
-		const response = await postStatus(11, "COMPLETED");
+		const response = await patchStatus(11, "COMPLETED");
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
@@ -107,31 +104,31 @@ describe("POST /tasks/:id/status", () => {
 		expect(fromDb?.status).toBe("COMPLETED");
 	});
 
-	test("400 - invalid Open -> Done (OPEN -> COMPLETED) cu mesaj explicit", async () => {
+	test("409 - invalid Open -> Done (OPEN -> COMPLETED) cu mesaj explicit", async () => {
 		seed({ id: 12, status: "OPEN" });
 
-		const response = await postStatus(12, "COMPLETED");
+		const response = await patchStatus(12, "COMPLETED");
 		const body = await response.json();
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(409);
 		//trimitem neaparat eroarea mai departe
 		expect(body).toEqual({
-			message: "Invalid transition from OPEN to COMPLETED",
+			error: "Invalid transition from OPEN to COMPLETED",
 		});
 
 		const unchanged = store.get(12);
 		expect(unchanged?.status).toBe("OPEN");
 	});
 
-	test("400 - invalid Done -> Claimed (COMPLETED -> MATCHED) cu mesaj explicit", async () => {
+	test("409 - invalid Done -> Claimed (COMPLETED -> MATCHED) cu mesaj explicit", async () => {
 		seed({ id: 13, status: "COMPLETED" });
 
-		const response = await postStatus(13, "MATCHED");
+		const response = await patchStatus(13, "MATCHED");
 		const body = await response.json();
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(409);
 		expect(body).toEqual({
-			message: "Invalid transition from COMPLETED to MATCHED",
+			error: "Invalid transition from COMPLETED to MATCHED",
 		});
 
 		const unchanged = store.get(13);
@@ -139,13 +136,13 @@ describe("POST /tasks/:id/status", () => {
 	});
 
 	test("404 - invalid id / task inexistent", async () => {
-		const response = await postStatus(999, "OPEN");
+		const response = await patchStatus(999, "OPEN");
 
 		const body = await response.json();
 
 		expect(response.status).toBe(404);
 		expect(body).toEqual({
-			message: "HelpRequest with id 999 not found",
+			error: "HelpRequest with id 999 not found",
 		});
 	});
 });
