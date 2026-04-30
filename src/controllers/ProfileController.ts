@@ -21,10 +21,6 @@ export class ProfileController {
 		.get("/:userId", async (c, next) => {
 			const { userId } = c.req.param();
 
-			if (userId === "me") {
-				return next();
-			}
-
 			try {
 				const profile = await this.profileService.getProfileByUserId(userId);
 				return sendApiResponse(c, profile);
@@ -38,24 +34,6 @@ export class ProfileController {
 		})
 		.use(authMiddlware)
 
-		.get("/me", async (c) => {
-			const session = c.get("session");
-			const user = c.get("user");
-			if (!session || !user) {
-				return sendApiResponse(c, null, { kind: "unauthorized" });
-			}
-
-			try {
-				const profile = await this.profileService.getProfileByUserId(user.id);
-				return sendApiResponse(c, profile);
-			} catch (error) {
-				if (error instanceof NotFoundError) {
-					return sendApiResponse(c, null, { kind: "notFound" });
-				}
-				logger.exception(error);
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		})
 
 		.post("/", async (c) => {
 			const session = c.get("session");
