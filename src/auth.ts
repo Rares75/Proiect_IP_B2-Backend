@@ -15,6 +15,11 @@ import { ProfileRepository } from "./db/repositories/profile.repository";
 
 const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
+	user: {
+		deleteUser: {
+			enabled: true,
+		},
+	},
 	baseURL: Bun.env.BETTER_AUTH_URL,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {

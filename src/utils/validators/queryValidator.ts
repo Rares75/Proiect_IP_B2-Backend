@@ -1,4 +1,8 @@
-import { parseStatusFilter, type TaskFilterParams } from "../../filters";
+import {
+	parseLanguageFilter,
+	parseStatusFilter,
+	type TaskFilterParams,
+} from "../../filters";
 
 type TaskSortBy = "createdAt" | "urgency";
 type SortOrder = "ASC" | "DESC";
@@ -41,10 +45,23 @@ export const validateTasksQuery = (
 		};
 	}
 
+	////////////Filters
+
+	const filters: TaskFilterParams = {};
+
+	//status filter
 	const statusValidation = parseStatusFilter(query.status);
 	if (statusValidation.error || !statusValidation.validData) {
 		return { error: statusValidation.error };
 	}
+	Object.assign(filters, statusValidation.validData);
+
+	//language filter
+	const languageValidation = parseLanguageFilter(query.language);
+	if (languageValidation.error) {
+		return { error: languageValidation.error };
+	}
+	Object.assign(filters, languageValidation.validData);
 
 	return {
 		validData: {
@@ -52,7 +69,8 @@ export const validateTasksQuery = (
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
-			filters: statusValidation.validData,
+			//ca sa nu trebuiasca de fiecare data sa modificam acelasi loc si sa apara conflicte la fiecare merge
+			filters,
 		} satisfies ValidTasksQuery,
 	};
 };
