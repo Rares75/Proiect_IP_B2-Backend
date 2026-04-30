@@ -1,11 +1,10 @@
 services:
   maildev:
     image: maildev/maildev
-    ports: 
+    ports:
       - "1080:1080"
       - "1025:1025"
-  
-  
+
   postgres:
     image: postgis/postgis:17-3.4
     container_name: postgres_postgis
@@ -15,7 +14,7 @@ services:
       POSTGRES_PASSWORD: proiectIP
       POSTGRES_DB: proiectIP
     ports:
-      - "5430:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
