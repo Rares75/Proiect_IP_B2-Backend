@@ -1,10 +1,13 @@
-import { describe, expect, it, beforeAll, spyOn } from "bun:test";
+import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
+import auth from "../../src/auth";
 import { loadControllers } from "../../src/utils/controller";
 import { RequestDetailsService } from "../../src/services/RequestDetailsService";
 
 describe("PUT /api/tasks/:id/details", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
 	beforeAll(async () => {
 		const controllersPath = join(
 			(import.meta as any).dir,
@@ -13,7 +16,20 @@ describe("PUT /api/tasks/:id/details", () => {
 		await loadControllers(controllersPath);
 	});
 
+	afterEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
+	});
+
+	const authenticate = () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
+	};
+
 	it("returneaza 200 si details actualizate pentru un request valid", async () => {
+		authenticate();
 		const validId = "1";
 		const response = await app.request(`/api/tasks/${validId}/details`, {
 			method: "PUT",
@@ -66,6 +82,11 @@ describe("PUT /api/tasks/:id/details", () => {
 	});
 
 	it("returneaza 404 daca task-ul nu exista", async () => {
+		authenticate();
+		const mockAuthorization = spyOn(
+			RequestDetailsService.prototype,
+			"authorizeDetailsMutation",
+		).mockResolvedValue({ status: "allowed" });
 		const mockNotFound = spyOn(
 			RequestDetailsService.prototype,
 			"upsertDetails",
@@ -86,6 +107,7 @@ describe("PUT /api/tasks/:id/details", () => {
 			const body: any = await response.json();
 			expect(body.error).toBe("Task not found");
 		} finally {
+			mockAuthorization.mockRestore();
 			mockNotFound.mockRestore();
 		}
 	});

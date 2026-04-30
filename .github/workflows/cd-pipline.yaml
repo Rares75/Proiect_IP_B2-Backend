@@ -19,6 +19,9 @@ jobs:
     name: Deploy BE to Railway
     runs-on: ubuntu-latest
 
+    #Workflow timeout after 5 minutes
+    timeout-minutes: 5
+
     steps:
       #Moving the workflow on the VM
       - name: Checkout

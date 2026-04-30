@@ -1,6 +1,38 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import "../../src/app";
+import auth from "../../src/auth";
+import { Controller } from "../../src/di/decorators/controller";
+
+const loadControllers = async (dir: string) => {
+	const controllersDir = existsSync(dir)
+		? dir
+		: join(import.meta.dir, "../../src/controllers");
+	for (const file of readdirSync(controllersDir)) {
+		const fullPath = join(controllersDir, file);
+		if (statSync(fullPath).isDirectory()) {
+			await loadControllers(fullPath);
+		} else if (file.endsWith(".ts")) {
+			await import(fullPath);
+		}
+	}
+};
+
+mock.module("../../src/utils/controller", () => ({
+	Controller,
+	loadControllers,
+}));
 
 //const Controller = () => (_target: unknown) => {};
 
@@ -17,7 +49,11 @@ type RequestStatus =
 	| "CANCELLED"
 	| "REJECTED";
 
-type Task = { id: number; status: RequestStatus };
+type Task = {
+	id: number;
+	status: RequestStatus;
+	requestedByUserId?: string | null;
+};
 
 let store = new Map<number, Task>();
 
@@ -60,6 +96,7 @@ const detailsRepo = {
 
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
 
 	const patchStatus = (id: number, status: RequestStatus) =>
 		app.request(`http://localhost/tasks/${id}/status`, {
@@ -69,6 +106,11 @@ describe("PATCH /tasks/:id/status", () => {
 		});
 
 	beforeEach(() => {
+		authSpy?.mockRestore();
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
 		store = new Map<number, Task>();
 
 		const service = new HelpRequestService(repo as any, detailsRepo as any);
@@ -76,6 +118,10 @@ describe("PATCH /tasks/:id/status", () => {
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);
+	});
+
+	afterEach(() => {
+		authSpy?.mockRestore();
 	});
 
 	test("200 - valid Open -> Claimed (OPEN -> MATCHED)", async () => {
@@ -89,6 +135,19 @@ describe("PATCH /tasks/:id/status", () => {
 
 		const fromDb = store.get(10);
 		expect(fromDb?.status).toBe("MATCHED");
+	});
+
+	test("403 - alt user autentificat nu poate schimba statusul taskului ownerului", async () => {
+		seed({ id: 14, status: "OPEN", requestedByUserId: "owner-user" });
+
+		const response = await patchStatus(14, "MATCHED");
+		const body = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(body).toEqual({ message: "Forbidden" });
+
+		const unchanged = store.get(14);
+		expect(unchanged?.status).toBe("OPEN");
 	});
 
 	test("200 - valid Claimed -> Done (echivalent flux actual: IN_PROGRESS -> COMPLETED)", async () => {

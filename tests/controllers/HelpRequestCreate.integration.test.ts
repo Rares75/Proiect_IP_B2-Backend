@@ -1,9 +1,19 @@
 /// <reference types="bun-types" />
-import { describe, expect, it, beforeAll, afterEach } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	spyOn,
+} from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
+import auth from "../../src/auth";
 import { loadControllers } from "../../src/utils/controller";
 import { db } from "../../src/db";
+import { user } from "../../src/db/auth-schema";
 import { helpRequests, requestLocations } from "../../src/db/requests";
 import { eq } from "drizzle-orm";
 //import { HelpRequestController } from "../../src/controllers/HelpRequestController";
@@ -21,7 +31,16 @@ const describeWithDatabase = process.env.DATABASE_URL
 	: describe.skip;
 
 describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
+	const authenticatedUserId = "task-integration-user";
 	let createdTaskIds: number[] = [];
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	beforeEach(() => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: authenticatedUserId } as any,
+			session: { id: "session-123", userId: authenticatedUserId } as any,
+		});
+	});
 
 	afterEach(async () => {
 		for (const id of createdTaskIds) {
@@ -31,9 +50,24 @@ describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 			await db.delete(helpRequests).where(eq(helpRequests.id, id));
 		}
 		createdTaskIds = [];
+		await db.delete(user).where(eq(user.id, authenticatedUserId));
+		authSpy?.mockRestore();
 	});
 
+	const ensureAuthenticatedUser = async () => {
+		await db
+			.insert(user)
+			.values({
+				id: authenticatedUserId,
+				name: "Task Integration User",
+				email: "task-integration-user@example.com",
+				emailVerified: true,
+			})
+			.onConflictDoNothing();
+	};
+
 	it("POST /tasks cu body valid (title, description, urgency, anonymousMode, category, location) -> 201", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Integration Test Task",
 			description: "Need help moving boxes",
@@ -59,6 +93,7 @@ describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("POST /tasks cu skillsNeeded ['sofer', 'traducator'] -> 201 + persistat in DB", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Skills Test Task",
 			description: "Need driver and translator",
@@ -134,6 +169,7 @@ describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("POST /tasks cu location valida -> randul din request_locations creat cu helpRequestId corect", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Location Insertion Test",
 			description: "Testing atomic insertion",
@@ -168,6 +204,7 @@ describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("Daca INSERT in request_locations esueaza, randul din help_requests nu ramane (rollback)", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Rollback Test Task",
 			description: "Testing transaction rollback",
@@ -195,6 +232,7 @@ describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("GET /tasks/{id} dupa POST returneaza city, addressText, location populate (nu null)", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "GET Location Test",
 			description: "Testing GET endpoint",
