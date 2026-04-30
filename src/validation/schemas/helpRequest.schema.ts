@@ -1,7 +1,11 @@
 import { z } from "zod";
 
+import { requestStatusEnum, urgencyLevelEnum } from "../../db/enums";
+
 export const helpRequestInputSchema = z
 	.object({
+		requestedByUserId: z.string().nullable().optional(),
+		guestSessionId: z.string().max(128).optional(),
 		title: z
 			.string({
 				error: "Title is required",
@@ -14,24 +18,24 @@ export const helpRequestInputSchema = z
 			})
 			.trim()
 			.min(1, "Description is required"),
-		urgency: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"], {
+		urgency: z.enum(urgencyLevelEnum.enumValues, {
 			error: "Urgency is required",
 		}),
-		status: z.enum(
-			["OPEN", "MATCHED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "REJECTED"],
-			{
-				error: "Status is required",
-			},
-		),
+		status: z.enum(requestStatusEnum.enumValues, {
+			error: "Status is required",
+		}),
 		anonymousMode: z.boolean({
 			error: "Anonymous mode is required",
 		}),
-		category: z
-			.string({
-				error: "Category is required",
+		locationCity: z.string().max(100).optional(),
+		locationAddressText: z.string().optional(),
+		location: z
+			.object({
+				x: z.number(),
+				y: z.number(),
 			})
-			.trim()
-			.min(1, "Category is required"),
+			.strict()
+			.optional(),
 	})
 	.strict();
 

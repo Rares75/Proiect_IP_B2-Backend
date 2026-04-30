@@ -40,6 +40,12 @@
 				"organizeImports": "on"
 			}
 		},
-		"includes": ["!package.json", "!node_modules/**/*", "!dist/*"]
+		"includes": [
+			"!package.json",
+			"!node_modules/**/*",
+			"!dist/*",
+			"seeds",
+			"tests"
+		]
 	}
 }
