@@ -94,7 +94,7 @@ describe("GET /tasks/:id/offers endpoint", () => {
 		expect(getPaginatedOffersForTaskOwner).not.toHaveBeenCalled();
 	});
 
-	test("returnează 500 (conform mapării curente) dacă task-ul nu există", async () => {
+	test("returnează 404 dacă task-ul nu există", async () => {
 		getPaginatedOffersForTaskOwner.mockRejectedValueOnce(
 			new NotFoundError("HelpRequest", "99"),
 		);
@@ -104,10 +104,10 @@ describe("GET /tasks/:id/offers endpoint", () => {
 			headers: { Authorization: "Bearer valid-token" },
 		});
 
-		expect(response.status).toBe(500);
+		expect(response.status).toBe(404);
 		const body = (await response.json()) as ApiResponseType<null>;
-		expect(body.isServerError).toBe(true);
-		expect(body.statusCode).toBe(500);
+		expect(body.notFound).toBe(true);
+		expect(body.statusCode).toBe(404);
 		expect(getPaginatedOffersForTaskOwner).toHaveBeenCalledTimes(1);
 	});
 

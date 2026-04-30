@@ -29,7 +29,7 @@ export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) {}
+	) { }
 
 	controller = new Hono()
 		.post(
@@ -267,7 +267,10 @@ export class HelpRequestController {
 					statusRaw &&
 					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
 				) {
-					return sendApiResponse(c, null, { kind: "clientError" });
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED"
+					});
 				}
 
 				const status = statusRaw as
@@ -288,7 +291,10 @@ export class HelpRequestController {
 				return sendApiResponse(c, result);
 			} catch (error) {
 				if (error instanceof NotFoundError) {
-					return sendApiResponse(c, null, { kind: "serverError" });
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: "the task does not exist"
+					});
 				}
 
 				if (error instanceof ForbiddenError) {
