@@ -175,9 +175,9 @@ describe("queryValidationMiddleware", () => {
 	it("does not affect existing body validation behavior", async () => {
 		const app = new Hono();
 
-		app.use("*", validationMiddleware).post("/help", async (context) =>
-			context.json(await context.req.json()),
-		);
+		app
+			.use("*", validationMiddleware)
+			.post("/help", async (context) => context.json(await context.req.json()));
 
 		const response = await app.request("http://localhost/help", {
 			method: "POST",
