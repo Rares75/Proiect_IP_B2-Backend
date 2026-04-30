@@ -52,9 +52,8 @@ export class RatingsController {
 			const { userId } = c.req.param();
 
 			try {
-				const result = await this.ratingService.getRatingsSummaryForUser(
-					userId,
-				);
+				const result =
+					await this.ratingService.getRatingsSummaryForUser(userId);
 				return sendApiResponse(c, result);
 			} catch (error) {
 				logger.exception(error);
