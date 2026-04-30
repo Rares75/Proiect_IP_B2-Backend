@@ -15,7 +15,8 @@ const validPayload = {
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
-	category: "Transport",
+	category: "FACE_TO_FACE",
+	location: { x: 47.15, y: 27.58 },
 };
 
 const createApp = (): Hono => {

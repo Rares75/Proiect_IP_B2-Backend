@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 
-const Controller = () => (_target: unknown) => {};
-
-mock.module("../../src/utils/controller", () => ({
-	Controller,
-}));
+//const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
 	"../../src/controllers/RequestDetailsController"
@@ -40,7 +36,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("returns 400 for languageNeeded longer than 50 on the real route", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				...validPayload,
@@ -62,7 +58,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("returns 400 for extra fields on the real route", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				...validPayload,
@@ -84,7 +80,7 @@ describe("POST /tasks/:id/details validation", () => {
 
 	test("lets a valid requestDetails body reach the handler without wrapping the response", async () => {
 		const response = await app.request("http://localhost/tasks/10/details", {
-			method: "POST",
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(validPayload),
 		});
