@@ -9,6 +9,7 @@ import type {
 } from "../types/validation.types";
 import { buildSafeValidationResponse } from "../utils/safeErrorBuilder";
 import { validateRequest } from "../validators/validateRequest";
+import { sendApiResponse } from "../../utils/apiReponse";
 
 // Completam configuratia primita din exterior peste valorile implicite ale modulului.
 const mergeConfig = (config?: Partial<ValidationConfig>): ValidationConfig => ({
@@ -39,21 +40,27 @@ export const createValidationMiddleware: ValidationMiddlewareFactory = (
 		} catch (error) {
 			if (error instanceof RequestValidationError) {
 				// Erorile controlate sunt transformate intr-un raspuns sigur si predictibil pentru client.
-				return context.json(
+				return sendApiResponse(
+					context,
 					buildSafeValidationResponse(error.errors),
-					error.statusCode,
+					{
+						statusCode: error.statusCode,
+					},
 				);
 			}
 
 			// Fallback defensiv pentru orice eroare neasteptata aparuta in timpul validarii.
-			return context.json(
+			return sendApiResponse(
+				context,
 				buildSafeValidationResponse([
 					{
 						field: "body",
 						message: "Request body validation failed",
 					},
 				]),
-				resolvedConfig.statusCode,
+				{
+					statusCode: resolvedConfig.statusCode,
+				},
 			);
 		}
 

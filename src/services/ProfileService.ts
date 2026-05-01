@@ -8,6 +8,8 @@ import type {
 	UpdateProfileType,
 } from "../utils/validators/profileValidator";
 import { inject } from "../di";
+import { logger } from "../utils/logger";
+import { NotFoundError } from "../utils/Errors";
 
 @Service()
 export class ProfileService {
@@ -36,21 +38,31 @@ export class ProfileService {
 
 		return created;
 	}
+
 	async getProfileByUserId(userId: string) {
 		const profile = await this.profileRepo.findFirstBy({ userId });
-		if (!profile) throw new Error(`Profile for user '${userId}' not found.`);
+		if (!profile) {
+			logger.error(`Profile for user '${userId}' not found`);
+			throw new NotFoundError("Profile", userId);
+		}
 		return profile;
 	}
 
 	async getProfileById(id: number) {
 		const profile = await this.profileRepo.findById(id);
-		if (!profile) throw new Error(`Profile with id '${id}' not found.`);
+		if (!profile) {
+			logger.error(`Profile with id '${id}' not found`);
+			throw new NotFoundError("Profile", String(id));
+		}
 		return profile;
 	}
 
 	async updateProfile(userId: string, data: UpdateProfileType) {
 		const existing = await this.profileRepo.findFirstBy({ userId });
-		if (!existing) throw new Error("Profile not found");
+		if (!existing) {
+			logger.error(`Profile for user '${userId}' not found`);
+			throw new NotFoundError("Profile", userId);
+		}
 
 		if (data.name || data.image) {
 			await db
@@ -73,7 +85,10 @@ export class ProfileService {
 
 	async deleteProfile(userId: string) {
 		const existing = await this.profileRepo.findFirstBy({ userId });
-		if (!existing) throw new Error(`Profile for user '${userId}' not found.`);
+		if (!existing) {
+			logger.error(`Profile for user '${userId}' not found`);
+			throw new NotFoundError("Profile", userId);
+		}
 		return await this.profileRepo.delete(existing.id);
 	}
 }
