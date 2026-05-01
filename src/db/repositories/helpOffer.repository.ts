@@ -1,4 +1,4 @@
-import { and, count as drizzleCount, desc, eq, sql, avg } from "drizzle-orm";
+import { and, count as drizzleCount, desc, eq, sql } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpOffers } from "../requests";
@@ -35,7 +35,6 @@ export class HelpOfferRepository {
 		return found;
 	}
 
-
 	async findPaginatedOffersByTaskId(
 		taskId: number,
 		page: number,
@@ -63,7 +62,9 @@ export class HelpOfferRepository {
 				name: user.name,
 				hiddenIdentity: userProfiles.hiddenIdentity,
 				username: user.username,
-				averageRating: sql<string | null>`avg(${ratings.stars})`.as("average_rating"),
+				averageRating: sql<string | null>`avg(${ratings.stars})`.as(
+					"average_rating",
+				),
 			})
 			.from(helpOffers)
 			.innerJoin(volunteers, eq(helpOffers.volunteerId, volunteers.id))

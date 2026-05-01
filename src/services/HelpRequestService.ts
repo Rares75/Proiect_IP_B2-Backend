@@ -26,7 +26,6 @@ import {
 } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { HelpOfferInput } from "../validation";
-import { RatingsRepository } from "../db/repositories/ratings.repository";
 import type { TaskFilterParams } from "../filters";
 
 // State machine
@@ -49,11 +48,8 @@ export class HelpRequestService {
 		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
-
-		@inject(RatingsRepository)
-		private readonly ratingsRepo: RatingsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
-	) { }
+	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
@@ -143,10 +139,10 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-					city: location?.city ?? null,
-					addressText: location?.addressText ?? null,
-					location: location?.location ?? null,
-				}
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
+						location: location?.location ?? null,
+					}
 				: {}),
 			details: details || null,
 		};
@@ -291,14 +287,14 @@ export class HelpRequestService {
 				status,
 			);
 
-
 		// răspunsul cerut
 		const formattedOffers = data.map((offer) => {
 			//datele vizibile garantat
 			const volunteerInfo: any = {
 				username: offer.username,
 				trustScore: offer.trustScore,
-				averageRating: offer.averageRating !== null ? Number(offer.averageRating) : null, 
+				averageRating:
+					offer.averageRating !== null ? Number(offer.averageRating) : null,
 				bio: offer.bio || null,
 			};
 
