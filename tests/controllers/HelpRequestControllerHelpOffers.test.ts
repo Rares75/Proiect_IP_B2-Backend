@@ -8,30 +8,32 @@ mock.module("../../src/utils/controller", () => ({
 	Controller,
 }));
 
-mock.module("../../src/middlware/authMiddleware", () => ({
-	authMiddleware: async (c: any, next: () => Promise<void>) => {
-		const authHeader = c.req.header("Authorization");
-		if (authHeader === "Bearer valid-token") {
-			c.set("user", { id: "owner-123" });
-			await next();
-		} else {
-			return c.json(
-				{
-					data: null,
-					message: "Unauthorized",
-					notFound: false,
-					isUnauthorized: true,
-					isServerError: false,
-					isForbidden: false,
-					isClientError: false,
-					app: { url: process.env.SERVER_URL || "" },
-					statusCode: 401,
-				},
-				401,
-			);
-		}
-	},
-}));
+mock.module("../../src/middlware/authMiddleware", () => {
+    const authMiddlware = async (c: any, next: () => Promise<void>) => {
+        const authHeader = c.req.header("Authorization");
+        if (authHeader === "Bearer valid-token") {
+            c.set("user", { id: "owner-123" });
+            await next();
+        } else {
+            return c.json({
+                data: null,
+                message: "Unauthorized",
+                notFound: false,
+                isUnauthorized: true,
+                isServerError: false,
+                isForbidden: false,
+                isClientError: false,
+                app: { url: process.env.SERVER_URL || "" },
+                statusCode: 401,
+            }, 401);
+        }
+    };
+
+    return {
+        authMiddlware,
+        authMiddleware: authMiddlware, 
+    };
+});
 
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"

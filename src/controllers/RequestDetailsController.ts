@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { z } from "zod";
 import { RequestDetailsService } from "../services/RequestDetailsService";
+import { authMiddlware } from "../middlware/authMiddleware";
 
 const requestDetailsSchema = z
 	.object({
@@ -28,6 +30,20 @@ const requestDetailsSchema = z
 	})
 	.strict();
 
+const requireSession = async (c: any) => {
+	const existingSession = c.get("session");
+	if (existingSession) {
+		return existingSession;
+	}
+
+	const response = await authMiddlware(c, async () => {});
+	if (response) {
+		return response;
+	}
+
+	return c.get("session");
+};
+
 @Controller("/tasks")
 export class RequestDetailsController {
 	constructor(
@@ -35,8 +51,8 @@ export class RequestDetailsController {
 		private readonly requestDetailsService: RequestDetailsService,
 	) {}
 
-	controller = new Hono()
-		.put("/:id/details", async (c) => {
+	controller = new Hono<AppEnv>()
+		.on(["POST", "PUT"], "/:id/details", async (c) => {
 			const body = await c.req.json().catch(() => null);
 			const parsedBody = requestDetailsSchema.safeParse(body);
 			if (!parsedBody.success) {
@@ -51,25 +67,93 @@ export class RequestDetailsController {
 				);
 			}
 
+			try {
+				const id = Number(c.req.param("id"));
+				if (!Number.isInteger(id)) {
+					return c.json({ error: "Invalid id" }, 400);
+				}
+
+				const session = await requireSession(c);
+				if (session instanceof Response) {
+					return session;
+				}
+				if (this.requestDetailsService.authorizeDetailsMutation) {
+					const authorization =
+						await this.requestDetailsService.authorizeDetailsMutation(
+							id,
+							session.userId,
+						);
+					if (authorization.status === "notFound") {
+						return c.json({ error: "Task not found" }, 404);
+					}
+					if (authorization.status === "forbidden") {
+						return c.json({ error: "Forbidden" }, 403);
+					}
+					if (authorization.status === "invalidStatus") {
+						return c.json(
+							{
+								error: "Details can only be updated when task status is OPEN.",
+							},
+							409,
+						);
+					}
+				}
+
+				const result = await this.requestDetailsService.upsertDetails(
+					id,
+					parsedBody.data,
+				);
+
+				if ("message" in result) {
+					return c.json({ error: result.message }, result.status);
+				}
+
+				if ("notFound" in result && result.notFound) {
+					return c.json({ error: "Task not found" }, 404);
+				}
+
+				return c.json(
+					"data" in result ? result.data : result,
+					"status" in result ? result.status : 200,
+				);
+			} catch (_error) {
+				return c.json({ error: "Could not update help request details" }, 500);
+			}
+		})
+
+		.delete("/:id/details", async (c) => {
 			const id = Number(c.req.param("id"));
 			if (!Number.isInteger(id)) {
 				return c.json({ error: "Invalid id" }, 400);
 			}
 
-			const result = await this.requestDetailsService.upsertDetails(
-				id,
-				parsedBody.data,
-			);
-
-			if ("message" in result) {
-				return c.json({ error: result.message }, result.status);
+			const session = await requireSession(c);
+			if (session instanceof Response) {
+				return session;
+			}
+			if (this.requestDetailsService.authorizeDetailsMutation) {
+				const authorization =
+					await this.requestDetailsService.authorizeDetailsMutation(
+						id,
+						session.userId,
+					);
+				if (authorization.status === "notFound") {
+					return c.json({ message: "Task not found." }, 404);
+				}
+				if (authorization.status === "forbidden") {
+					return c.json({ message: "Forbidden" }, 403);
+				}
+				if (authorization.status === "invalidStatus") {
+					return c.json(
+						{
+							message:
+								"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+						},
+						409,
+					);
+				}
 			}
 
-			return c.json(result.data, result.status);
-		})
-
-		.delete("/:id/details", async (c) => {
-			const id = Number(c.req.param("id"));
 			const result =
 				await this.requestDetailsService.deleteHelpRequestDetails(id);
 

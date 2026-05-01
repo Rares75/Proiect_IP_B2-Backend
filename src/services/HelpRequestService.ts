@@ -2,6 +2,7 @@ import {
 	HelpRequestRepository,
 	type CreateHelpRequestDTO,
 	type HelpRequest,
+	type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
 import {
 	HelpOfferRepository,
@@ -26,6 +27,7 @@ import {
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { HelpOfferInput } from "../validation";
 import { RatingsRepository } from "../db/repositories/ratings.repository";
+//import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -47,10 +49,10 @@ export class HelpRequestService {
 		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
-		@inject(ModerationService)
-		private readonly moderationService: ModerationService,
+
 		@inject(RatingsRepository)
 		private readonly ratingsRepo: RatingsRepository,
+		private readonly moderationService: ModerationService = new ModerationService(),
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -92,6 +94,29 @@ export class HelpRequestService {
 		}
 	}
 
+	async getHelpRequests(limit?: number, offset?: number) {
+		return this.helpRequestRepo.findMany(limit, offset);
+	}
+
+	async getHelpRequestForAuthorization(id: number) {
+		return this.helpRequestRepo.findById(id);
+	}
+
+	async getAssignmentAuthorization(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		if (
+			typeof this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId !==
+			"function"
+		) {
+			return undefined;
+		}
+
+		return this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId(
+			helpRequestId,
+		);
+	}
+
 	/**
 	 * Retrieves a task with the specified ID and includes the associated details (if any)
 	 *
@@ -118,8 +143,8 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						locationCity: location?.city ?? null,
-						locationAddressText: location?.addressText ?? null,
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
 						location: location?.location ?? null,
 					}
 				: {}),
@@ -203,10 +228,18 @@ export class HelpRequestService {
 	}
 
 	//BE1-12
-	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+	) {
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
+			sortBy,
+			order,
 			filters,
 		);
 

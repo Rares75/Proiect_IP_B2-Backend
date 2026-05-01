@@ -1,14 +1,42 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import "../../src/app";
+import auth from "../../src/auth";
+import { Controller } from "../../src/di/decorators/controller";
 
-const Controller = () => (_target: unknown) => {};
+const loadControllers = async (dir: string) => {
+	const controllersDir = existsSync(dir)
+		? dir
+		: join(import.meta.dir, "../../src/controllers");
+	for (const file of readdirSync(controllersDir)) {
+		const fullPath = join(controllersDir, file);
+		if (statSync(fullPath).isDirectory()) {
+			await loadControllers(fullPath);
+		} else if (file.endsWith(".ts")) {
+			await import(fullPath);
+		}
+	}
+};
 
 mock.module("../../src/utils/controller", () => ({
 	Controller,
+	loadControllers,
 }));
 
+//const Controller = () => (_target: unknown) => {};
+
 const { RequestDetailsController } = await import(
-	"../../src/controllers/requestDetailsController"
+	"../../src/controllers/RequestDetailsController"
 );
 
 type TaskStatus =
@@ -28,6 +56,7 @@ type TaskRecord = {
 describe("DELETE /tasks/:id/details", () => {
 	let app: Hono;
 	let store: Map<number, TaskRecord>;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
 
 	const deleteDetails = (id: string | number) =>
 		app.request(`http://localhost/tasks/${id}/details`, {
@@ -40,6 +69,11 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 
 	beforeEach(() => {
+		authSpy?.mockRestore();
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
 		store = new Map<number, TaskRecord>();
 
 		const requestDetailsService = {
@@ -113,6 +147,27 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 	});
 
+	afterEach(() => {
+		authSpy?.mockRestore();
+	});
+
+	test("returns 401 for unauthenticated delete", async () => {
+		authSpy?.mockRestore();
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
+		store.set(1, {
+			id: 1,
+			status: "OPEN",
+			requestDetails: {
+				id: 101,
+				helpRequestId: 1,
+			},
+		});
+
+		const response = await deleteDetails(1);
+
+		expect(response.status).toBe(401);
+	});
+
 	test("returns 204 and subsequent GET shows requestDetails null", async () => {
 		store.set(1, {
 			id: 1,
@@ -127,7 +182,7 @@ describe("DELETE /tasks/:id/details", () => {
 		expect(deleteResponse.status).toBe(204);
 
 		const getResponse = await getTask(1);
-		const body = await getResponse.json();
+		const body = (await getResponse.json()) as any;
 
 		expect(getResponse.status).toBe(200);
 		expect(body.requestDetails).toBeNull();
