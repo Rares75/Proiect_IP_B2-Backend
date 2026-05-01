@@ -41,7 +41,6 @@ describe("HelpRequestService - getPaginatedOffersForTaskOwner", () => {
 			volunteerRepo,
 			helpRequestDetailsRepo,
 			ratingsRepo,
-			moderationService,
 		);
 	});
 
