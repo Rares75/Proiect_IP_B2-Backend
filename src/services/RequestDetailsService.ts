@@ -34,14 +34,6 @@ export class RequestDetailsService {
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
 	) {}
 
-	protected async getHelpRequestRepository() {
-		return this.helpRequestRepo;
-	}
-
-	protected async getRequestDetailsRepository() {
-		return this.requestDetailsRepo;
-	}
-
 	async upsertDetails(
 		helpRequestId: number,
 		data: UpdateHelpRequestDetailsDTO,

@@ -1,12 +1,12 @@
 name: CD Pipeline
 
-#Triggered after CI pipeline completes
+#Triggered after CI pipeline completes successfully
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types:
       - completed
-  # push:
+    # push:
     branches:
       - main
   workflow_dispatch:
@@ -14,8 +14,6 @@ on:
 jobs:
   #Deployment job
   deploy:
-    #Deployment triggers only if CI-Pipeline checks successfully
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Deploy BE to Railway
     runs-on: ubuntu-latest
 
