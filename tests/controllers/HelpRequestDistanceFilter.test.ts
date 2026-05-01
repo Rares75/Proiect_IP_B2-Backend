@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import auth from "../../src/auth";
 import { HelpRequestController } from "../../src/controllers/HelpRequestController";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
+import { expectClientErrorApiResponse } from "./apiResponseAssertions";
 
 describe("GET /api/tasks distance filter", () => {
 	let authSpy: any;
@@ -84,7 +85,11 @@ describe("GET /api/tasks distance filter", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(400);
-		expect(body.error).toContain("'lat' si 'lng' trebuie trimise impreuna");
+		expectClientErrorApiResponse(
+			body,
+			"Eroare: 'lat' si 'lng' trebuie trimise impreuna.",
+			400,
+		);
 	});
 
 	it("returns 400 when lng is missing", async () => {
@@ -160,7 +165,7 @@ describe("GET /api/tasks distance filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(400);
-			expect(body).toEqual({ error: "Radius is required" });
+			expectClientErrorApiResponse(body, "Radius is required", 400);
 		} finally {
 			serviceSpy.mockRestore();
 		}

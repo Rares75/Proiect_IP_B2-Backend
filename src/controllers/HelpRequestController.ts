@@ -145,7 +145,10 @@ export class HelpRequestController {
 				return sendApiResponse(c, result, { kind: "success" });
 			} catch (error) {
 				if (error instanceof Error && error.message === "Radius is required") {
-					return c.json({ error: error.message }, 400);
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: error.message,
+					});
 				}
 				console.error("Eroare la GET /tasks paginat si sortat:", error);
 				//return c.json({ error: "Eroare interna a serverului." }, 500);

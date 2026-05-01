@@ -1,6 +1,15 @@
 /// <reference types="bun-types" />
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	spyOn,
+} from "bun:test";
 import { Hono } from "hono";
+import { join } from "node:path";
 import auth from "../../../src/auth";
 import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
@@ -72,7 +81,10 @@ describe("GET /api/tasks status filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.data.every((task: any) => task.status === "OPEN")).toBe(true);
+			expectSuccessApiResponse(body, mockResponse, 200);
+			expect(
+				body.data.data.every((task: any) => task.status === "OPEN"),
+			).toBe(true);
 			expect(serviceSpy).toHaveBeenCalledWith(
 				1,
 				10,
@@ -111,7 +123,8 @@ describe("GET /api/tasks status filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.data).toEqual([{ id: 7, status: "COMPLETED" }]);
+			expectSuccessApiResponse(body, mockResponse, 200);
+			expect(body.data.data).toEqual([{ id: 7, status: "COMPLETED" }]);
 			expect(serviceSpy).toHaveBeenCalledWith(
 				1,
 				10,
@@ -202,7 +215,8 @@ describe("GET /api/tasks status filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.data).toHaveLength(2);
+			expectSuccessApiResponse(body, mockResponse, 200);
+			expect(body.data.data).toHaveLength(2);
 			expect(serviceSpy).toHaveBeenCalledWith(
 				1,
 				10,
