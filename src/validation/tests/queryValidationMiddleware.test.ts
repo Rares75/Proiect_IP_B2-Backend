@@ -109,6 +109,52 @@ describe("queryValidationMiddleware", () => {
 		});
 	});
 
+	it("returns 400 when longitude is provided without latitude", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?lng=25");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "lat",
+					message: "Latitude is required when longitude is provided",
+				},
+			],
+		});
+	});
+
+	it("returns all query errors when coordinate pair validation fails too", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request(
+			"http://localhost/tasks?page=abc&status=DONE&lng=25&radius=0",
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "page",
+					message: "Page must be a number",
+				},
+				{
+					field: "status",
+					message: "Status must be a valid request status",
+				},
+				{
+					field: "radius",
+					message: "Radius must be greater than 0",
+				},
+				{
+					field: "lat",
+					message: "Latitude is required when longitude is provided",
+				},
+			],
+		});
+	});
+
 	it("returns 400 when radius is negative", async () => {
 		const app = createQueryApp();
 
