@@ -25,48 +25,46 @@ Create a rating for a user after completing a task.
 Only task participants (requester or volunteer) can rate each other.
 Ratings can only be created for completed task assignments.
 				`,
-				request: {
-					body: {
-						content: {
-							"application/json": {
-								schema: {
-									type: "object",
-									required: [
-										"taskAssignmentId",
-										"writtenByUserId",
-										"receivedByUserId",
-										"stars",
-										"comment",
-									],
-									properties: {
-										taskAssignmentId: {
-											type: "integer",
-											description: "ID of the completed task assignment",
-											example: 1,
-										},
-										writtenByUserId: {
-											type: "string",
-											description: "ID of the user giving the rating",
-											example: "user123",
-										},
-										receivedByUserId: {
-											type: "string",
-											description: "ID of the user receiving the rating",
-											example: "user456",
-										},
-										stars: {
-											type: "integer",
-											minimum: 1,
-											maximum: 5,
-											description: "Star rating from 1 to 5",
-											example: 5,
-										},
-										comment: {
-											type: "string",
-											minLength: 1,
-											description: "Feedback comment for the rating",
-											example: "Great volunteer, very professional and helpful",
-										},
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								required: [
+									"taskAssignmentId",
+									"writtenByUserId",
+									"receivedByUserId",
+									"stars",
+									"comment",
+								],
+								properties: {
+									taskAssignmentId: {
+										type: "integer",
+										description: "ID of the completed task assignment",
+										example: 1,
+									},
+									writtenByUserId: {
+										type: "string",
+										description: "ID of the user giving the rating",
+										example: "user123",
+									},
+									receivedByUserId: {
+										type: "string",
+										description: "ID of the user receiving the rating",
+										example: "user456",
+									},
+									stars: {
+										type: "integer",
+										minimum: 1,
+										maximum: 5,
+										description: "Star rating from 1 to 5",
+										example: 5,
+									},
+									comment: {
+										type: "string",
+										minLength: 1,
+										description: "Feedback comment for the rating",
+										example: "Great volunteer, very professional and helpful",
 									},
 								},
 							},
@@ -311,8 +309,7 @@ Get aggregated rating statistics for a user including:
 											type: "object",
 											properties: {
 												averageRating: {
-													type: "string",
-													nullable: true,
+													type: ["string", "null"],
 													description: "Average rating score (1-5), null if no ratings",
 													example: "4.5",
 												},
