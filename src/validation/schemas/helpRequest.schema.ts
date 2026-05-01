@@ -7,7 +7,8 @@ import {
 
 export const helpRequestInputSchema = z
 	.object({
-		requestedByUserId: z.string().nullable().optional(),
+		userId: z.unknown().optional(),
+		requestedByUserId: z.unknown().optional(),
 		guestSessionId: z.string().max(128).optional(),
 		title: z
 			.string({
@@ -30,6 +31,7 @@ export const helpRequestInputSchema = z
 		anonymousMode: z.boolean({
 			error: "Anonymous mode is required",
 		}),
+
 		city: z.string().max(100).optional(),
 		addressText: z.string().optional(),
 
@@ -50,6 +52,8 @@ export const helpRequestInputSchema = z
 			.strict(),
 	})
 	.strict();
+
+export const helpRequestCreateInputSchema = helpRequestInputSchema;
 
 export const HelpRequestSchema = helpRequestInputSchema;
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;

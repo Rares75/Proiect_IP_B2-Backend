@@ -6,7 +6,6 @@ on:
     workflows: ["CI Pipeline"]
     types:
       - completed
-    # push:
     branches:
       - main
   workflow_dispatch:
@@ -14,8 +13,13 @@ on:
 jobs:
   #Deployment job
   deploy:
+    #Deployment triggers only if CI-Pipeline checks successfully
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Deploy BE to Railway
     runs-on: ubuntu-latest
+
+    #Workflow timeout after 5 minutes
+    timeout-minutes: 5
 
     steps:
       #Moving the workflow on the VM

@@ -1,7 +1,13 @@
 import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { helpRequests, requestDetails, requestLocations } from "../requests";
+import { volunteers } from "../profile";
+import {
+	helpRequests,
+	requestDetails,
+	requestLocations,
+	taskAssignments,
+} from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
@@ -12,6 +18,11 @@ import {
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
+export type HelpRequestAssignmentAuthorization = {
+	requestedByUserId: string;
+	handledByVolunteerId: number;
+	volunteerUserId: string;
+};
 
 // Extindem tipul de baza cu campurile optionale de locatie, pentru ca repository-ul sa le astepte
 export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert & {
@@ -148,6 +159,26 @@ export class HelpRequestRepository
 			.where(eq(helpRequests.id, id))
 			.returning();
 		return updated;
+	}
+
+	async findAssignmentAuthorizationByHelpRequestId(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		const [found] = await db
+			.select({
+				requestedByUserId: taskAssignments.requestedByUserId,
+				handledByVolunteerId: taskAssignments.handledByVolunteerId,
+				volunteerUserId: volunteers.userId,
+			})
+			.from(taskAssignments)
+			.innerJoin(
+				volunteers,
+				eq(taskAssignments.handledByVolunteerId, volunteers.id),
+			)
+			.where(eq(taskAssignments.helpRequestId, helpRequestId))
+			.limit(1);
+
+		return found;
 	}
 
 	//BE1-12 + BE1-13

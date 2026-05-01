@@ -1,6 +1,38 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import "../../src/app";
+import auth from "../../src/auth";
+import { Controller } from "../../src/di/decorators/controller";
+import { expectApiEnvelope } from "./apiResponseAssertions";
 
+const loadControllers = async (dir: string) => {
+	const controllersDir = existsSync(dir)
+		? dir
+		: join(import.meta.dir, "../../src/controllers");
+	for (const file of readdirSync(controllersDir)) {
+		const fullPath = join(controllersDir, file);
+		if (statSync(fullPath).isDirectory()) {
+			await loadControllers(fullPath);
+		} else if (file.endsWith(".ts")) {
+			await import(fullPath);
+		}
+	}
+};
+
+mock.module("../../src/utils/controller", () => ({
+	Controller,
+	loadControllers,
+}));
 //const Controller = () => (_target: unknown) => {};
 
 const { HelpRequestController } = await import(
@@ -20,8 +52,11 @@ const validPayload = {
 describe("POST /tasks validation", () => {
 	let app: Hono;
 	let createHelpRequest: ReturnType<typeof mock>;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
 
 	beforeEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
 		createHelpRequest = mock(async (body: unknown) => ({
 			id: 101,
 			...(body as Record<string, unknown>),
@@ -35,6 +70,10 @@ describe("POST /tasks validation", () => {
 		app.route("/tasks", controller.controller);
 	});
 
+	afterEach(() => {
+		authSpy?.mockRestore();
+	});
+
 	test("returns 400 for invalid help request body on the real route", async () => {
 		const response = await app.request("http://localhost/tasks", {
 			method: "POST",
@@ -46,38 +85,19 @@ describe("POST /tasks validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "title",
-					message: "Title is required",
-				},
-				{
-					field: "description",
-					message: "Description is required",
-				},
-				{
-					field: "urgency",
-					message: "Urgency is required",
-				},
-				{
-					field: "status",
-					message: "Status is required",
-				},
-				{
-					field: "anonymousMode",
-					message: "Anonymous mode is required",
-				},
-				{
-					field: "category",
-					message: "Category is required",
-				},
-				{
-					field: "location",
-					message: "Invalid input: expected object, received undefined",
-				},
-			],
-		});
+		const body: any = await response.json();
+		expect(body.errors ?? body.data?.errors).toEqual([
+			{ field: "title", message: "Title is required" },
+			{ field: "description", message: "Description is required" },
+			{ field: "urgency", message: "Urgency is required" },
+			{ field: "status", message: "Status is required" },
+			{ field: "anonymousMode", message: "Anonymous mode is required" },
+			{ field: "category", message: "Category is required" },
+			{
+				field: "location",
+				message: "Invalid input: expected object, received undefined",
+			},
+		]);
 		expect(createHelpRequest).not.toHaveBeenCalled();
 	});
 
@@ -92,18 +112,19 @@ describe("POST /tasks validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "body",
-					message: 'Unrecognized key: "extraField"',
-				},
-			],
-		});
+		const body: any = await response.json();
+		expect(body.errors ?? body.data?.errors).toEqual([
+			{ field: "body", message: 'Unrecognized key: "extraField"' },
+		]);
 		expect(createHelpRequest).not.toHaveBeenCalled();
 	});
 
 	test("lets a valid help request reach the handler without wrapping the response", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
+
 		const response = await app.request("http://localhost/tasks", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -112,10 +133,29 @@ describe("POST /tasks validation", () => {
 
 		expect(response.status).toBe(201);
 		expect(createHelpRequest).toHaveBeenCalledTimes(1);
-		expect(createHelpRequest).toHaveBeenCalledWith(validPayload);
-		expect(await response.json()).toEqual({
+		expect(createHelpRequest).toHaveBeenCalledWith({
+			...validPayload,
+			requestedByUserId: "user-123",
+		});
+		const body: any = await response.json();
+		expectApiEnvelope(body, 201);
+		expect(body.data).toEqual({
 			id: 101,
 			...validPayload,
+			requestedByUserId: "user-123",
 		});
+	});
+
+	test("returns 401 for a valid unauthenticated help request", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
+
+		const response = await app.request("http://localhost/tasks", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(validPayload),
+		});
+
+		expect(response.status).toBe(401);
+		expect(createHelpRequest).not.toHaveBeenCalled();
 	});
 });

@@ -5,6 +5,9 @@ import { container } from "../di";
 import { UserAccessService } from "../services/UserAccessService";
 import { sendApiResponse } from "../utils/apiReponse";
 
+// This middleware historically returned simple JSON errors. Keep that
+// behaviour so tests and callers that expect `{ error: string }` keep
+// working.
 export const checkStatusMiddlware = async (c: Context<AppEnv>, next: Next) => {
 	const userAccessService = container.get<UserAccessService>(UserAccessService);
 	const user = c.get("user");

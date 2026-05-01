@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 
 import { validationMiddleware } from "../middleware/validationMiddleware";
-import type { ValidationErrorResponse } from "../types/validation.types";
 
 type MiddlewareSuccessPayload = {
 	id: string;
@@ -47,20 +46,23 @@ describe("validation middleware integration", () => {
 			}),
 		});
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toBeArray();
-		expect(payload.errors.length).toBeGreaterThan(1);
-		for (const error of payload.errors) {
+
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+
+		expect(payload.data.errors).toBeArray();
+		expect(payload.data.errors.length).toBeGreaterThan(1);
+		for (const error of payload.data.errors) {
 			expect(error.field).toBeString();
 			expect(error.message).toBeString();
 		}
+
 		expect(payload.stack).toBeUndefined();
-		expect(payload.message).toBeUndefined();
+		expect(payload.message).toBe("Invalid request"); // Acesta este mesajul default din sendApiResponse pentru 4xx
 		expect(payload.ok).toBeUndefined();
-		expect(payload.status).toBeUndefined();
 	});
 
 	it("lets valid requests reach the handler without wrapping the response", async () => {

@@ -13,9 +13,17 @@ type DeleteHelpRequestDetailsResult =
 	| { status: 204 }
 	| { status: 404 | 409 | 500; body: { message: string } };
 
+type DetailsAuthorizationResult =
+	| { status: "allowed" }
+	| { status: "notFound" }
+	| { status: "forbidden" }
+	| { status: "invalidStatus" };
+
 type UpsertHelpRequestDetailsResult =
 	| { status: 200 | 201; data: any }
 	| { status: 404 | 409 | 500; message: string };
+
+const OPEN_STATUS: RequestStatus = "OPEN";
 
 const NON_DELETABLE_STATUSES = new Set<RequestStatus>([
 	"MATCHED",

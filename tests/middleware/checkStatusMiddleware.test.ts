@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { container } from "../../src/di";
+import { expectApiEnvelope } from "../controllers/apiResponseAssertions";
 
 type AccountStatus = "ACTIVE" | "BLOCKED" | null;
 

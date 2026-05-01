@@ -1,11 +1,22 @@
 /// <reference types="bun-types" />
-import { describe, expect, it, beforeAll, afterEach } from "bun:test";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	spyOn,
+} from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
+import auth from "../../src/auth";
 import { loadControllers } from "../../src/utils/controller";
 import { db } from "../../src/db";
+import { user } from "../../src/db/auth-schema";
 import { helpRequests, requestLocations } from "../../src/db/requests";
 import { eq } from "drizzle-orm";
+import { expectApiEnvelope } from "./apiResponseAssertions";
 //import { HelpRequestController } from "../../src/controllers/HelpRequestController";
 
 beforeAll(async () => {
@@ -17,7 +28,16 @@ beforeAll(async () => {
 });
 
 describe("POST /api/tasks (Integration BE1-34)", () => {
+	const authenticatedUserId = "task-integration-user";
 	let createdTaskIds: number[] = [];
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	beforeEach(() => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: authenticatedUserId } as any,
+			session: { id: "session-123", userId: authenticatedUserId } as any,
+		});
+	});
 
 	afterEach(async () => {
 		for (const id of createdTaskIds) {
@@ -27,9 +47,24 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 			await db.delete(helpRequests).where(eq(helpRequests.id, id));
 		}
 		createdTaskIds = [];
+		await db.delete(user).where(eq(user.id, authenticatedUserId));
+		authSpy?.mockRestore();
 	});
 
+	const ensureAuthenticatedUser = async () => {
+		await db
+			.insert(user)
+			.values({
+				id: authenticatedUserId,
+				name: "Task Integration User",
+				email: "task-integration-user@example.com",
+				emailVerified: true,
+			})
+			.onConflictDoNothing();
+	};
+
 	it("POST /tasks cu body valid (title, description, urgency, anonymousMode, category, location) -> 201", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Integration Test Task",
 			description: "Need help moving boxes",
@@ -50,11 +85,13 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 
 		const body: any = await response.json();
 		expect(response.status).toBe(201);
-		expect(body.id).toBeDefined();
-		createdTaskIds.push(body.id);
+		expectApiEnvelope(body, 201);
+		expect(body.data.id).toBeDefined();
+		createdTaskIds.push(body.data.id);
 	});
 
 	it("POST /tasks cu skillsNeeded ['sofer', 'traducator'] -> 201 + persistat in DB", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Skills Test Task",
 			description: "Need driver and translator",
@@ -74,12 +111,13 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 
 		const body: any = await response.json();
 		expect(response.status).toBe(201);
-		createdTaskIds.push(body.id);
+		expectApiEnvelope(body, 201);
+		createdTaskIds.push(body.data.id);
 
 		const [dbTask] = await db
 			.select()
 			.from(helpRequests)
-			.where(eq(helpRequests.id, body.id));
+			.where(eq(helpRequests.id, body.data.id));
 
 		expect(dbTask.skillsNeeded).toEqual(["sofer", "traducator"]);
 	});
@@ -103,7 +141,9 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
 
-		const categoryError = body.errors.find((e: any) => e.field === "category");
+		const categoryError = (body.data?.errors ?? body.errors).find(
+			(e: any) => e.field === "category",
+		);
 		expect(categoryError).toBeDefined();
 		expect(categoryError.message).toBe("Category is required");
 	});
@@ -126,10 +166,15 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.errors.some((e: any) => e.field === "location")).toBe(true);
+		expect(
+			(body.data?.errors ?? body.errors).some(
+				(e: any) => e.field === "location",
+			),
+		).toBe(true);
 	});
 
 	it("POST /tasks cu location valida -> randul din request_locations creat cu helpRequestId corect", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Location Insertion Test",
 			description: "Testing atomic insertion",
@@ -150,7 +195,8 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 
 		expect(response.status).toBe(201);
 		const body: any = await response.json();
-		const newTaskId = body.id;
+		expectApiEnvelope(body, 201);
+		const newTaskId = body.data.id;
 		createdTaskIds.push(newTaskId);
 
 		const [locationRecord] = await db
@@ -164,6 +210,7 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("Daca INSERT in request_locations esueaza, randul din help_requests nu ramane (rollback)", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "Rollback Test Task",
 			description: "Testing transaction rollback",
@@ -191,6 +238,7 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	it("GET /tasks/{id} dupa POST returneaza city, addressText, location populate (nu null)", async () => {
+		await ensureAuthenticatedUser();
 		const payload = {
 			title: "GET Location Test",
 			description: "Testing GET endpoint",
@@ -210,14 +258,15 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 		});
 		expect(postResponse.status).toBe(201);
 		const postBody: any = await postResponse.json();
-		createdTaskIds.push(postBody.id);
+		expectApiEnvelope(postBody, 201);
+		createdTaskIds.push(postBody.data.id);
 
-		const getResponse = await app.request(`/api/tasks/${postBody.id}`);
+		const getResponse = await app.request(`/api/tasks/${postBody.data.id}`);
 		const getBody: any = await getResponse.json();
 
 		expect(getResponse.status).toBe(200);
-		expect(getBody.city).toBe("Bucuresti");
-		expect(getBody.addressText).toBe("Strada Victoriei");
-		expect(getBody.location).toEqual({ x: 44.42, y: 26.1 });
+		expect(getBody.data.city).toBe("Bucuresti");
+		expect(getBody.data.addressText).toBe("Strada Victoriei");
+		expect(getBody.data.location).toEqual({ x: 44.42, y: 26.1 });
 	});
 });
