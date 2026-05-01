@@ -6,7 +6,6 @@ import { z } from "zod";
 import { RequestDetailsService } from "../services/RequestDetailsService";
 import { sendApiResponse } from "../utils/apiReponse";
 import { authMiddlware } from "../middlware/authMiddleware";
-
 const requestDetailsSchema = z
 	.object({
 		notes: z
@@ -58,17 +57,17 @@ export class RequestDetailsController {
 			const parsedBody = requestDetailsSchema.safeParse(body);
 			if (!parsedBody.success) {
 				/*
-					// Return legacy validation shape used by tests: { errors: [...] }
-					return c.json(
-						{
-							errors: parsedBody.error.issues.map((issue) => ({
-								field: issue.path.length === 0 ? "body" : issue.path.join("."),
-								message: issue.message,
-							})),
-						},
-						400,
-					);
-					*/
+          // Return legacy validation shape used by tests: { errors: [...] }
+          return c.json(
+            {
+              errors: parsedBody.error.issues.map((issue) => ({
+                field: issue.path.length === 0 ? "body" : issue.path.join("."),
+                message: issue.message,
+              })),
+            },
+            400,
+          );
+          */
 				return sendApiResponse(
 					c,
 					{
