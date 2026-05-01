@@ -2,6 +2,7 @@ import {
 	HelpRequestRepository,
 	type CreateHelpRequestDTO,
 	type HelpRequest,
+	type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
@@ -78,6 +79,29 @@ export class HelpRequestService {
 		}
 	}
 
+	async getHelpRequests(limit?: number, offset?: number) {
+		return this.helpRequestRepo.findMany(limit, offset);
+	}
+
+	async getHelpRequestForAuthorization(id: number) {
+		return this.helpRequestRepo.findById(id);
+	}
+
+	async getAssignmentAuthorization(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		if (
+			typeof this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId !==
+			"function"
+		) {
+			return undefined;
+		}
+
+		return this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId(
+			helpRequestId,
+		);
+	}
+
 	/**
 	 * Retrieves a task with the specified ID and includes the associated details (if any)
 	 *
@@ -104,8 +128,8 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						locationCity: location?.city ?? null,
-						locationAddressText: location?.addressText ?? null,
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
 						location: location?.location ?? null,
 					}
 				: {}),
