@@ -1,4 +1,10 @@
 services:
+  maildev:
+    image: maildev/maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
   postgres:
     image: postgis/postgis:17-3.4
     container_name: postgres_postgis
