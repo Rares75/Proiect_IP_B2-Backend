@@ -13,7 +13,7 @@ type DeleteHelpRequestDetailsResult =
 	| { status: 204 }
 	| { status: 404 | 409 | 500; body: { message: string } };
 
-type DetailsAuthorizationResult =
+export type DetailsAuthorizationResult =
 	| { status: "allowed" }
 	| { status: "notFound" }
 	| { status: "forbidden" }
@@ -23,7 +23,7 @@ type UpsertHelpRequestDetailsResult =
 	| { status: 200 | 201; data: any }
 	| { status: 404 | 409 | 500; message: string };
 
-const OPEN_STATUS: RequestStatus = "OPEN";
+export const OPEN_STATUS: RequestStatus = "OPEN";
 
 const NON_DELETABLE_STATUSES = new Set<RequestStatus>([
 	"MATCHED",
@@ -41,6 +41,26 @@ export class RequestDetailsService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
 	) {}
+
+	async authorizeDetailsMutation(
+		helpRequestId: number,
+		userId: string,
+	): Promise<DetailsAuthorizationResult> {
+		const task = await this.helpRequestRepo.findById(helpRequestId);
+		if (!task) {
+			return { status: "notFound" };
+		}
+
+		if (task.requestedByUserId !== userId) {
+			return { status: "forbidden" };
+		}
+
+		if (task.status !== OPEN_STATUS) {
+			return { status: "invalidStatus" };
+		}
+
+		return { status: "allowed" };
+	}
 
 	async upsertDetails(
 		helpRequestId: number,
