@@ -315,7 +315,7 @@ export class HelpRequestController {
 					return sendApiResponse(c, null, { kind: "clientError" });
 				}
 
-				const statusRaw = query.status?.toUpperCase();
+				const statusRaw = query.status;
 				if (
 					statusRaw &&
 					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)

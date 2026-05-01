@@ -295,7 +295,6 @@ export class HelpRequestService {
 				trustScore: offer.trustScore,
 				averageRating:
 					offer.averageRating !== null ? Number(offer.averageRating) : null,
-				bio: offer.bio || null,
 			};
 
 			if (offer.hiddenIdentity === false) {
