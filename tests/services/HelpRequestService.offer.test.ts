@@ -25,7 +25,6 @@ describe("HelpRequestService - getPaginatedOffersForTaskOwner", () => {
 	let volunteerRepo: any;
 	let helpRequestDetailsRepo: any;
 	let ratingsRepo: any;
-	let moderationService: any;
 
 	beforeEach(() => {
 		helpRequestRepo = { findById: mock() };
@@ -33,7 +32,6 @@ describe("HelpRequestService - getPaginatedOffersForTaskOwner", () => {
 		volunteerRepo = { findByUserId: mock() };
 		helpRequestDetailsRepo = { findByHelpRequestId: mock() };
 		ratingsRepo = { findByVolunteerId: mock() };
-		moderationService = { scanContent: mock() };
 
 		service = new HelpRequestService(
 			helpRequestRepo,
