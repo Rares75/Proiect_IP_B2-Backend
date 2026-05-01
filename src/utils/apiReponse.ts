@@ -8,7 +8,8 @@ type ApiResponseKind =
 	| "notFound"
 	| "unauthorized"
 	| "clientError"
-	| "serverError";
+	| "serverError"
+	| "forbidden";
 
 export type CreateApiResponseOptions = {
 	message?: string;
@@ -40,6 +41,7 @@ const statusCodeByKind = {
 	unauthorized: 401,
 	clientError: 400,
 	serverError: 500,
+	forbidden: 403,
 } as const satisfies Record<ApiResponseKind, ApiResponseStatusCode>;
 
 const messageByKind = {
@@ -50,6 +52,7 @@ const messageByKind = {
 	unauthorized: "Unauthorized",
 	clientError: "Invalid request",
 	serverError: "Internal server error",
+	forbidden: "Forbidden",
 } as const satisfies Record<ApiResponseKind, string>;
 
 const inferKind = <T>(

@@ -46,15 +46,16 @@ describe("checkStatusMiddleware", () => {
 		);
 
 		expect(response?.status).toBe(401);
-		const body: any = await response?.json();
-		expectApiEnvelope(body, 401);
-		expect(body).toMatchObject({
+		expect(await response?.json()).toEqual({
+			app: {
+				url: "http://localhost:3000",
+			},
 			data: null,
+			isClientError: false,
+			isServerError: false,
+			isUnauthorized: true,
 			message: "Unauthorized",
 			notFound: false,
-			isUnauthorized: true,
-			isServerError: false,
-			isClientError: false,
 			statusCode: 401,
 		});
 		expect(nextCalled).toBe(false);
@@ -78,15 +79,16 @@ describe("checkStatusMiddleware", () => {
 		);
 
 		expect(response?.status).toBe(403);
-		const body: any = await response?.json();
-		expectApiEnvelope(body, 403);
-		expect(body).toMatchObject({
+		expect(await response?.json()).toEqual({
+			app: {
+				url: "http://localhost:3000",
+			},
 			data: null,
-			message: "Unauthorized:Account is blocked",
-			notFound: false,
-			isUnauthorized: false,
+			isClientError: false,
 			isServerError: false,
-			isClientError: true,
+			isUnauthorized: false,
+			message: "Forbidden",
+			notFound: false,
 			statusCode: 403,
 		});
 		expect(nextCalled).toBe(false);
