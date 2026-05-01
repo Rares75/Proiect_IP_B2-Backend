@@ -14,12 +14,16 @@ import { container } from "./di";
 import { ProfileRepository } from "./db/repositories/profile.repository";
 import { ProfileService } from "./services/ProfileService";
 import { twoFactor } from "better-auth/plugins";
+import { changeEmailTemplate } from "./mailers/templates/changeEmail";
 
 const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
 	appName: "My App",
 	baseURL: process.env.BETTER_AUTH_URL,
 	user: {
+		changeEmail: {
+        enabled: true,
+    },
 		deleteUser: {
 			enabled: true,
 			afterDelete: async (ctx) => {
@@ -59,6 +63,7 @@ const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
+		
 	},
 
 	advanced: {
@@ -129,6 +134,9 @@ const auth = betterAuth({
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			changeEmail: {
+        		enabled: true,
+    		},
 			async sendVerificationOTP({ email, otp, type }) {
 				const mailer = getMailer();
 				try {
@@ -149,6 +157,12 @@ const auth = betterAuth({
 							to: email,
 							subject: "Resetare parolă",
 							html: resetPasswordTemplate(otp, 10),
+						});
+					} else if (type === "change-email") {
+						await mailer.send({
+							to: email,
+							subject: "Confirmare schimbare email",
+							html: changeEmailTemplate(otp, 10),
 						});
 					}
 				} catch (error) {
