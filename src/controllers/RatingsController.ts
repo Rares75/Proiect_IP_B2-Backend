@@ -85,7 +85,10 @@ Ratings can only be created for completed task assignments.
 												id: { type: "integer", example: 1 },
 												taskAssignmentId: { type: "integer", example: 1 },
 												writtenByUserId: { type: "string", example: "user123" },
-												receivedByUserId: { type: "string", example: "user456" },
+												receivedByUserId: {
+													type: "string",
+													example: "user456",
+												},
 												stars: { type: "integer", example: 5 },
 												comment: { type: "string", example: "Great volunteer" },
 												createdAt: {
@@ -95,7 +98,10 @@ Ratings can only be created for completed task assignments.
 												},
 											},
 										},
-										message: { type: "string", example: "Resource created successfully" },
+										message: {
+											type: "string",
+											example: "Resource created successfully",
+										},
 										notFound: { type: "boolean", example: false },
 										isUnauthorized: { type: "boolean", example: false },
 										isServerError: { type: "boolean", example: false },
@@ -103,7 +109,10 @@ Ratings can only be created for completed task assignments.
 										app: {
 											type: "object",
 											properties: {
-												url: { type: "string", example: "http://localhost:3000" },
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
 											},
 										},
 										statusCode: { type: "integer", example: 201 },
@@ -120,7 +129,10 @@ Ratings can only be created for completed task assignments.
 									type: "object",
 									properties: {
 										data: { type: "null", example: null },
-										message: { type: "string", example: "Rating already exists or rating is not allowed" },
+										message: {
+											type: "string",
+											example: "Rating already exists or rating is not allowed",
+										},
 										notFound: { type: "boolean", example: false },
 										isUnauthorized: { type: "boolean", example: false },
 										isServerError: { type: "boolean", example: false },
@@ -128,7 +140,10 @@ Ratings can only be created for completed task assignments.
 										app: {
 											type: "object",
 											properties: {
-												url: { type: "string", example: "http://localhost:3000" },
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
 											},
 										},
 										statusCode: { type: "integer", example: 400 },
@@ -145,7 +160,10 @@ Ratings can only be created for completed task assignments.
 									type: "object",
 									properties: {
 										data: { type: "null", example: null },
-										message: { type: "string", example: "Internal server error" },
+										message: {
+											type: "string",
+											example: "Internal server error",
+										},
 										notFound: { type: "boolean", example: false },
 										isUnauthorized: { type: "boolean", example: false },
 										isServerError: { type: "boolean", example: true },
@@ -153,7 +171,10 @@ Ratings can only be created for completed task assignments.
 										app: {
 											type: "object",
 											properties: {
-												url: { type: "string", example: "http://localhost:3000" },
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
 											},
 										},
 										statusCode: { type: "integer", example: 500 },
@@ -226,8 +247,14 @@ This includes ratings from both requesters and volunteers.
 												properties: {
 													id: { type: "integer", example: 1 },
 													taskAssignmentId: { type: "integer", example: 1 },
-													writtenByUserId: { type: "string", example: "user123" },
-													receivedByUserId: { type: "string", example: "user456" },
+													writtenByUserId: {
+														type: "string",
+														example: "user123",
+													},
+													receivedByUserId: {
+														type: "string",
+														example: "user456",
+													},
 													stars: { type: "integer", example: 5 },
 													comment: { type: "string", example: "Great work!" },
 													createdAt: {
@@ -238,7 +265,10 @@ This includes ratings from both requesters and volunteers.
 												},
 											},
 										},
-										message: { type: "string", example: "Request completed successfully" },
+										message: {
+											type: "string",
+											example: "Request completed successfully",
+										},
 										notFound: { type: "boolean", example: false },
 										isUnauthorized: { type: "boolean", example: false },
 										isServerError: { type: "boolean", example: false },
@@ -246,7 +276,10 @@ This includes ratings from both requesters and volunteers.
 										app: {
 											type: "object",
 											properties: {
-												url: { type: "string", example: "http://localhost:3000" },
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
 											},
 										},
 										statusCode: { type: "integer", example: 200 },
@@ -310,7 +343,8 @@ Get aggregated rating statistics for a user including:
 											properties: {
 												averageRating: {
 													type: ["string", "null"],
-													description: "Average rating score (1-5), null if no ratings",
+													description:
+														"Average rating score (1-5), null if no ratings",
 													example: "4.5",
 												},
 												ratingsCount: {
@@ -320,7 +354,10 @@ Get aggregated rating statistics for a user including:
 												},
 											},
 										},
-										message: { type: "string", example: "Request completed successfully" },
+										message: {
+											type: "string",
+											example: "Request completed successfully",
+										},
 										notFound: { type: "boolean", example: false },
 										isUnauthorized: { type: "boolean", example: false },
 										isServerError: { type: "boolean", example: false },
@@ -328,7 +365,10 @@ Get aggregated rating statistics for a user including:
 										app: {
 											type: "object",
 											properties: {
-												url: { type: "string", example: "http://localhost:3000" },
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
 											},
 										},
 										statusCode: { type: "integer", example: 200 },
