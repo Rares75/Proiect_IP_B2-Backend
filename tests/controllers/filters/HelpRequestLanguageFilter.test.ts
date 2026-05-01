@@ -5,11 +5,13 @@ import app from "../../../src/app";
 import auth from "../../../src/auth";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import { loadControllers } from "../../../src/utils/controller";
+import {
+	expectClientErrorApiResponse,
+	expectSuccessApiResponse,
+} from "../apiResponseAssertions";
 
 beforeAll(async () => {
-	// test file is in tests/controllers/filters -> need to go up 3 levels to reach project root
-	// then into src/controllers. Using '../../src/controllers' would point to tests/src/controllers
-	await loadControllers(join(import.meta.dir, "../../../src/controllers"));
+	await loadControllers(join(process.cwd(), "/src/controllers"));
 });
 
 describe("GET /api/tasks language filter", () => {
@@ -29,13 +31,16 @@ describe("GET /api/tasks language filter", () => {
 
 	it("returns 200 with empty data array for unknown language (?language=ZZ)", async () => {
 		authenticate();
+
+		const mockResponse = {
+			data: [],
+			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+		};
+
 		const serviceSpy = spyOn(
 			HelpRequestService.prototype,
 			"getPaginatedTasks",
-		).mockResolvedValue({
-			data: [],
-			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
-		});
+		).mockResolvedValue(mockResponse);
 
 		try {
 			const response = await app.request("/api/tasks?language=ZZ", {
@@ -44,8 +49,11 @@ describe("GET /api/tasks language filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.data).toEqual([]);
-			expect(body.meta.total).toBe(0);
+			expectSuccessApiResponse(body, mockResponse, 200);
+
+			// Ajustat pentru envelope-ul sendApiResponse
+			expect(body.data.data).toEqual([]);
+			expect(body.data.meta.total).toBe(0);
 
 			// language este normalizat la lowercase de validator
 			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
@@ -65,17 +73,18 @@ describe("GET /api/tasks language filter", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(400);
-		expect(body).toEqual({
-			error: "Error: 'language' cannot be empty",
-		});
+
+		expectClientErrorApiResponse(
+			body,
+			"Error: 'language' cannot be empty",
+			400,
+		);
 	});
 
 	it("includes tasks without requestDetails in response for a valid language", async () => {
 		authenticate();
-		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"getPaginatedTasks",
-		).mockResolvedValue({
+
+		const mockResponse = {
 			data: [
 				{
 					id: 1,
@@ -97,7 +106,12 @@ describe("GET /api/tasks language filter", () => {
 				} as any,
 			],
 			meta: { page: 1, pageSize: 10, total: 3, totalPages: 1 },
-		});
+		};
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue(mockResponse);
 
 		try {
 			const response = await app.request("/api/tasks?language=RO", {
@@ -106,8 +120,11 @@ describe("GET /api/tasks language filter", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.data).toHaveLength(3);
-			expect(body.data[0].requestDetails).toBeNull();
+			expectSuccessApiResponse(body, mockResponse, 200);
+
+			// Ajustat pentru envelope
+			expect(body.data.data).toHaveLength(3);
+			expect(body.data.data[0].requestDetails).toBeNull();
 
 			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
 				language: "ro",
@@ -119,20 +136,26 @@ describe("GET /api/tasks language filter", () => {
 
 	it("treats language case-insensitively (?language=ro -> filters.language='ro')", async () => {
 		authenticate();
+
+		const mockResponse = {
+			data: [{ id: 10, status: "OPEN" } as any],
+			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+		};
+
 		const serviceSpy = spyOn(
 			HelpRequestService.prototype,
 			"getPaginatedTasks",
-		).mockResolvedValue({
-			data: [{ id: 10, status: "OPEN" } as any],
-			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
-		});
+		).mockResolvedValue(mockResponse);
 
 		try {
 			const response = await app.request("/api/tasks?language=ro", {
 				headers: { Authorization: "Bearer fake-test-token" },
 			});
+			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
+			expectSuccessApiResponse(body, mockResponse, 200);
+
 			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
 				language: "ro",
 			});

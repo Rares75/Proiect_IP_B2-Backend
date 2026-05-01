@@ -5,6 +5,10 @@ import { HelpRequestService } from "../../src/services/HelpRequestService";
 import auth from "../../src/auth";
 import { join } from "node:path";
 import { loadControllers } from "../../src/utils/controller";
+import {
+	expectClientErrorApiResponse,
+	expectSuccessApiResponse,
+} from "./apiResponseAssertions";
 
 beforeAll(async () => {
 	await loadControllers(join(import.meta.dir, "../../src/controllers"));
@@ -32,7 +36,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expect(body.error).toContain("accepta doar");
+		expectClientErrorApiResponse(
+			body,
+			"Eroare: 'sortBy' accepta doar: createdAt, urgency.",
+		);
 	});
 
 	it("ar trebui sa returneze 400 daca order este invalid (ex: RANDOM)", async () => {
@@ -47,7 +54,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expect(body.error).toContain("accepta doar");
+		expectClientErrorApiResponse(
+			body,
+			"Eroare: 'order' accepta doar: ASC, DESC.",
+		);
 	});
 
 	it("ar trebui sa foloseasca createdAt si DESC implicit daca nu sunt trimisi parametri", async () => {
@@ -69,14 +79,11 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		});
 		expect(response.status).toBe(200);
 
-		expect(serviceSpy).toHaveBeenCalledWith(
-			1,
-			10,
-			"createdAt",
-			"DESC",
-			{},
-			"user-123",
-		);
+		const body: any = await response.json();
+		expectSuccessApiResponse(body, {
+			data: [],
+			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+		});
 		serviceSpy.mockRestore();
 	});
 
@@ -103,8 +110,15 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(200);
 
 		const body: any = await response.json();
-		expect(body.data[0].urgency).toBe("CRITICAL");
-		expect(body.data[1].urgency).toBe("LOW");
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 1, urgency: "CRITICAL" },
+				{ id: 2, urgency: "LOW" },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].urgency).toBe("CRITICAL");
+		expect(body.data.data[1].urgency).toBe("LOW");
 
 		expect(serviceSpy).toHaveBeenCalledWith(
 			1,
@@ -140,7 +154,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(200);
 
 		const body: any = await response.json();
-		expect(body.data[0].urgency).toBe("LOW");
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 2, urgency: "LOW" },
+				{ id: 1, urgency: "CRITICAL" },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].urgency).toBe("LOW");
 
 		expect(serviceSpy).toHaveBeenCalledWith(
 			1,
@@ -179,8 +200,15 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(200);
 
 		const body: any = await response.json();
-		expect(body.data[0].createdAt).toBe("2023-01-01");
-		expect(body.data[1].createdAt).toBe("2024-01-01");
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 1, createdAt: "2023-01-01" },
+				{ id: 2, createdAt: "2024-01-01" },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].createdAt).toBe("2023-01-01");
+		expect(body.data.data[1].createdAt).toBe("2024-01-01");
 
 		expect(serviceSpy).toHaveBeenCalledWith(
 			1,
@@ -219,7 +247,14 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(200);
 
 		const body: any = await response.json();
-		expect(body.data[0].createdAt).toBe("2024-01-01");
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 2, createdAt: "2024-01-01" },
+				{ id: 1, createdAt: "2023-01-01" },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].createdAt).toBe("2024-01-01");
 
 		expect(serviceSpy).toHaveBeenCalledWith(
 			1,

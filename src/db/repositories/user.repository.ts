@@ -5,9 +5,7 @@ import { user } from "../auth-schema";
 import type { IRepository } from "./base.repository";
 import { repository } from "../../di/decorators/repository";
 
-export type User = typeof user.$inferSelect;
-
-/**
+export type User = typeof user.$inferSelect; /**
  * Data required to create a new User.
  * @example
  * ```ts
@@ -15,7 +13,7 @@ export type User = typeof user.$inferSelect;
  *  name: "Example"
  *  email: "example@gmail.com",
  *  // id, createdAt, etc. are created automatically by drizzle
- * };
+ * };]
  * const user = await userRepository.create(newUserData);
  * ```
  */
