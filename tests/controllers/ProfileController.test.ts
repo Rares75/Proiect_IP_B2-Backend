@@ -1,336 +1,293 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-	createProfileSchema,
-	updateProfileSchema,
-} from "../../src/utils/validators/profileValidator";
+import { beforeEach, describe, expect, test, mock } from "bun:test";
+import { Hono } from "hono";
+
+// Variabila mutabila — o schimbam per test
+let mockGetSession: any = async () => ({
+	user: { id: "user-1", email: "test@test.com" },
+	session: { userId: "user-1", id: "session-1" },
+});
+
+// Mock auth INAINTE de orice alt import care il foloseste
+mock.module("../../src/auth", () => ({
+	default: {
+		api: {
+			getSession: (...args: any[]) => mockGetSession(...args),
+		},
+	},
+}));
+
+import { ProfileController } from "../../src/controllers/ProfileController";
+import { NotFoundError } from "../../src/utils/Errors";
+
+const makeApp = (mockService: any) => {
+	const controller = new ProfileController(mockService as any);
+	return controller.controller;
+};
 
 describe("ProfileController", () => {
+	let app: any;
 	let mockService: any;
 
 	beforeEach(() => {
+		mockGetSession = async () => ({
+			user: { id: "user-1", email: "test@test.com" },
+			session: { userId: "user-1", id: "session-1" },
+		});
+
 		mockService = {
-			getProfileByUserId: async () => null,
-			createProfile: async () => null,
-			updateProfile: async () => null,
-			deleteProfile: async () => null,
-		};
-	});
-
-	afterEach(() => {
-		mockService = null;
-	});
-
-	describe("GET /profile/:userId - Get Profile", () => {
-		test("should return profile when user exists", async () => {
-			const mockProfile = {
+			getProfileByUserId: async () => ({
 				userId: "user-1",
-				name: "Andrei",
-				bio: "Hello",
-				languages: ["ro", "en"],
-				hiddenIdentity: false,
-			};
-
-			mockService.getProfileByUserId = async (userId: string) =>
-				userId === "user-1" ? mockProfile : null;
-
-			const result = await mockService.getProfileByUserId("user-1");
-			expect(result).toMatchObject(mockProfile);
-		});
-
-		test("should return null when user does not exist", async () => {
-			mockService.getProfileByUserId = async () => null;
-
-			const result = await mockService.getProfileByUserId("nonexistent-user");
-			expect(result).toBeNull();
-		});
-
-		test("should handle service errors gracefully", async () => {
-			mockService.getProfileByUserId = async () => {
-				throw new Error("Database error");
-			};
-
-			try {
-				await mockService.getProfileByUserId("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
-		});
-	});
-
-	describe("POST /profile - Create Profile", () => {
-		test("should accept valid profile data", () => {
-			const validData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
-				bio: "Hello world",
-				languages: ["ro", "en"],
-				hiddenIdentity: false,
-			};
-
-			const result = createProfileSchema.safeParse(validData);
-			expect(result.success).toBe(true);
-		});
-
-		test("should accept valid data without optional fields", () => {
-			const minimalData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
-			};
-
-			const result = createProfileSchema.safeParse(minimalData);
-			expect(result.success).toBe(true);
-		});
-
-		test("should reject empty name", () => {
-			const invalidData = {
-				name: "",
-				image: "https://example.com/avatar.png",
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject name longer than 100 characters", () => {
-			const invalidData = {
-				name: "A".repeat(101),
-				image: "https://example.com/avatar.png",
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject invalid image URL", () => {
-			const invalidData = {
-				name: "Andrei",
-				image: "not-a-url",
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject bio longer than 500 characters", () => {
-			const invalidData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
-				bio: "A".repeat(501),
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject languages array with more than 20 items", () => {
-			const invalidData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
-				languages: Array.from({ length: 21 }, (_, i) => `lang-${i}`),
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject languages array with empty string entries", () => {
-			const invalidData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
-				languages: ["ro", ""],
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject missing required fields", () => {
-			const invalidData = {
-				bio: "No name or image",
-			};
-
-			const result = createProfileSchema.safeParse(invalidData);
-			expect(result.success).toBe(false);
-		});
-
-		test("should call service with validated data", async () => {
-			let serviceCalled = false;
-			let receivedData: any = null;
-
-			mockService.createProfile = async (userId: string, data: any) => {
-				serviceCalled = true;
-				receivedData = data;
-				return { userId, ...data };
-			};
-
-			const validData = {
-				name: "Andrei",
-				image: "https://example.com/avatar.png",
 				bio: "Hello",
 				languages: ["ro"],
 				hiddenIdentity: false,
-			};
+			}),
+			createProfile: async () => ({
+				userId: "user-1",
+				bio: "Hello",
+				languages: ["ro"],
+				hiddenIdentity: false,
+			}),
+			updateProfile: async () => ({
+				userId: "user-1",
+				bio: "Updated",
+				languages: ["ro"],
+				hiddenIdentity: false,
+			}),
+			deleteProfile: async () => true,
+		};
 
-			await mockService.createProfile("user-1", validData);
+		app = makeApp(mockService);
+	});
 
-			expect(serviceCalled).toBe(true);
-			expect(receivedData).toMatchObject(validData);
+	describe("GET /:userId", () => {
+		test("should return 200 with profile when found", async () => {
+			const res = await app.request("/user-1");
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(200);
+			expect(body.data).toMatchObject({ userId: "user-1", bio: "Hello" });
 		});
 
-		test("should handle service errors gracefully", async () => {
-			mockService.createProfile = async () => {
+		test("should return 404 when profile not found", async () => {
+			mockService.getProfileByUserId = async () => {
+				throw new NotFoundError("Profile", "user-1");
+			};
+			app = makeApp(mockService);
+
+			const res = await app.request("/user-1");
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(404);
+			expect(body.notFound).toBe(true);
+		});
+
+		test("should return 500 on unexpected error", async () => {
+			mockService.getProfileByUserId = async () => {
 				throw new Error("Database error");
 			};
+			app = makeApp(mockService);
 
-			try {
-				await mockService.createProfile("user-1", {});
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
-		});
-		test("should return unauthorized when session is missing", async () => {
-			let receivedResponse: any = null;
+			const res = await app.request("/user-1");
+			const body = (await res.json()) as any;
 
-			mockService.createProfile = async () => {
-				throw new Error("Should not be called");
-			};
-
-			const mockSession = null;
-
-			if (!mockSession) {
-				receivedResponse = { kind: "unauthorized" };
-			}
-
-			expect(receivedResponse).toMatchObject({ kind: "unauthorized" });
+			expect(res.status).toBe(500);
+			expect(body.isServerError).toBe(true);
 		});
 	});
 
-	describe("PUT /profile/me - Update Profile", () => {
-		test("should accept empty object (all fields optional)", () => {
-			const result = updateProfileSchema.safeParse({});
-			expect(result.success).toBe(true);
-		});
+	describe("POST /", () => {
+		const validBody = {
+			name: "Andrei",
+			image: "https://example.com/avatar.png",
+			bio: "Hello",
+			languages: ["ro"],
+			hiddenIdentity: false,
+		};
 
-		test("should accept partial update with only name", () => {
-			const result = updateProfileSchema.safeParse({ name: "Andrei" });
-			expect(result.success).toBe(true);
-		});
-
-		test("should accept partial update with only bio", () => {
-			const result = updateProfileSchema.safeParse({ bio: "Updated bio" });
-			expect(result.success).toBe(true);
-		});
-
-		test("should reject empty name when provided", () => {
-			const result = updateProfileSchema.safeParse({ name: "" });
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject invalid image URL when provided", () => {
-			const result = updateProfileSchema.safeParse({ image: "not-a-url" });
-			expect(result.success).toBe(false);
-		});
-
-		test("should reject bio longer than 500 characters", () => {
-			const result = updateProfileSchema.safeParse({ bio: "A".repeat(501) });
-			expect(result.success).toBe(false);
-		});
-
-		test("should call service with updated data", async () => {
-			let serviceCalled = false;
-			let receivedData: any = null;
-
-			mockService.updateProfile = async (userId: string, data: any) => {
-				serviceCalled = true;
-				receivedData = data;
-				return { userId, ...data };
-			};
-
-			const updateData = { bio: "Updated bio" };
-			await mockService.updateProfile("user-1", updateData);
-
-			expect(serviceCalled).toBe(true);
-			expect(receivedData).toMatchObject(updateData);
-		});
-
-		test("should return null when profile not found", async () => {
-			mockService.updateProfile = async () => null;
-
-			const result = await mockService.updateProfile("nonexistent-user", {
-				bio: "test",
+		test("should return 201 when profile created successfully", async () => {
+			const res = await app.request("/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(validBody),
 			});
-			expect(result).toBeNull();
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(201);
+			expect(body.data).toMatchObject({ userId: "user-1" });
 		});
 
-		test("should handle service errors gracefully", async () => {
+		test("should return 400 on invalid body", async () => {
+			const res = await app.request("/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "", image: "not-a-url" }),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(400);
+			expect(body.isClientError).toBe(true);
+		});
+
+		test("should return 401 when session is missing", async () => {
+			mockGetSession = async () => null;
+
+			const res = await app.request("/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(validBody),
+			});
+
+			expect(res.status).toBe(401);
+		});
+
+		test("should return 404 when service throws NotFoundError", async () => {
+			mockService.createProfile = async () => {
+				throw new NotFoundError("User", "user-1");
+			};
+			app = makeApp(mockService);
+
+			const res = await app.request("/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(validBody),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(404);
+			expect(body.notFound).toBe(true);
+		});
+
+		test("should return 500 on unexpected error", async () => {
+			mockService.createProfile = async () => {
+				throw new Error("Database error");
+			};
+			app = makeApp(mockService);
+
+			const res = await app.request("/", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(validBody),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(500);
+			expect(body.isServerError).toBe(true);
+		});
+	});
+
+	describe("PUT /me", () => {
+		test("should return 200 when profile updated successfully", async () => {
+			const res = await app.request("/me", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ bio: "Updated bio" }),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(200);
+			expect(body.data).toMatchObject({ userId: "user-1" });
+		});
+
+		test("should return 400 on invalid body", async () => {
+			const res = await app.request("/me", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "", image: "not-a-url" }),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(400);
+			expect(body.isClientError).toBe(true);
+		});
+
+		test("should return 401 when session is missing", async () => {
+			mockGetSession = async () => null;
+
+			const res = await app.request("/me", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ bio: "Updated" }),
+			});
+
+			expect(res.status).toBe(401);
+		});
+
+		test("should return 404 when profile not found", async () => {
+			mockService.updateProfile = async () => {
+				throw new NotFoundError("Profile", "user-1");
+			};
+			app = makeApp(mockService);
+
+			const res = await app.request("/me", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ bio: "Updated" }),
+			});
+			const body = (await res.json()) as any;
+
+			expect(res.status).toBe(404);
+			expect(body.notFound).toBe(true);
+		});
+
+		test("should return 500 on unexpected error", async () => {
 			mockService.updateProfile = async () => {
 				throw new Error("Database error");
 			};
+			app = makeApp(mockService);
 
-			try {
-				await mockService.updateProfile("user-1", { bio: "test" });
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
-		});
-		test("should return unauthorized when session is missing", async () => {
-			const mockSession = null;
-			let receivedResponse: any = null;
+			const res = await app.request("/me", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ bio: "Updated" }),
+			});
+			const body = (await res.json()) as any;
 
-			if (!mockSession) {
-				receivedResponse = { kind: "unauthorized" };
-			}
-
-			expect(receivedResponse).toMatchObject({ kind: "unauthorized" });
+			expect(res.status).toBe(500);
+			expect(body.isServerError).toBe(true);
 		});
 	});
 
-	describe("DELETE /profile/me - Delete Profile", () => {
-		test("should call service and return deleted true", async () => {
-			let serviceCalled = false;
+	describe("DELETE /me", () => {
+		test("should return 200 with deleted true when successful", async () => {
+			const res = await app.request("/me", { method: "DELETE" });
+			const body = (await res.json()) as any;
 
-			mockService.deleteProfile = async (_userId: string) => {
-				serviceCalled = true;
-				return { deleted: true };
+			expect(res.status).toBe(200);
+			expect(body.data).toMatchObject({ deleted: true });
+		});
+
+		test("should return 401 when session is missing", async () => {
+			mockGetSession = async () => null;
+
+			const res = await app.request("/me", { method: "DELETE" });
+
+			expect(res.status).toBe(401);
+		});
+
+		test("should return 404 when profile not found", async () => {
+			mockService.deleteProfile = async () => {
+				throw new NotFoundError("Profile", "user-1");
 			};
+			app = makeApp(mockService);
 
-			const result = await mockService.deleteProfile("user-1");
+			const res = await app.request("/me", { method: "DELETE" });
+			const body = (await res.json()) as any;
 
-			expect(serviceCalled).toBe(true);
-			expect(result).toMatchObject({ deleted: true });
+			expect(res.status).toBe(404);
+			expect(body.notFound).toBe(true);
 		});
 
-		test("should return null when profile not found", async () => {
-			mockService.deleteProfile = async () => null;
-
-			const result = await mockService.deleteProfile("nonexistent-user");
-			expect(result).toBeNull();
-		});
-
-		test("should handle service errors gracefully", async () => {
+		test("should return 500 on unexpected error", async () => {
 			mockService.deleteProfile = async () => {
 				throw new Error("Database error");
 			};
+			app = makeApp(mockService);
 
-			try {
-				await mockService.deleteProfile("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
-		});
-		test("should return unauthorized when session is missing", async () => {
-			const mockSession = null;
-			let receivedResponse: any = null;
+			const res = await app.request("/me", { method: "DELETE" });
+			const body = (await res.json()) as any;
 
-			if (!mockSession) {
-				receivedResponse = { kind: "unauthorized" };
-			}
-
-			expect(receivedResponse).toMatchObject({ kind: "unauthorized" });
+			expect(res.status).toBe(500);
+			expect(body.isServerError).toBe(true);
 		});
 	});
 });

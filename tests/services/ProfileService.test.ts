@@ -1,9 +1,22 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, afterEach, describe, expect, test, mock } from "bun:test";
 import { NotFoundError } from "../../src/utils/Errors";
 
+// Mock db INAINTE de importuri — ProfileService apeleaza db.update direct
+mock.module("../../src/db", () => ({
+	db: {
+		update: () => ({
+			set: () => ({
+				where: async () => [],
+			}),
+		}),
+	},
+}));
+
+import { ProfileService } from "../../src/services/ProfileService";
+
 describe("ProfileService", () => {
+	let service: ProfileService;
 	let mockRepo: any;
-	let mockService: any;
 
 	beforeEach(() => {
 		mockRepo = {
@@ -14,67 +27,20 @@ describe("ProfileService", () => {
 			delete: async () => null,
 		};
 
-		mockService = {
-			async createProfile(userId: string, data: any) {
-				const existing = await mockRepo.findFirstBy({ userId });
-				if (existing) throw new Error("Profile already exists");
-
-				const created = await mockRepo.create({
-					userId,
-					bio: data.bio,
-					languages: data.languages,
-					hiddenIdentity: data.hiddenIdentity,
-				});
-
-				return created;
-			},
-
-			async getProfileByUserId(userId: string) {
-				const profile = await mockRepo.findFirstBy({ userId });
-				if (!profile) throw new NotFoundError("Profile", userId);
-				return profile;
-			},
-
-			async getProfileById(id: number) {
-				const profile = await mockRepo.findById(id);
-				if (!profile) throw new NotFoundError("Profile", String(id));
-				return profile;
-			},
-
-			async updateProfile(userId: string, data: any) {
-				const existing = await mockRepo.findFirstBy({ userId });
-				if (!existing) throw new NotFoundError("Profile", userId);
-
-				const updated = await mockRepo.update(existing.id, {
-					bio: data.bio,
-					languages: data.languages,
-					hiddenIdentity: data.hiddenIdentity,
-				});
-
-				return updated;
-			},
-
-			async deleteProfile(userId: string) {
-				const existing = await mockRepo.findFirstBy({ userId });
-				if (!existing) throw new NotFoundError("Profile", userId);
-				return await mockRepo.delete(existing.id);
-			},
-		};
+		service = new ProfileService(mockRepo as any);
 	});
 
 	afterEach(() => {
 		mockRepo = null;
-		mockService = null;
 	});
 
 	describe("createProfile", () => {
 		test("should create profile when user has no existing profile", async () => {
 			const mockCreated = { id: 1, userId: "user-1", bio: "Hello" };
-
 			mockRepo.findFirstBy = async () => null;
 			mockRepo.create = async () => mockCreated;
 
-			const result = await mockService.createProfile("user-1", {
+			const result = await service.createProfile("user-1", {
 				name: "Andrei",
 				image: "https://example.com/avatar.png",
 				bio: "Hello",
@@ -86,27 +52,23 @@ describe("ProfileService", () => {
 		test("should throw if profile already exists", async () => {
 			mockRepo.findFirstBy = async () => ({ id: 1, userId: "user-1" });
 
-			try {
-				await mockService.createProfile("user-1", {
+			expect(
+				service.createProfile("user-1", {
 					name: "Andrei",
 					image: "https://example.com/avatar.png",
-				});
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Profile already exists");
-			}
+				}),
+			).rejects.toThrow("Profile already exists");
 		});
 
-		test("should call repo.create with correct data", async () => {
+		test("should call repo.create with correct fields (not name/image)", async () => {
 			let receivedData: any = null;
-
 			mockRepo.findFirstBy = async () => null;
 			mockRepo.create = async (data: any) => {
 				receivedData = data;
 				return { id: 1, ...data };
 			};
 
-			await mockService.createProfile("user-1", {
+			await service.createProfile("user-1", {
 				name: "Andrei",
 				image: "https://example.com/avatar.png",
 				bio: "Hello",
@@ -120,23 +82,22 @@ describe("ProfileService", () => {
 				languages: ["ro"],
 				hiddenIdentity: false,
 			});
+			expect(receivedData.name).toBeUndefined();
+			expect(receivedData.image).toBeUndefined();
 		});
 
-		test("should handle repo errors gracefully", async () => {
+		test("should propagate repo errors", async () => {
 			mockRepo.findFirstBy = async () => null;
 			mockRepo.create = async () => {
 				throw new Error("Database error");
 			};
 
-			try {
-				await mockService.createProfile("user-1", {
+			expect(
+				service.createProfile("user-1", {
 					name: "Andrei",
 					image: "https://example.com/avatar.png",
-				});
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+				}),
+			).rejects.toThrow("Database error");
 		});
 	});
 
@@ -145,112 +106,92 @@ describe("ProfileService", () => {
 			const mockProfile = { id: 1, userId: "user-1", bio: "Hello" };
 			mockRepo.findFirstBy = async () => mockProfile;
 
-			const result = await mockService.getProfileByUserId("user-1");
+			const result = await service.getProfileByUserId("user-1");
+
 			expect(result).toMatchObject(mockProfile);
 		});
 
 		test("should throw NotFoundError when profile does not exist", async () => {
 			mockRepo.findFirstBy = async () => null;
 
-			try {
-				await mockService.getProfileByUserId("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeInstanceOf(NotFoundError);
-			}
+			expect(service.getProfileByUserId("user-1")).rejects.toBeInstanceOf(
+				NotFoundError,
+			);
 		});
 
-		test("should handle repo errors gracefully", async () => {
+		test("should propagate repo errors", async () => {
 			mockRepo.findFirstBy = async () => {
 				throw new Error("Database error");
 			};
 
-			try {
-				await mockService.getProfileByUserId("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			expect(service.getProfileByUserId("user-1")).rejects.toThrow(
+				"Database error",
+			);
 		});
 	});
 
 	describe("getProfileById", () => {
-		test("should return profile when found by id", async () => {
+		test("should return profile when found", async () => {
 			const mockProfile = { id: 1, userId: "user-1", bio: "Hello" };
 			mockRepo.findById = async () => mockProfile;
 
-			const result = await mockService.getProfileById(1);
+			const result = await service.getProfileById(1);
+
 			expect(result).toMatchObject(mockProfile);
 		});
 
 		test("should throw NotFoundError when profile does not exist", async () => {
 			mockRepo.findById = async () => null;
 
-			try {
-				await mockService.getProfileById(999);
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeInstanceOf(NotFoundError);
-			}
+			expect(service.getProfileById(999)).rejects.toBeInstanceOf(NotFoundError);
 		});
 
-		test("should handle repo errors gracefully", async () => {
+		test("should propagate repo errors", async () => {
 			mockRepo.findById = async () => {
 				throw new Error("Database error");
 			};
 
-			try {
-				await mockService.getProfileById(1);
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			expect(service.getProfileById(1)).rejects.toThrow("Database error");
 		});
 	});
 
 	describe("updateProfile", () => {
-		test("should update profile when it exists", async () => {
+		test("should update and return profile when it exists", async () => {
 			const existing = { id: 1, userId: "user-1", bio: "Old bio" };
 			const updated = { id: 1, userId: "user-1", bio: "New bio" };
-
 			mockRepo.findFirstBy = async () => existing;
 			mockRepo.update = async () => updated;
 
-			const result = await mockService.updateProfile("user-1", {
-				bio: "New bio",
-			});
+			const result = await service.updateProfile("user-1", { bio: "New bio" });
+
 			expect(result).toMatchObject(updated);
 		});
 
 		test("should throw NotFoundError when profile does not exist", async () => {
 			mockRepo.findFirstBy = async () => null;
 
-			try {
-				await mockService.updateProfile("user-1", { bio: "New bio" });
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeInstanceOf(NotFoundError);
-			}
+			expect(
+				service.updateProfile("user-1", { bio: "New bio" }),
+			).rejects.toBeInstanceOf(NotFoundError);
 		});
 
-		test("should call repo.update with correct data", async () => {
+		test("should call repo.update with correct id and fields", async () => {
 			let receivedId: any = null;
 			let receivedData: any = null;
-
-			mockRepo.findFirstBy = async () => ({ id: 1, userId: "user-1" });
+			mockRepo.findFirstBy = async () => ({ id: 42, userId: "user-1" });
 			mockRepo.update = async (id: number, data: any) => {
 				receivedId = id;
 				receivedData = data;
 				return { id, ...data };
 			};
 
-			await mockService.updateProfile("user-1", {
+			await service.updateProfile("user-1", {
 				bio: "Updated",
 				languages: ["ro", "en"],
 				hiddenIdentity: true,
 			});
 
-			expect(receivedId).toBe(1);
+			expect(receivedId).toBe(42);
 			expect(receivedData).toMatchObject({
 				bio: "Updated",
 				languages: ["ro", "en"],
@@ -258,66 +199,56 @@ describe("ProfileService", () => {
 			});
 		});
 
-		test("should handle repo errors gracefully", async () => {
+		test("should propagate repo errors", async () => {
 			mockRepo.findFirstBy = async () => ({ id: 1, userId: "user-1" });
 			mockRepo.update = async () => {
 				throw new Error("Database error");
 			};
 
-			try {
-				await mockService.updateProfile("user-1", { bio: "test" });
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			expect(service.updateProfile("user-1", { bio: "test" })).rejects.toThrow(
+				"Database error",
+			);
 		});
 	});
 
 	describe("deleteProfile", () => {
-		test("should delete profile when it exists", async () => {
+		test("should delete profile and return true when it exists", async () => {
 			mockRepo.findFirstBy = async () => ({ id: 1, userId: "user-1" });
-			mockRepo.delete = async () => ({ deleted: true });
+			mockRepo.delete = async () => true;
 
-			const result = await mockService.deleteProfile("user-1");
-			expect(result).toMatchObject({ deleted: true });
+			const result = await service.deleteProfile("user-1");
+
+			expect(result).toBe(true);
 		});
 
 		test("should throw NotFoundError when profile does not exist", async () => {
 			mockRepo.findFirstBy = async () => null;
 
-			try {
-				await mockService.deleteProfile("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(error).toBeInstanceOf(NotFoundError);
-			}
+			expect(service.deleteProfile("user-1")).rejects.toBeInstanceOf(
+				NotFoundError,
+			);
 		});
 
 		test("should call repo.delete with correct id", async () => {
 			let deletedId: any = null;
-
 			mockRepo.findFirstBy = async () => ({ id: 42, userId: "user-1" });
 			mockRepo.delete = async (id: number) => {
 				deletedId = id;
-				return { deleted: true };
+				return true;
 			};
 
-			await mockService.deleteProfile("user-1");
+			await service.deleteProfile("user-1");
+
 			expect(deletedId).toBe(42);
 		});
 
-		test("should handle repo errors gracefully", async () => {
+		test("should propagate repo errors", async () => {
 			mockRepo.findFirstBy = async () => ({ id: 1, userId: "user-1" });
 			mockRepo.delete = async () => {
 				throw new Error("Database error");
 			};
 
-			try {
-				await mockService.deleteProfile("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			expect(service.deleteProfile("user-1")).rejects.toThrow("Database error");
 		});
 	});
 });

@@ -1,249 +1,288 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test, mock } from "bun:test";
+
+mock.module("../../src/db", () => ({
+	db: {
+		select: () => ({}),
+		insert: () => ({}),
+		update: () => ({}),
+		delete: () => ({}),
+	},
+}));
+
+import { ProfileRepository } from "../../src/db/repositories/profile.repository";
+import { userProfiles } from "../../src/db/profile";
 
 describe("ProfileRepository", () => {
-	let mockRepo: any;
+	const repository = new ProfileRepository();
 
-	beforeEach(() => {
-		const store: any[] = [];
-		let nextId = 1;
+	let originalDb: any;
 
-		mockRepo = {
-			async create(data: any) {
-				const newProfile = { id: nextId++, ...data };
-				store.push(newProfile);
-				return newProfile;
-			},
-
-			async update(id: number, data: any) {
-				const index = store.findIndex((p) => p.id === id);
-				if (index === -1) return undefined;
-				store[index] = { ...store[index], ...data };
-				return store[index];
-			},
-
-			async delete(id: number) {
-				const index = store.findIndex((p) => p.id === id);
-				if (index === -1) return false;
-				store.splice(index, 1);
-				return true;
-			},
-
-			async exists(id: number) {
-				return store.some((p) => p.id === id);
-			},
-
-			async findById(id: number) {
-				return store.find((p) => p.id === id) ?? undefined;
-			},
-
-			async findFirstBy(criteria: any) {
-				const keys = Object.entries(criteria).filter(
-					([, v]) => v !== undefined,
-				);
-				if (keys.length === 0) return undefined;
-				return (
-					store.find((p) => keys.every(([k, v]) => p[k] === v)) ?? undefined
-				);
-			},
-
-			async findMany(limit = 50, offset = 0) {
-				return store.slice(offset, offset + limit);
-			},
-
-			async count() {
-				return store.length;
-			},
-		};
-	});
-
-	afterEach(() => {
-		mockRepo = null;
+	afterEach(async () => {
+		const { db } = await import("../../src/db");
+		if (originalDb) {
+			(db as any).select = originalDb.select;
+			(db as any).insert = originalDb.insert;
+			(db as any).update = originalDb.update;
+			(db as any).delete = originalDb.delete;
+		}
 	});
 
 	describe("create", () => {
-		test("should create and return a new profile", async () => {
-			const data = { userId: "user-1", bio: "Hello", languages: ["ro"] };
-			const result = await mockRepo.create(data);
+		test("should insert into userProfiles and return created profile", async () => {
+			const { db } = await import("../../src/db");
+			const input = { userId: "user-1", bio: "Hello", languages: ["ro"] };
+			const expected = { id: 1, ...input };
+			let insertedTable: unknown;
+			let insertedValues: unknown;
 
-			expect(result).toMatchObject(data);
-			expect(result.id).toBeDefined();
-		});
+			(db as any).insert = (table: unknown) => {
+				insertedTable = table;
+				return {
+					values: (values: unknown) => {
+						insertedValues = values;
+						return {
+							returning: async () => [expected],
+						};
+					},
+				};
+			};
 
-		test("should assign incremental ids", async () => {
-			const first = await mockRepo.create({ userId: "user-1" });
-			const second = await mockRepo.create({ userId: "user-2" });
+			const result = await repository.create(input as any);
 
-			expect(second.id).toBe(first.id + 1);
+			expect(result).toMatchObject(expected);
+			expect(insertedTable).toBe(userProfiles);
+			expect(insertedValues).toEqual(input);
 		});
 	});
 
 	describe("update", () => {
-		test("should update and return updated profile", async () => {
-			const created = await mockRepo.create({ userId: "user-1", bio: "Old" });
-			const updated = await mockRepo.update(created.id, { bio: "New" });
+		test("should update correct record and return updated profile", async () => {
+			const { db } = await import("../../src/db");
+			const expected = { id: 1, userId: "user-1", bio: "New bio" };
+			let updatedTable: unknown;
 
-			expect(updated).toBeDefined();
-			expect(updated.bio).toBe("New");
+			(db as any).update = (table: unknown) => {
+				updatedTable = table;
+				return {
+					set: () => ({
+						where: () => ({
+							returning: async () => [expected],
+						}),
+					}),
+				};
+			};
+
+			const result = await repository.update(1, { bio: "New bio" });
+
+			expect(result).toMatchObject(expected);
+			expect(updatedTable).toBe(userProfiles);
 		});
 
-		test("should return undefined when profile not found", async () => {
-			const result = await mockRepo.update(999, { bio: "New" });
-			expect(result).toBeUndefined();
-		});
+		test("should return undefined when record not found", async () => {
+			const { db } = await import("../../src/db");
 
-		test("should only update specified fields", async () => {
-			const created = await mockRepo.create({
-				userId: "user-1",
-				bio: "Old",
-				hiddenIdentity: false,
+			(db as any).update = () => ({
+				set: () => ({
+					where: () => ({
+						returning: async () => [],
+					}),
+				}),
 			});
-			const updated = await mockRepo.update(created.id, { bio: "New" });
 
-			expect(updated.hiddenIdentity).toBe(false);
-			expect(updated.bio).toBe("New");
+			const result = await repository.update(999, { bio: "New bio" });
+
+			expect(result).toBeUndefined();
 		});
 	});
 
 	describe("delete", () => {
-		test("should delete profile and return true", async () => {
-			const created = await mockRepo.create({ userId: "user-1" });
-			const result = await mockRepo.delete(created.id);
+		test("should delete correct record and return true", async () => {
+			const { db } = await import("../../src/db");
+			let deletedTable: unknown;
+
+			(db as any).delete = (table: unknown) => {
+				deletedTable = table;
+				return {
+					where: () => ({
+						returning: async () => [{ id: 1 }],
+					}),
+				};
+			};
+
+			const result = await repository.delete(1);
 
 			expect(result).toBe(true);
+			expect(deletedTable).toBe(userProfiles);
 		});
 
-		test("should return false when profile not found", async () => {
-			const result = await mockRepo.delete(999);
+		test("should return false when record not found", async () => {
+			const { db } = await import("../../src/db");
+
+			(db as any).delete = () => ({
+				where: () => ({
+					returning: async () => [],
+				}),
+			});
+
+			const result = await repository.delete(999);
+
 			expect(result).toBe(false);
-		});
-
-		test("should remove profile from store", async () => {
-			const created = await mockRepo.create({ userId: "user-1" });
-			await mockRepo.delete(created.id);
-
-			const found = await mockRepo.findById(created.id);
-			expect(found).toBeUndefined();
 		});
 	});
 
 	describe("exists", () => {
 		test("should return true when profile exists", async () => {
-			const created = await mockRepo.create({ userId: "user-1" });
-			const result = await mockRepo.exists(created.id);
+			const { db } = await import("../../src/db");
+
+			(db as any).select = () => ({
+				from: () => ({
+					where: async () => [{ value: 1 }],
+				}),
+			});
+
+			const result = await repository.exists(1);
 
 			expect(result).toBe(true);
 		});
 
 		test("should return false when profile does not exist", async () => {
-			const result = await mockRepo.exists(999);
+			const { db } = await import("../../src/db");
+
+			(db as any).select = () => ({
+				from: () => ({
+					where: async () => [{ value: 0 }],
+				}),
+			});
+
+			const result = await repository.exists(999);
+
 			expect(result).toBe(false);
 		});
 	});
 
 	describe("findById", () => {
 		test("should return profile when found", async () => {
-			const created = await mockRepo.create({ userId: "user-1", bio: "Hello" });
-			const result = await mockRepo.findById(created.id);
+			const { db } = await import("../../src/db");
+			const expected = { id: 1, userId: "user-1", bio: "Hello" };
+			let fromTable: unknown;
 
-			expect(result).toMatchObject({ userId: "user-1", bio: "Hello" });
+			(db as any).select = () => ({
+				from: (table: unknown) => {
+					fromTable = table;
+					return {
+						where: async () => [expected],
+					};
+				},
+			});
+
+			const result = await repository.findById(1);
+
+			expect(result).toMatchObject(expected);
+			expect(fromTable).toBe(userProfiles);
 		});
 
 		test("should return undefined when not found", async () => {
-			const result = await mockRepo.findById(999);
+			const { db } = await import("../../src/db");
+
+			(db as any).select = () => ({
+				from: () => ({
+					where: async () => [],
+				}),
+			});
+
+			const result = await repository.findById(999);
+
 			expect(result).toBeUndefined();
 		});
 	});
 
 	describe("findFirstBy", () => {
 		test("should return profile matching criteria", async () => {
-			await mockRepo.create({ userId: "user-1", bio: "Hello" });
-			const result = await mockRepo.findFirstBy({ userId: "user-1" });
+			const { db } = await import("../../src/db");
+			const expected = { id: 1, userId: "user-1", bio: "Hello" };
+			let fromTable: unknown;
 
-			expect(result).toBeDefined();
-			expect(result.userId).toBe("user-1");
+			(db as any).select = () => ({
+				from: (table: unknown) => {
+					fromTable = table;
+					return {
+						where: () => ({
+							limit: async () => [expected],
+						}),
+					};
+				},
+			});
+
+			const result = await repository.findFirstBy({ userId: "user-1" });
+
+			expect(result).toMatchObject(expected);
+			expect(fromTable).toBe(userProfiles);
 		});
 
 		test("should return undefined when no match found", async () => {
-			const result = await mockRepo.findFirstBy({ userId: "nonexistent" });
+			const { db } = await import("../../src/db");
+
+			(db as any).select = () => ({
+				from: () => ({
+					where: () => ({
+						limit: async () => [],
+					}),
+				}),
+			});
+
+			const result = await repository.findFirstBy({ userId: "nonexistent" });
+
 			expect(result).toBeUndefined();
 		});
 
 		test("should return undefined when criteria is empty", async () => {
-			await mockRepo.create({ userId: "user-1" });
-			const result = await mockRepo.findFirstBy({});
+			// Nu ajunge la db deloc — returneaza undefined inainte
+			const result = await repository.findFirstBy({});
+
 			expect(result).toBeUndefined();
-		});
-
-		test("should match multiple criteria", async () => {
-			await mockRepo.create({ userId: "user-1", hiddenIdentity: false });
-			await mockRepo.create({ userId: "user-2", hiddenIdentity: true });
-
-			const result = await mockRepo.findFirstBy({
-				userId: "user-2",
-				hiddenIdentity: true,
-			});
-
-			expect(result).toBeDefined();
-			expect(result.userId).toBe("user-2");
 		});
 	});
 
 	describe("findMany", () => {
-		test("should return all profiles with default limit", async () => {
-			await mockRepo.create({ userId: "user-1" });
-			await mockRepo.create({ userId: "user-2" });
-			await mockRepo.create({ userId: "user-3" });
+		test("should query from userProfiles and return profiles", async () => {
+			const { db } = await import("../../src/db");
+			const expected = [{ id: 1 }, { id: 2 }];
+			let fromTable: unknown;
 
-			const result = await mockRepo.findMany();
-			expect(result.length).toBe(3);
-		});
+			(db as any).select = () => ({
+				from: (table: unknown) => {
+					fromTable = table;
+					return {
+						limit: () => ({
+							offset: async () => expected,
+						}),
+					};
+				},
+			});
 
-		test("should respect limit parameter", async () => {
-			await mockRepo.create({ userId: "user-1" });
-			await mockRepo.create({ userId: "user-2" });
-			await mockRepo.create({ userId: "user-3" });
+			const result = await repository.findMany();
 
-			const result = await mockRepo.findMany(2);
-			expect(result.length).toBe(2);
-		});
-
-		test("should respect offset parameter", async () => {
-			await mockRepo.create({ userId: "user-1" });
-			await mockRepo.create({ userId: "user-2" });
-			await mockRepo.create({ userId: "user-3" });
-
-			const result = await mockRepo.findMany(50, 2);
-			expect(result.length).toBe(1);
-			expect(result[0].userId).toBe("user-3");
-		});
-
-		test("should return empty array when no profiles exist", async () => {
-			const result = await mockRepo.findMany();
-			expect(result).toEqual([]);
+			expect(result).toMatchObject(expected);
+			expect(fromTable).toBe(userProfiles);
 		});
 	});
 
 	describe("count", () => {
-		test("should return 0 when no profiles exist", async () => {
-			const result = await mockRepo.count();
-			expect(result).toBe(0);
-		});
+		test("should return count from userProfiles", async () => {
+			const { db } = await import("../../src/db");
+			let fromTable: unknown;
 
-		test("should return correct count after inserts", async () => {
-			await mockRepo.create({ userId: "user-1" });
-			await mockRepo.create({ userId: "user-2" });
+			(db as any).select = () => ({
+				from: (table: unknown) => {
+					fromTable = table;
+					return Promise.resolve([{ value: 5 }]);
+				},
+			});
 
-			const result = await mockRepo.count();
-			expect(result).toBe(2);
-		});
+			const result = await repository.count();
 
-		test("should update count after delete", async () => {
-			const created = await mockRepo.create({ userId: "user-1" });
-			await mockRepo.create({ userId: "user-2" });
-			await mockRepo.delete(created.id);
-
-			const result = await mockRepo.count();
-			expect(result).toBe(1);
+			expect(result).toBe(5);
+			expect(fromTable).toBe(userProfiles);
 		});
 	});
 });
