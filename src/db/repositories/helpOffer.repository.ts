@@ -1,7 +1,8 @@
-import { and, count as drizzleCount, desc, eq } from "drizzle-orm";
+import { and, count as drizzleCount, desc, eq, sql, avg } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpOffers } from "../requests";
+import { ratings } from "../social";
 import { userProfiles, volunteers } from "../profile";
 import { user } from "../auth-schema"; // Ajustează calea dacă este necesar
 
@@ -34,6 +35,7 @@ export class HelpOfferRepository {
 		return found;
 	}
 
+
 	async findPaginatedOffersByTaskId(
 		taskId: number,
 		page: number,
@@ -42,14 +44,12 @@ export class HelpOfferRepository {
 	) {
 		const offset = (page - 1) * pageSize;
 
-		// 1. Construim filtrarea
 		const conditions = [eq(helpOffers.helpRequestId, taskId)];
 		if (statusFilter) {
 			conditions.push(eq(helpOffers.status, statusFilter));
 		}
 		const whereClause = and(...conditions);
 
-		// 2. Query pentru date cu JOIN-uri pentru profilul public
 		const rows = await db
 			.select({
 				id: helpOffers.id,
@@ -63,17 +63,31 @@ export class HelpOfferRepository {
 				name: user.name,
 				hiddenIdentity: userProfiles.hiddenIdentity,
 				username: user.username,
+				averageRating: sql<string | null>`avg(${ratings.stars})`.as("average_rating"),
 			})
 			.from(helpOffers)
 			.innerJoin(volunteers, eq(helpOffers.volunteerId, volunteers.id))
 			.innerJoin(user, eq(volunteers.userId, user.id))
 			.leftJoin(userProfiles, eq(userProfiles.userId, user.id))
+			.leftJoin(ratings, eq(ratings.receivedByUserId, volunteers.userId))
 			.where(whereClause)
+			.groupBy(
+				helpOffers.id,
+				helpOffers.volunteerId,
+				helpOffers.message,
+				helpOffers.status,
+				helpOffers.createdAt,
+				volunteers.userId,
+				volunteers.trustScore,
+				userProfiles.bio,
+				user.name,
+				userProfiles.hiddenIdentity,
+				user.username,
+			)
 			.orderBy(desc(helpOffers.createdAt))
 			.limit(pageSize)
 			.offset(offset);
 
-		// 3. Query separat pentru a calcula totalul necesar paginării
 		const [{ value: total }] = await db
 			.select({ value: drizzleCount() })
 			.from(helpOffers)

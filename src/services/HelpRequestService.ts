@@ -27,7 +27,7 @@ import {
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { HelpOfferInput } from "../validation";
 import { RatingsRepository } from "../db/repositories/ratings.repository";
-//import type { TaskFilterParams } from "../filters";
+import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -53,7 +53,7 @@ export class HelpRequestService {
 		@inject(RatingsRepository)
 		private readonly ratingsRepo: RatingsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
-	) {}
+	) { }
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
@@ -143,10 +143,10 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						city: location?.city ?? null,
-						addressText: location?.addressText ?? null,
-						location: location?.location ?? null,
-					}
+					city: location?.city ?? null,
+					addressText: location?.addressText ?? null,
+					location: location?.location ?? null,
+				}
 				: {}),
 			details: details || null,
 		};
@@ -291,25 +291,6 @@ export class HelpRequestService {
 				status,
 			);
 
-		// averageRating pentru fiecare voluntar
-		// toate userId-urile voluntarilor din rezultatele paginii curente
-		const volunteerUserIds = [
-			...new Set(data.map((offer) => offer.volunteerUserId)),
-		];
-
-		// dicționar pentru acces rapid la rating-uri
-		const ratingsMap: Record<string, number | null> = {};
-
-		if (volunteerUserIds.length > 0) {
-			await Promise.all(
-				volunteerUserIds.map(async (vId) => {
-					const summary = await this.ratingsRepo.getRatingsSummaryByUserId(vId);
-					ratingsMap[vId] = summary[0]?.averageRating
-						? Number(summary[0].averageRating)
-						: null;
-				}),
-			);
-		}
 
 		// răspunsul cerut
 		const formattedOffers = data.map((offer) => {
@@ -317,7 +298,7 @@ export class HelpRequestService {
 			const volunteerInfo: any = {
 				username: offer.username,
 				trustScore: offer.trustScore,
-				averageRating: ratingsMap[offer.volunteerUserId] ?? null,
+				averageRating: offer.averageRating !== null ? Number(offer.averageRating) : null, 
 				bio: offer.bio || null,
 			};
 

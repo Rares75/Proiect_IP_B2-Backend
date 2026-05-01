@@ -35,7 +35,7 @@ const requireSession = async (c: any) => {
 		return existingSession;
 	}
 
-	const response = await authMiddlware(c, async () => {});
+	const response = await authMiddlware(c, async () => { });
 	if (response) {
 		return response;
 	}
@@ -73,7 +73,7 @@ export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) {}
+	) { }
 
 	controller = new Hono<AppEnv>()
 		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
@@ -90,9 +90,9 @@ export class HelpRequestController {
 				const safeBody = removeClientOwnerFields(body);
 				const createData = session
 					? {
-							...safeBody,
-							requestedByUserId: session.userId,
-						}
+						...safeBody,
+						requestedByUserId: session.userId,
+					}
 					: safeBody;
 				const result = await this.helpRequestService.createHelpRequest(
 					createData as CreateHelpRequestDTO,
@@ -290,8 +290,8 @@ export class HelpRequestController {
 		.get("/:id/offers", authMiddleware, async (c) => {
 			try {
 				// Extragem user-ul curent pus de middleware-ul de auth
-				const user = c.get("user");
-				if (!user?.id) {
+				const session = c.get("session");
+				if (!session?.userId) {
 					return sendApiResponse(c, null, { kind: "unauthorized" });
 				}
 
@@ -335,7 +335,7 @@ export class HelpRequestController {
 				const result =
 					await this.helpRequestService.getPaginatedOffersForTaskOwner(
 						taskId,
-						user.id,
+						session.userId,
 						page,
 						pageSize,
 						status,

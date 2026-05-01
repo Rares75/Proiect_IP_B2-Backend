@@ -12,7 +12,7 @@ mock.module("../../src/middlware/authMiddleware", () => {
 	const authMiddlware = async (c: any, next: () => Promise<void>) => {
 		const authHeader = c.req.header("Authorization");
 		if (authHeader === "Bearer valid-token") {
-			c.set("user", { id: "owner-123" });
+			c.set("session", { userId: "owner-123" }); 
 			await next();
 		} else {
 			return c.json(
