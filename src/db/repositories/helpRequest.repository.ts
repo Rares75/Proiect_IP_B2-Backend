@@ -36,8 +36,7 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
-{
+	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
 		return await db.transaction(async (tx) => {
@@ -212,20 +211,28 @@ export class HelpRequestRepository
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere)
 			.orderBy(...orderBy)
 			.limit(pageSize)
 			.offset(offset);
 
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
+		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
 			...helpRequest,
 			requestDetails,
+			city: requestLocation?.city ?? null,
+			addressText: requestLocation?.addressText ?? null,
+			location: requestLocation?.location ?? null,
 		}));
 
 		const countQuery = db
