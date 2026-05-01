@@ -156,7 +156,6 @@ describe("Two Factor", () => {
 			}),
 		).rejects.toThrow();
 	});
-
 });
 
 describe("Username", () => {
@@ -172,11 +171,11 @@ describe("Username", () => {
 	});
 
 	test("check username availability returns response", async () => {
-    const res = await auth.api.isUsernameAvailable({
-        body: { username: "testuser" },
-    });
-    expect(res).toBeDefined();
-});
+		const res = await auth.api.isUsernameAvailable({
+			body: { username: "testuser" },
+		});
+		expect(res).toBeDefined();
+	});
 });
 
 describe("Sign Out", () => {
@@ -186,21 +185,21 @@ describe("Sign Out", () => {
 	});
 });
 describe("Change Email OTP", () => {
-    test("request email change fails without session", async () => {
-        await expect(
-            auth.api.requestEmailChangeEmailOTP({
-                headers: new Headers(),
-                body: { newEmail: "newemail@mail.com" },
-            }),
-        ).rejects.toThrow();
-    });
+	test("request email change fails without session", async () => {
+		await expect(
+			auth.api.requestEmailChangeEmailOTP({
+				headers: new Headers(),
+				body: { newEmail: "newemail@mail.com" },
+			}),
+		).rejects.toThrow();
+	});
 
-    test("change email fails with invalid OTP", async () => {
-        await expect(
-            auth.api.changeEmailEmailOTP({
-                headers: new Headers(),
-                body: { newEmail: "newemail@mail.com", otp: "000000" },
-            }),
-        ).rejects.toThrow();
-    });
+	test("change email fails with invalid OTP", async () => {
+		await expect(
+			auth.api.changeEmailEmailOTP({
+				headers: new Headers(),
+				body: { newEmail: "newemail@mail.com", otp: "000000" },
+			}),
+		).rejects.toThrow();
+	});
 });
