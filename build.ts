@@ -23,9 +23,11 @@ async function collectFiles(dir: string): Promise<string[]> {
 }
 
 function isRuntimeSourceFile(filePath: string) {
-	return filePath.endsWith(".ts") &&
+	return (
+		filePath.endsWith(".ts") &&
 		!filePath.endsWith(".d.ts") &&
-		!filePath.endsWith(".test.ts");
+		!filePath.endsWith(".test.ts")
+	);
 }
 
 function isStaticAsset(filePath: string) {
@@ -95,4 +97,7 @@ for (const assetPath of staticAssets) {
 	await copyAsset(assetPath);
 }
 
-await transpileFile(resolve(join(srcDir, "index.ts")), join(outDir, "index.js"));
+await transpileFile(
+	resolve(join(srcDir, "index.ts")),
+	join(outDir, "index.js"),
+);
