@@ -37,6 +37,7 @@ const auth = betterAuth({
 		enabled: true,
 	},
 
+	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
 	advanced: {
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
