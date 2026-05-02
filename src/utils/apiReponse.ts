@@ -8,8 +8,8 @@ type ApiResponseKind =
 	| "notFound"
 	| "unauthorized"
 	| "clientError"
-	| "forbidden"
-	| "serverError";
+	| "serverError"
+	| "forbidden";
 
 export type CreateApiResponseOptions = {
 	message?: string;

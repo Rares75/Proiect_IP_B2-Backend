@@ -8,6 +8,7 @@ import {
 	test,
 } from "bun:test";
 import { Hono } from "hono";
+import { expectApiEnvelope } from "./apiResponseAssertions";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import "../../src/app";
@@ -83,13 +84,18 @@ describe("POST /tasks/:id/details validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "languageNeeded",
-					message: "language needed must be at most 50 characters",
-				},
-			],
+		const body: any = await response.json();
+		expectApiEnvelope(body, 400);
+		expect(body).toMatchObject({
+			data: {
+				errors: [
+					{
+						field: "languageNeeded",
+						message: "language needed must be at most 50 characters",
+					},
+				],
+			},
+			isClientError: true,
 		});
 		expect(upsertDetails).not.toHaveBeenCalled();
 	});
@@ -105,13 +111,18 @@ describe("POST /tasks/:id/details validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "body",
-					message: 'Unrecognized key: "extraField"',
-				},
-			],
+		const body: any = await response.json();
+		expectApiEnvelope(body, 400);
+		expect(body).toMatchObject({
+			data: {
+				errors: [
+					{
+						field: "body",
+						message: 'Unrecognized key: "extraField"',
+					},
+				],
+			},
+			isClientError: true,
 		});
 		expect(upsertDetails).not.toHaveBeenCalled();
 	});
@@ -131,7 +142,10 @@ describe("POST /tasks/:id/details validation", () => {
 		expect(response.status).toBe(200);
 		expect(upsertDetails).toHaveBeenCalledTimes(1);
 		expect(upsertDetails).toHaveBeenCalledWith(10, validPayload);
-		expect(await response.json()).toEqual({
+		const body: any = await response.json();
+
+		expectApiEnvelope(body, 200);
+		expect(body.data).toEqual({
 			helpRequestId: 10,
 			...validPayload,
 		});
@@ -147,6 +161,22 @@ describe("POST /tasks/:id/details validation", () => {
 		});
 
 		expect(response.status).toBe(401);
+		const body: any = await response.json();
+
+		expectApiEnvelope(body, 401);
+		expect(body.message).toBe("Unauthorized");
+		expect(body.isUnauthorized).toBe(true);
 		expect(upsertDetails).not.toHaveBeenCalled();
+	});
+
+	test("smoke: response envelope complet pentru PUT /tasks/:id/details", async () => {
+		const response = await app.request("http://localhost/tasks/10/details", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(validPayload),
+		});
+
+		const body: any = await response.json();
+		expectApiEnvelope(body, response.status as 200);
 	});
 });

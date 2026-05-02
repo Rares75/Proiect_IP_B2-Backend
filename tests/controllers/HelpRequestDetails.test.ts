@@ -66,7 +66,7 @@ describe("PUT /api/tasks/:id/details", () => {
 
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.error).toBe("Invalid id");
+		expect(body.message).toBe("Invalid id");
 	});
 
 	it("returneaza 400 pentru body gol", async () => {
@@ -78,7 +78,7 @@ describe("PUT /api/tasks/:id/details", () => {
 
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.errors).toBeDefined();
+		expect(body.message).toBeDefined();
 	});
 
 	it("returneaza 404 daca task-ul nu exista", async () => {
@@ -105,7 +105,7 @@ describe("PUT /api/tasks/:id/details", () => {
 
 			expect(response.status).toBe(404);
 			const body: any = await response.json();
-			expect(body.error).toBe("Task not found");
+			expect(body.message).toBe("Task not found");
 		} finally {
 			mockAuthorization.mockRestore();
 			mockNotFound.mockRestore();

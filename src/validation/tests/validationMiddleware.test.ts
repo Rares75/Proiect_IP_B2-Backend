@@ -56,8 +56,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "title",
@@ -110,8 +114,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "title",
@@ -159,8 +167,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -188,8 +200,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -210,8 +226,12 @@ describe("validationMiddleware", () => {
 			body: "null",
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",

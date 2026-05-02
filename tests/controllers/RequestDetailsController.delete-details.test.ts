@@ -8,6 +8,7 @@ import {
 	test,
 } from "bun:test";
 import { Hono } from "hono";
+import { expectNotFoundApiResponse } from "./apiResponseAssertions";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import "../../src/app";
@@ -76,7 +77,7 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 		store = new Map<number, TaskRecord>();
 
-		const requestDetailsService = {
+		const requestDetailsService: any = {
 			deleteHelpRequestDetails: async (id: number) => {
 				const task = store.get(id);
 
@@ -180,6 +181,7 @@ describe("DELETE /tasks/:id/details", () => {
 
 		const deleteResponse = await deleteDetails(1);
 		expect(deleteResponse.status).toBe(204);
+		expect(await deleteResponse.text()).toBe("");
 
 		const getResponse = await getTask(1);
 		const body = (await getResponse.json()) as any;
@@ -196,18 +198,21 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 
 		const response = await deleteDetails(2);
-		const body = await response.json();
+		const body: any = await response.json();
 
 		expect(response.status).toBe(409);
-		expect(body).toEqual({ message: "Task has no details." });
+		expect(body.statusCode).toBe(409);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe("Task has no details.");
+		expect(body.data).toBeNull();
 	});
 
 	test("returns 404 when task does not exist", async () => {
 		const response = await deleteDetails(999);
-		const body = await response.json();
+		const body: any = await response.json();
 
 		expect(response.status).toBe(404);
-		expect(body).toEqual({ message: "Task not found." });
+		expectNotFoundApiResponse(body, "Task not found.");
 	});
 
 	test("returns 409 when task status is MATCHED", async () => {
@@ -221,13 +226,14 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 
 		const response = await deleteDetails(3);
-		const body = await response.json();
+		const body: any = await response.json();
 
 		expect(response.status).toBe(409);
-		expect(body).toEqual({
-			message:
-				"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
-		});
+		expect(body.statusCode).toBe(409);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe(
+			"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+		);
 	});
 
 	test("returns 409 when task status is IN_PROGRESS", async () => {
@@ -241,13 +247,14 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 
 		const response = await deleteDetails(4);
-		const body = await response.json();
+		const body: any = await response.json();
 
 		expect(response.status).toBe(409);
-		expect(body).toEqual({
-			message:
-				"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
-		});
+		expect(body.statusCode).toBe(409);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe(
+			"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+		);
 	});
 
 	test("returns 409 when task status is COMPLETED", async () => {
@@ -261,12 +268,28 @@ describe("DELETE /tasks/:id/details", () => {
 		});
 
 		const response = await deleteDetails(5);
-		const body = await response.json();
+		const body: any = await response.json();
 
 		expect(response.status).toBe(409);
-		expect(body).toEqual({
-			message:
-				"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+		expect(body.statusCode).toBe(409);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe(
+			"Details cannot be deleted when task status is MATCHED, IN_PROGRESS, COMPLETED, CANCELLED or REJECTED.",
+		);
+	});
+
+	test("smoke: response envelope complet pentru DELETE /tasks/:id/details", async () => {
+		store.set(6, {
+			id: 6,
+			status: "OPEN",
+			requestDetails: {
+				id: 106,
+				helpRequestId: 6,
+			},
 		});
+
+		const response = await deleteDetails(6);
+		expect(response.status).toBe(204);
+		expect(await response.text()).toBe("");
 	});
 });

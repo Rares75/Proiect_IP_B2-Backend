@@ -42,34 +42,6 @@ export class RequestDetailsService {
 		private readonly requestDetailsRepo: HelpRequestDetailsRepository,
 	) {}
 
-	protected async getHelpRequestRepository() {
-		return this.helpRequestRepo;
-	}
-
-	protected async getRequestDetailsRepository() {
-		return this.requestDetailsRepo;
-	}
-
-	async authorizeDetailsMutation(
-		helpRequestId: number,
-		userId: string,
-	): Promise<DetailsAuthorizationResult> {
-		const task = await this.helpRequestRepo.findById(helpRequestId);
-		if (!task) {
-			return { status: "notFound" };
-		}
-
-		if (task.requestedByUserId !== userId) {
-			return { status: "forbidden" };
-		}
-
-		if (task.status !== OPEN_STATUS) {
-			return { status: "invalidStatus" };
-		}
-
-		return { status: "allowed" };
-	}
-
 	async upsertDetails(
 		helpRequestId: number,
 		data: UpdateHelpRequestDetailsDTO,
@@ -115,10 +87,7 @@ export class RequestDetailsService {
 		helpRequestId: number,
 	): Promise<DeleteHelpRequestDetailsResult> {
 		try {
-			const helpRequestRepo = await this.getHelpRequestRepository();
-			const requestDetailsRepo = await this.getRequestDetailsRepository();
-
-			const task = await helpRequestRepo.findById(helpRequestId);
+			const task = await this.helpRequestRepo.findById(helpRequestId);
 			if (!task) {
 				return {
 					status: 404,
@@ -137,7 +106,7 @@ export class RequestDetailsService {
 			}
 
 			const existingDetails =
-				await requestDetailsRepo.findByHelpRequestId(helpRequestId);
+				await this.requestDetailsRepo.findByHelpRequestId(helpRequestId);
 			if (!existingDetails) {
 				return {
 					status: 409,
@@ -146,7 +115,7 @@ export class RequestDetailsService {
 			}
 
 			const deleted =
-				await requestDetailsRepo.deleteByHelpRequestId(helpRequestId);
+				await this.requestDetailsRepo.deleteByHelpRequestId(helpRequestId);
 			if (!deleted) {
 				return {
 					status: 500,

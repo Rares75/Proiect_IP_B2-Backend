@@ -13,6 +13,7 @@ import { join } from "node:path";
 import "../../src/app";
 import auth from "../../src/auth";
 import { Controller } from "../../src/di/decorators/controller";
+import { expectApiEnvelope } from "./apiResponseAssertions";
 
 const loadControllers = async (dir: string) => {
 	const controllersDir = existsSync(dir)
@@ -84,38 +85,19 @@ describe("POST /tasks validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "title",
-					message: "Title is required",
-				},
-				{
-					field: "description",
-					message: "Description is required",
-				},
-				{
-					field: "urgency",
-					message: "Urgency is required",
-				},
-				{
-					field: "status",
-					message: "Status is required",
-				},
-				{
-					field: "anonymousMode",
-					message: "Anonymous mode is required",
-				},
-				{
-					field: "category",
-					message: "Category is required",
-				},
-				{
-					field: "location",
-					message: "Invalid input: expected object, received undefined",
-				},
-			],
-		});
+		const body: any = await response.json();
+		expect(body.errors ?? body.data?.errors).toEqual([
+			{ field: "title", message: "Title is required" },
+			{ field: "description", message: "Description is required" },
+			{ field: "urgency", message: "Urgency is required" },
+			{ field: "status", message: "Status is required" },
+			{ field: "anonymousMode", message: "Anonymous mode is required" },
+			{ field: "category", message: "Category is required" },
+			{
+				field: "location",
+				message: "Invalid input: expected object, received undefined",
+			},
+		]);
 		expect(createHelpRequest).not.toHaveBeenCalled();
 	});
 
@@ -130,14 +112,10 @@ describe("POST /tasks validation", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			errors: [
-				{
-					field: "body",
-					message: 'Unrecognized key: "extraField"',
-				},
-			],
-		});
+		const body: any = await response.json();
+		expect(body.errors ?? body.data?.errors).toEqual([
+			{ field: "body", message: 'Unrecognized key: "extraField"' },
+		]);
 		expect(createHelpRequest).not.toHaveBeenCalled();
 	});
 
@@ -159,7 +137,9 @@ describe("POST /tasks validation", () => {
 			...validPayload,
 			requestedByUserId: "user-123",
 		});
-		expect(await response.json()).toEqual({
+		const body: any = await response.json();
+		expectApiEnvelope(body, 201);
+		expect(body.data).toEqual({
 			id: 101,
 			...validPayload,
 			requestedByUserId: "user-123",

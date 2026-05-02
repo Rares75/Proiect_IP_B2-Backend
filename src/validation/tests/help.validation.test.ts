@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
-
-import type { ValidationErrorResponse } from "../types/validation.types";
 import {
 	createValidationMiddleware,
 	helpRequestInputSchema,
@@ -79,11 +77,13 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload).toEqual({
+
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -91,8 +91,6 @@ describe("Help route validation integration", () => {
 				},
 			],
 		});
-		expect(payload.stack).toBeUndefined();
-		expect(payload.message).toBeUndefined();
 	});
 
 	it("returns 400 and collects all missing required helpRequest fields", async () => {
@@ -112,11 +110,14 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toEqual([
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+
+		// Erorile se află acum în data.errors
+		expect(payload.data.errors).toEqual([
 			{
 				field: "title",
 				message: "Title is required",
@@ -189,11 +190,12 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toEqual([
+		expect(payload.statusCode).toBe(400);
+
+		expect(payload.data.errors).toEqual([
 			{
 				field: "notes",
 				message: "Notes is required",
