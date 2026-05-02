@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test, mock } from "bun:test";
-import { Hono } from "hono";
 
 // Variabila mutabila — o schimbam per test
 let mockGetSession: any = async () => ({

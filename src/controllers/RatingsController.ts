@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { inject } from "../di";
 import type { AppEnv } from "../app";
-import { authMiddlware } from "../middlware/authMiddleware";
 import { RatingsService } from "../services/RatingsService";
 import { Controller } from "../utils/controller";
 import { createRatingSchema } from "../utils/validators/ratingsValidator";
