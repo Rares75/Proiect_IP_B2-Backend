@@ -9,32 +9,17 @@ import { logger } from "./utils/logger";
 import * as schema from "./db/schema";
 import { getMailer } from "./mailers/getMailer";
 import { username } from "better-auth/plugins";
-import { createAuthMiddleware } from "better-auth/api";
-import { container } from "./di";
-import { ProfileRepository } from "./db/repositories/profile.repository";
-import { ProfileService } from "./services/ProfileService";
 import { twoFactor } from "better-auth/plugins";
 import { changeEmailTemplate } from "./mailers/templates/changeEmail";
+import { ProfileService } from "./services/ProfileService";
+import { container } from "./di";
 
-const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
 	appName: "My App",
 	baseURL: process.env.BETTER_AUTH_URL,
 	user: {
 		changeEmail: {
 			enabled: true,
-		},
-		deleteUser: {
-			enabled: true,
-			afterDelete: async (ctx) => {
-				const profileService = container.get<ProfileService>(ProfileService);
-				const result = await profileService.deleteProfile(ctx.id);
-				if (!result) {
-					logger.error(`Failed to delete profile for user ${ctx.id}`);
-				} else {
-					logger.info(`Deleted profile for user ${ctx.id}`);
-				}
-			},
 		},
 		additionalFields: {
 			isAnonymus: {
@@ -44,6 +29,23 @@ const auth = betterAuth({
 		},
 	},
 	database: drizzleAdapter(db, { provider: "pg", schema }),
+	databaseHooks: {
+		user: {
+			create: {
+				after: async (createdUser) => {
+					const profileService = container.get<ProfileService>(ProfileService);
+					const profile = await profileService.createProfile(createdUser.id, {
+						name: createdUser.name,
+						image: createdUser.image || "",
+					});
+
+					logger.info(
+						`Created profile for user ${createdUser.id} with id ${profile.userId}`,
+					);
+				},
+			},
+		},
+	},
 	logger: {
 		disableColors: false,
 		disabled: false,
@@ -102,18 +104,6 @@ const auth = betterAuth({
 				},
 			});
 		},
-	},
-
-	hooks: {
-		after: createAuthMiddleware(async (ctx) => {
-			if (ctx.path !== "/sign-up/email") return;
-
-			const newUser = ctx.context.newSession?.user;
-			if (!newUser) return;
-
-			const result = await profileRepository.create({ userId: newUser.id });
-			logger.info(JSON.stringify(result));
-		}),
 	},
 
 	plugins: [

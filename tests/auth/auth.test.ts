@@ -1,5 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import auth from "../../src/auth";
+import { container } from "../../src/di";
+import { ProfileService } from "../../src/services/ProfileService";
 
 const TEST_USER = {
 	name: "Test User",
@@ -8,6 +10,7 @@ const TEST_USER = {
 };
 
 describe("Sign Up", () => {
+	let createdUserId: string;
 	test("creates a new user", async () => {
 		const res = await auth.api.signUpEmail({
 			body: TEST_USER,
@@ -15,8 +18,16 @@ describe("Sign Up", () => {
 
 		expect(res.user).toBeDefined();
 		expect(res.user.email).toBe(TEST_USER.email);
+		createdUserId = res.user.id;
 	});
 
+	test("after signup a profile is created by the db hook", async () => {
+		const profileService = container.get<ProfileService>(ProfileService);
+		const profile = await profileService.getProfileByUserId(createdUserId);
+
+		expect(profile).toBeDefined();
+		expect(profile.userId).toBe(createdUserId);
+	});
 	test("fails with invalid email", async () => {
 		expect(
 			auth.api.signUpEmail({
