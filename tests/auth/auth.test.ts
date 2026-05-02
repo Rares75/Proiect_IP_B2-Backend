@@ -18,7 +18,7 @@ describe("Sign Up", () => {
 	});
 
 	test("fails with invalid email", async () => {
-		await expect(
+		expect(
 			auth.api.signUpEmail({
 				body: {
 					name: "Test User",
@@ -30,7 +30,7 @@ describe("Sign Up", () => {
 	});
 
 	test("fails with missing password", async () => {
-		await expect(
+		expect(
 			auth.api.signUpEmail({
 				body: {
 					name: "Test User",
@@ -49,7 +49,7 @@ describe("Sign Up", () => {
 
 describe("Sign In", () => {
 	test("fails when email is not verified", async () => {
-		await expect(
+		expect(
 			auth.api.signInEmail({
 				body: {
 					email: TEST_USER.email,
@@ -60,7 +60,7 @@ describe("Sign In", () => {
 	});
 
 	test("fails with wrong password", async () => {
-		await expect(
+		expect(
 			auth.api.signInEmail({
 				body: {
 					email: TEST_USER.email,
@@ -71,7 +71,7 @@ describe("Sign In", () => {
 	});
 
 	test("fails with non-existent email", async () => {
-		await expect(
+		expect(
 			auth.api.signInEmail({
 				body: {
 					email: "nonexistent@mail.com",
@@ -82,7 +82,7 @@ describe("Sign In", () => {
 	});
 
 	test("fails with empty email", async () => {
-		await expect(
+		expect(
 			auth.api.signInEmail({
 				body: {
 					email: "",
@@ -116,7 +116,7 @@ describe("Email OTP", () => {
 	});
 
 	test("fails with invalid OTP", async () => {
-		await expect(
+		expect(
 			auth.api.verifyEmailOTP({
 				body: {
 					email: TEST_USER.email,
@@ -127,7 +127,7 @@ describe("Email OTP", () => {
 	});
 
 	test("fails OTP verification with wrong email", async () => {
-		await expect(
+		expect(
 			auth.api.verifyEmailOTP({
 				body: {
 					email: "wrong@mail.com",
@@ -140,7 +140,7 @@ describe("Email OTP", () => {
 
 describe("Two Factor", () => {
 	test("enable 2FA fails without session", async () => {
-		await expect(
+		expect(
 			auth.api.enableTwoFactor({
 				headers: new Headers(),
 				body: { password: TEST_USER.password },
@@ -149,7 +149,7 @@ describe("Two Factor", () => {
 	});
 
 	test("disable 2FA fails without session", async () => {
-		await expect(
+		expect(
 			auth.api.disableTwoFactor({
 				headers: new Headers(),
 				body: { password: TEST_USER.password },
@@ -160,7 +160,7 @@ describe("Two Factor", () => {
 
 describe("Username", () => {
 	test("sign in with username fails when email not verified", async () => {
-		await expect(
+		expect(
 			auth.api.signInUsername({
 				body: {
 					username: "testuser",
@@ -186,7 +186,7 @@ describe("Sign Out", () => {
 });
 describe("Change Email OTP", () => {
 	test("request email change fails without session", async () => {
-		await expect(
+		expect(
 			auth.api.requestEmailChangeEmailOTP({
 				headers: new Headers(),
 				body: { newEmail: "newemail@mail.com" },
@@ -195,7 +195,7 @@ describe("Change Email OTP", () => {
 	});
 
 	test("change email fails with invalid OTP", async () => {
-		await expect(
+		expect(
 			auth.api.changeEmailEmailOTP({
 				headers: new Headers(),
 				body: { newEmail: "newemail@mail.com", otp: "000000" },

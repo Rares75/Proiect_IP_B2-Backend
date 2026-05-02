@@ -21,7 +21,7 @@
 		"dev": "bun run --hot src/index.ts",
 		"fmt": "bunx @biomejs/biome check . --write",
 		"lint": "bunx @biomejs/biome lint .",
-		"test": "bun test",
+		"test": "docker compose -f docker-compose.test.yaml up -d --wait && bun --no-env-file --env-file=.env.test run db:migrate && bun --no-env-file --env-file=.env.test test && docker compose -f docker-compose.test.yaml down -v --remove-orphans || (docker compose -f docker-compose.test.yaml down -v --remove-orphans && exit 1)",
 		"build": "bun run ./build.ts"
 	},
 	"dependencies": {

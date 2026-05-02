@@ -17,7 +17,8 @@ import { user } from "../../src/db/auth-schema";
 import { helpRequests, requestLocations } from "../../src/db/requests";
 import { eq } from "drizzle-orm";
 import { expectApiEnvelope } from "./apiResponseAssertions";
-//import { HelpRequestController } from "../../src/controllers/HelpRequestController";
+import { UserRepository } from "../../src/db/repositories/user.repository";
+import { container } from "../../src/di";
 
 beforeAll(async () => {
 	const controllersPath = join(
@@ -31,6 +32,7 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 	const authenticatedUserId = "task-integration-user";
 	let createdTaskIds: number[] = [];
 	let authSpy: ReturnType<typeof spyOn> | undefined;
+	const userRepository = container.get<UserRepository>(UserRepository);
 
 	beforeEach(() => {
 		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
@@ -52,6 +54,12 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 	});
 
 	const ensureAuthenticatedUser = async () => {
+		await userRepository.create({
+			id: authenticatedUserId,
+			name: "Task Integration User",
+			email: "task-integration-user@example.com",
+			emailVerified: true,
+		});
 		await db
 			.insert(user)
 			.values({
@@ -60,7 +68,14 @@ describe("POST /api/tasks (Integration BE1-34)", () => {
 				email: "task-integration-user@example.com",
 				emailVerified: true,
 			})
-			.onConflictDoNothing();
+			.onConflictDoUpdate({
+				target: user.id,
+				set: {
+					id: authenticatedUserId,
+					name: "Task Integration User",
+					email: "task-integration-user@example.com",
+				},
+			});
 	};
 
 	it("POST /tasks cu body valid (title, description, urgency, anonymousMode, category, location) -> 201", async () => {

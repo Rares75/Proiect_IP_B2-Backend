@@ -1,24 +1,21 @@
-import { beforeEach, afterEach, describe, expect, test, mock } from "bun:test";
+import { beforeEach, afterEach, describe, expect, test } from "bun:test";
+import { db } from "../../src/db";
 import { NotFoundError } from "../../src/utils/Errors";
-
-// Mock db INAINTE de importuri — ProfileService apeleaza db.update direct
-mock.module("../../src/db", () => ({
-	db: {
-		update: () => ({
-			set: () => ({
-				where: async () => [],
-			}),
-		}),
-	},
-}));
 
 import { ProfileService } from "../../src/services/ProfileService";
 
 describe("ProfileService", () => {
 	let service: ProfileService;
 	let mockRepo: any;
+	const originalUpdate = (db as any).update;
 
 	beforeEach(() => {
+		(db as any).update = () => ({
+			set: () => ({
+				where: async () => [],
+			}),
+		});
+
 		mockRepo = {
 			findFirstBy: async () => null,
 			findById: async () => null,
@@ -31,6 +28,7 @@ describe("ProfileService", () => {
 	});
 
 	afterEach(() => {
+		(db as any).update = originalUpdate;
 		mockRepo = null;
 	});
 
