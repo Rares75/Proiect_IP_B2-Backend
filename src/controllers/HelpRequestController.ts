@@ -12,6 +12,7 @@ import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
