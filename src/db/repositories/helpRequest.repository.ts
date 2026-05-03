@@ -18,6 +18,7 @@ import {
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
+	calculateSkillMachScore,
 	buildLanguageFilter,
 	buildStatusFilter,
 	type TaskFilterParams,
@@ -202,37 +203,64 @@ export class HelpRequestRepository
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 
+		//skills
+		const requestedSkills = filters?.skills;
+		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
+
 		//group the filters into an array and remove any 'undefined' or null values
 		const whereClause = [statusFilter, languageFilter].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
+
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
+
+		//basic sorting by urgency level
 		const orderBy =
 			sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
-		const rows = await db
+		const baseRowsQuery = db
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere)
-			.orderBy(...orderBy)
-			.limit(pageSize)
-			.offset(offset);
+			.orderBy(...orderBy);
 
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
+		if (shouldSortBySkillScore) {
+			const allRows = await baseRowsQuery;
+			const scoredRows = this.buildRowsWithSkillScore(allRows, requestedSkills)
+				.sort((a, b) => b.skillScore - a.skillScore)
+				.slice(offset, offset + pageSize)
+				.map(({ skillScore, ...row }) => row);
+
+			return {
+				data: scoredRows,
+				total: allRows.length,
+			};
+		}
+
+		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
+		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
 			...helpRequest,
 			requestDetails,
+							city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
 		}));
 
 		const countQuery = db
@@ -250,7 +278,23 @@ export class HelpRequestRepository
 		return { data, total };
 	}
 
-	//BE1-31
+	private buildRowsWithSkillScore(
+		rows: Array<{
+			helpRequest: HelpRequest;
+			requestDetails: typeof requestDetails.$inferSelect | null;
+		}>,
+		requestedSkills: string[] | undefined,
+	) {
+		return rows.map(({ helpRequest, requestDetails }) => ({
+			...helpRequest,
+			requestDetails,
+			skillScore: calculateSkillMachScore(
+				requestedSkills,
+				helpRequest?.skillsNeeded,
+			),
+		}));
+	}
+	// BE1-31
 	async countActiveByGuestSession(guestSessionId: string): Promise<number> {
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })

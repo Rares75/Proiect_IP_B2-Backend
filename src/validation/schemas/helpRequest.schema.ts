@@ -76,7 +76,9 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 	.omit({
 		urgency: true,
 		anonymousMode: true,
+		userId: true,
 	})
+	.strict()
 	.refine((data) => data.description || data.audioUrl, {
 		message: "You must provide either a description or an audioUrl",
 		path: ["description"],
