@@ -5,10 +5,7 @@ import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import auth from "../../../src/auth";
 import { join } from "node:path";
 import { loadControllers } from "../../../src/utils/controller";
-import {
-	expectClientErrorApiResponse,
-	expectSuccessApiResponse,
-} from "../apiResponseAssertions";
+import { expectSuccessApiResponse } from "../apiResponseAssertions";
 
 beforeAll(async () => {
 	await loadControllers(join(import.meta.dir, "../../src/controllers"));
@@ -36,10 +33,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expectClientErrorApiResponse(
-			body,
-			"Eroare: 'sortBy' accepta doar: createdAt, urgency.",
-		);
+		expect(body.errors).toContainEqual({
+			field: "sortBy",
+			message: "Sort by must be one of: createdAt, urgency",
+		});
 	});
 
 	it("ar trebui sa returneze 400 daca order este invalid (ex: RANDOM)", async () => {
@@ -54,10 +51,10 @@ describe("GET /api/tasks (Sortare BE1-13)", () => {
 		expect(response.status).toBe(400);
 
 		const body: any = await response.json();
-		expectClientErrorApiResponse(
-			body,
-			"Eroare: 'order' accepta doar: ASC, DESC.",
-		);
+		expect(body.errors).toContainEqual({
+			field: "order",
+			message: "Order must be either ASC or DESC",
+		});
 	});
 
 	it("ar trebui sa foloseasca createdAt si DESC implicit daca nu sunt trimisi parametri", async () => {

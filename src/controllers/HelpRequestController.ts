@@ -202,6 +202,7 @@ export class HelpRequestController {
 
 		.get(
 			"/",
+			queryValidationMiddleware,
 			describeRoute({
 				summary: "Get paginated tasks",
 				description:
@@ -246,7 +247,11 @@ export class HelpRequestController {
 					}
 
 					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const validation = validateTasksQuery(c.req.query());
+					const repeatedSkills = c.req.queries("skill");
+					const validation = validateTasksQuery({
+						...c.req.query(),
+						...(repeatedSkills ? { skill: repeatedSkills } : {}),
+					});
 
 					//Daca validatorul gaseste o problema
 					if (validation.error || !validation.validData) {

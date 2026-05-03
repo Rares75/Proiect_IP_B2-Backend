@@ -5,10 +5,7 @@ import app from "../../../src/app";
 import auth from "../../../src/auth";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import { loadControllers } from "../../../src/utils/controller";
-import {
-	expectClientErrorApiResponse,
-	expectSuccessApiResponse,
-} from "../apiResponseAssertions";
+import { expectSuccessApiResponse } from "../apiResponseAssertions";
 
 beforeAll(async () => {
 	await loadControllers(join(process.cwd(), "/src/controllers"));
@@ -137,12 +134,14 @@ describe("GET /api/tasks status filter", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(400);
-
-		expectClientErrorApiResponse(
-			body,
-			"Eroare: 'status' accepta doar: OPEN, MATCHED, IN_PROGRESS, COMPLETED, CANCELLED, REJECTED.",
-			400,
-		);
+		expect(body).toEqual({
+			errors: [
+				{
+					field: "status",
+					message: "Status must be a valid request status",
+				},
+			],
+		});
 	});
 
 	it("returns all tasks when status is missing", async () => {

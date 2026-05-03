@@ -43,7 +43,7 @@ describe("queryValidationMiddleware", () => {
 				},
 				{
 					field: "sortBy",
-					message: "Sort by must be one of: title, date, status, city",
+					message: "Sort by must be one of: createdAt, urgency",
 				},
 				{
 					field: "order",
@@ -109,6 +109,52 @@ describe("queryValidationMiddleware", () => {
 		});
 	});
 
+	it("returns 400 when longitude is provided without latitude", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?lng=25");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "lat",
+					message: "Latitude is required when longitude is provided",
+				},
+			],
+		});
+	});
+
+	it("returns all query errors when coordinate pair validation fails too", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request(
+			"http://localhost/tasks?page=abc&status=DONE&lng=25&radius=0",
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "page",
+					message: "Page must be a number",
+				},
+				{
+					field: "status",
+					message: "Status must be a valid request status",
+				},
+				{
+					field: "radius",
+					message: "Radius must be greater than 0",
+				},
+				{
+					field: "lat",
+					message: "Latitude is required when longitude is provided",
+				},
+			],
+		});
+	});
+
 	it("returns 400 when radius is negative", async () => {
 		const app = createQueryApp();
 
@@ -120,6 +166,38 @@ describe("queryValidationMiddleware", () => {
 				{
 					field: "radius",
 					message: "Radius must be greater than 0",
+				},
+			],
+		});
+	});
+
+	it("returns 400 when skill is empty", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?skill=");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
+				},
+			],
+		});
+	});
+
+	it("returns 400 when skill is only spaces after trim", async () => {
+		const app = createQueryApp();
+
+		const response = await app.request("http://localhost/tasks?skill=%20%20");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
 				},
 			],
 		});
@@ -150,7 +228,7 @@ describe("queryValidationMiddleware", () => {
 	it("lets valid GET query params reach the handler without modifying them", async () => {
 		const app = createQueryApp();
 		const url =
-			"http://localhost/tasks?page=2&pageSize=20&sortBy=title&order=ASC&status=OPEN&city=Bucharest&language=Romanian&lat=47&lng=25&radius=15";
+			"http://localhost/tasks?page=2&pageSize=20&sortBy=urgency&order=ASC&status=OPEN&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
 
 		const response = await app.request(url);
 
@@ -160,11 +238,12 @@ describe("queryValidationMiddleware", () => {
 			query: {
 				page: "2",
 				pageSize: "20",
-				sortBy: "title",
+				sortBy: "urgency",
 				order: "ASC",
 				status: "OPEN",
 				city: "Bucharest",
 				language: "Romanian",
+				skill: "sofer",
 				lat: "47",
 				lng: "25",
 				radius: "15",
@@ -175,9 +254,9 @@ describe("queryValidationMiddleware", () => {
 	it("does not affect existing body validation behavior", async () => {
 		const app = new Hono();
 
-		app.use("*", validationMiddleware).post("/help", async (context) =>
-			context.json(await context.req.json()),
-		);
+		app
+			.use("*", validationMiddleware)
+			.post("/help", async (context) => context.json(await context.req.json()));
 
 		const response = await app.request("http://localhost/help", {
 			method: "POST",
@@ -216,6 +295,10 @@ describe("queryValidationMiddleware", () => {
 				{
 					field: "category",
 					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
 				},
 			],
 		});
