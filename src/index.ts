@@ -8,16 +8,10 @@ import { logger } from "./utils/logger";
 import * as Sentry from "@sentry/bun";
 
 Sentry.init({
-  dsn: Bun.env.SENTRY_URL,
-  // Send structured logs to Sentry
-  enableLogs: true,
+	dsn: Bun.env.SENTRY_URL,
+	// Send structured logs to Sentry
+	enableLogs: true,
 });
-
-try {
-	throw new Error('Sentry Bun test by me');
-} catch (e) {
-  Sentry.captureException(e);
-}
 
 await loadDiModules(
 	join(import.meta.dir, "db", "repositories"),
