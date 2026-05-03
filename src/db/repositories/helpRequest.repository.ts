@@ -1,4 +1,11 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+	inArray,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { volunteers } from "../profile";
@@ -15,6 +22,7 @@ import {
 	buildLanguageFilter,
 	buildSkillFilter,
 	buildStatusFilter,
+	buildCityFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -197,13 +205,14 @@ export class HelpRequestRepository
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 		const skillFilter = filters ? buildSkillFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
 		//skills
 		const requestedSkills = filters?.skills;
 		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter, skillFilter].filter(
+		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
 			Boolean,
 		);
 
@@ -224,11 +233,16 @@ export class HelpRequestRepository
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere)
 			.orderBy(...orderBy);
@@ -247,9 +261,12 @@ export class HelpRequestRepository
 		}
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
+		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
 			...helpRequest,
 			requestDetails,
+							city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
 		}));
 
 		const countQuery = db
@@ -258,6 +275,10 @@ export class HelpRequestRepository
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere);
 
@@ -282,5 +303,19 @@ export class HelpRequestRepository
 				helpRequest?.skillsNeeded,
 			),
 		}));
+	}
+	// BE1-31
+	async countActiveByGuestSession(guestSessionId: string): Promise<number> {
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(
+				and(
+					eq(helpRequests.guestSessionId, guestSessionId),
+					// Active inseamna OPEN, MATCHED sau IN_PROGRESS
+					inArray(helpRequests.status, ["OPEN", "MATCHED", "IN_PROGRESS"]),
+				),
+			);
+		return value;
 	}
 }
