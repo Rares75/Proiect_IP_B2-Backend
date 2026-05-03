@@ -13,17 +13,14 @@ export const checkStatusMiddlware = async (c: Context<AppEnv>, next: Next) => {
 	const user = c.get("user");
 
 	if (!user) {
-		//return c.json({ error: "Unauthorized" }, 401);
 		return sendApiResponse(c, null, { kind: "unauthorized" });
 	}
 
 	const accountStatus = await userAccessService.checkUserStatus(user.id);
 
 	if (accountStatus === "BLOCKED") {
-		//return c.json({ error: "Unauthorized: Account is blocked" }, 403);
 		return sendApiResponse(c, null, {
-			statusCode: 403,
-			message: "Unauthorized:Account is blocked",
+			kind: "forbidden",
 		});
 	}
 
