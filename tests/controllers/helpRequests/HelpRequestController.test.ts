@@ -1,17 +1,17 @@
 /// <reference types="bun-types" />
 import { describe, expect, it, beforeAll, spyOn, afterEach } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
-import auth from "../../src/auth";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import auth from "../../../src/auth";
 import {
 	expectClientErrorApiResponse,
 	expectNotFoundApiResponse,
 	expectApiEnvelope,
 	expectServerErrorApiResponse,
 	expectSuccessApiResponse,
-} from "./apiResponseAssertions";
+} from "../apiResponseAssertions";
 
 //import { HelpRequestController } from "../../src/controllers/HelpRequestController";
 

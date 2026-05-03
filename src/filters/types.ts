@@ -6,4 +6,5 @@ export type TaskFilterParams = {
 	status?: RequestStatus;
 	language?: string;
 	city?: string;
+	skills?: string[];
 };
