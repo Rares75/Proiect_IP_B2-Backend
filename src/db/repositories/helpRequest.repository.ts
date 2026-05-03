@@ -227,11 +227,16 @@ export class HelpRequestRepository
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere)
 			.orderBy(...orderBy);
@@ -250,9 +255,12 @@ export class HelpRequestRepository
 		}
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
+		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
 			...helpRequest,
 			requestDetails,
+							city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
 		}));
 
 		const countQuery = db
