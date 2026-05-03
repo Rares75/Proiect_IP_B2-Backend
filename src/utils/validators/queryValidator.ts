@@ -75,6 +75,12 @@ export const validateTasksQuery = (
 	}
 	Object.assign(filters, skillValidation.validData);
 
+	const cityValidation = parseCityFilter(query.city);
+	if (cityValidation.error) {
+		return { error: cityValidation.error };
+	}
+	Object.assign(filters, cityValidation.validData);
+
 	return {
 		validData: {
 			page,
