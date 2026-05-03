@@ -287,17 +287,17 @@ export class HelpRequestRepository
 		}));
 	}
 	// BE1-31
-  async countActiveByGuestSession(guestSessionId: string): Promise<number> {
-      const [{ value }] = await db
-          .select({ value: drizzleCount() })
-          .from(helpRequests)
-          .where(
-              and(
-                  eq(helpRequests.guestSessionId, guestSessionId),
-                  // Active inseamna OPEN, MATCHED sau IN_PROGRESS
-                  inArray(helpRequests.status, ["OPEN", "MATCHED", "IN_PROGRESS"]),
-              ),
-          );
-      return value;
-  }
+	async countActiveByGuestSession(guestSessionId: string): Promise<number> {
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(
+				and(
+					eq(helpRequests.guestSessionId, guestSessionId),
+					// Active inseamna OPEN, MATCHED sau IN_PROGRESS
+					inArray(helpRequests.status, ["OPEN", "MATCHED", "IN_PROGRESS"]),
+				),
+			);
+		return value;
+	}
 }
