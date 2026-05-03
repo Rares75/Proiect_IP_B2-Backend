@@ -49,7 +49,7 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
-	) {}
+	) { }
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
@@ -139,10 +139,10 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						city: location?.city ?? null,
-						addressText: location?.addressText ?? null,
-						location: location?.location ?? null,
-					}
+					city: location?.city ?? null,
+					addressText: location?.addressText ?? null,
+					location: location?.location ?? null,
+				}
 				: {}),
 			details: details || null,
 		};
@@ -321,6 +321,58 @@ export class HelpRequestService {
 				total: total,
 				totalPages: totalPages,
 			},
-		};
+		}
 	}
+	//BE1-31
+	async createGuestHelpRequest(
+		sessionId: string,
+		data: Partial<CreateHelpRequestDTO>,
+	) {
+		// 1. Verificam limita de 3 task-uri active pe sesiune
+		const activeCount =
+			await this.helpRequestRepo.countActiveByGuestSession(sessionId);
+		if (activeCount >= 3) {
+			const error: any = new Error("Too many active requests");
+			error.name = "RateLimitError"; // Nume specific pentru a-l prinde in controller cu 429
+			throw error;
+		}
+
+		// 2. Construim datele finale, forțând regulile de business pentru Guest
+		const guestData: CreateHelpRequestDTO = {
+			...(data as any),
+			guestSessionId: sessionId,
+			requestedByUserId: null, // Guestul nu are cont
+			urgency: "CRITICAL", // Fortat conform cerintelor
+			anonymousMode: true, // Fortat conform cerintelor
+			status: "OPEN",
+		};
+
+		// 3. Scanare pentru moderarea continutului
+		const titleResult = this.moderationService.scanContent(guestData.title);
+		const descResult = this.moderationService.scanContent(
+			guestData.description || "",
+		);
+
+		let finalResult = ModerationLevel.CLEAN;
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
+			finalResult = ModerationLevel.BLOCKED;
+		}
+
+		if (finalResult === ModerationLevel.BLOCKED) {
+			throw new ModerationError(
+				titleResult.reason || descResult.reason || "Inappropriate content.",
+			);
+		}
+
+		try {
+			return await this.helpRequestRepo.create(guestData);
+		} catch (error) {
+			console.error("--- RAW DB ERROR ---", error);
+			logger.exception(error as Error);
+			throw new Error("Could not create guest help request");
+		}
+	};
 }
