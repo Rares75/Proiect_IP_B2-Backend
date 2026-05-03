@@ -18,6 +18,7 @@ import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.
 import { NotificationService } from "./NotificationService";
 import type { TaskFilterParams } from "../filters";
 
+// State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
 
 const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
@@ -34,34 +35,38 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
-		private readonly moderationService?: ModerationService,
+		private readonly moderationService: ModerationService = new ModerationService(),
 		@inject(NotificationService)
-		private readonly notificationService?: NotificationService,
+		private readonly notificationService: NotificationService = {
+			notifyEligibleVolunteersForNewRequest: async () => {},
+		} as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
-		if (this.moderationService) {
-			const titleResult = this.moderationService.scanContent(data.title);
-			const descResult = this.moderationService.scanContent(data.description);
+		const titleResult = this.moderationService.scanContent(data.title);
+		const descResult = this.moderationService.scanContent(data.description);
 
-			let finalResult = ModerationLevel.CLEAN;
-			if (
-				titleResult.level === ModerationLevel.BLOCKED ||
-				descResult.level === ModerationLevel.BLOCKED
-			) {
-				finalResult = ModerationLevel.BLOCKED;
-			} else if (
-				titleResult.level === ModerationLevel.FLAGGED ||
-				descResult.level === ModerationLevel.FLAGGED
-			) {
-				finalResult = ModerationLevel.FLAGGED;
-			}
+		let finalResult = ModerationLevel.CLEAN;
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
+			finalResult = ModerationLevel.BLOCKED;
+		} else if (
+			titleResult.level === ModerationLevel.FLAGGED ||
+			descResult.level === ModerationLevel.FLAGGED
+		) {
+			finalResult = ModerationLevel.FLAGGED;
+		}
 
-			const reason = titleResult.reason || descResult.reason;
+		const reason = titleResult.reason || descResult.reason;
 
-			if (finalResult === ModerationLevel.BLOCKED) {
-				throw new ModerationError(reason ?? "Inappropriate content.");
-			}
+		if (finalResult === ModerationLevel.BLOCKED) {
+			throw new ModerationError(reason ?? "Inappropriate content.");
+		}
+
+		if (finalResult === ModerationLevel.FLAGGED) {
+			// TODO: do something?
 		}
 
 		try {
@@ -71,7 +76,7 @@ export class HelpRequestService {
 			});
 
 			try {
-				await this.notificationService?.notifyEligibleVolunteersForNewRequest(
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
 					createdRequest,
 				);
 			} catch (notificationError) {
@@ -100,18 +105,34 @@ export class HelpRequestService {
 	async getAssignmentAuthorization(
 		helpRequestId: number,
 	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		if (
+			typeof this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId !==
+			"function"
+		) {
+			return undefined;
+		}
+
 		return this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId(
 			helpRequestId,
 		);
 	}
 
+	/**
+	 * Retrieves a task with the specified ID and includes the associated details (if any)
+	 *
+	 * @param id The ID of the help request task
+	 * @returns An object containing the task data and the `details` field (null if no details exist)
+	 */
 	async getHelpRequestById(id: number) {
+		//fetch the main task
 		const helpRequest = await this.helpRequestRepo.findById(id);
 
+		//if the task doesn't exist, I return `undefined` (the controller will handle the 404)
 		if (!helpRequest) {
 			return undefined;
 		}
 
+		//Get the details associated with the task
 		const details = await this.helpRequestDetailsRepo.findByHelpRequestId(id);
 		const location =
 			typeof this.helpRequestRepo.findLocationByHelpRequestId === "function"
@@ -131,6 +152,14 @@ export class HelpRequestService {
 		};
 	}
 
+	/**
+	 * Updates a HelpRequest status according to the allowed transitions
+	 * @param id - The UUID of the HelpRequest to update
+	 * @param newStatus - The target status to transition to
+	 * @returns The updated HelpRequest object
+	 * @throws {NotFoundError} If the HelpRequest is not found (404)
+	 * @throws {InvalidStatusTransitionError} If the transition is forbidden (400)
+	 */
 	async updateHelpRequestStatus(
 		id: number,
 		newStatus: RequestStatus,
@@ -155,6 +184,7 @@ export class HelpRequestService {
 		return updated;
 	}
 
+	//BE1-12
 	async getPaginatedTasks(
 		page: number,
 		pageSize: number,
@@ -183,11 +213,63 @@ export class HelpRequestService {
 		return {
 			data: formattedData,
 			meta: {
-				page,
-				pageSize,
-				total,
-				totalPages,
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
 			},
 		};
+	}
+	//BE1-31
+	async createGuestHelpRequest(
+		sessionId: string,
+		data: Partial<CreateHelpRequestDTO>,
+	) {
+		// 1. Verificam limita de 3 task-uri active pe sesiune
+		const activeCount =
+			await this.helpRequestRepo.countActiveByGuestSession(sessionId);
+		if (activeCount >= 3) {
+			const error: any = new Error("Too many active requests");
+			error.name = "RateLimitError"; // Nume specific pentru a-l prinde in controller cu 429
+			throw error;
+		}
+
+		// 2. Construim datele finale, forțând regulile de business pentru Guest
+		const guestData: CreateHelpRequestDTO = {
+			...(data as any),
+			guestSessionId: sessionId,
+			requestedByUserId: null, // Guestul nu are cont
+			urgency: "CRITICAL", // Fortat conform cerintelor
+			anonymousMode: true, // Fortat conform cerintelor
+			status: "OPEN",
+		};
+
+		// 3. Scanare pentru moderarea continutului
+		const titleResult = this.moderationService.scanContent(guestData.title);
+		const descResult = this.moderationService.scanContent(
+			guestData.description || "",
+		);
+
+		let finalResult = ModerationLevel.CLEAN;
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
+			finalResult = ModerationLevel.BLOCKED;
+		}
+
+		if (finalResult === ModerationLevel.BLOCKED) {
+			throw new ModerationError(
+				titleResult.reason || descResult.reason || "Inappropriate content.",
+			);
+		}
+
+		try {
+			return await this.helpRequestRepo.create(guestData);
+		} catch (error) {
+			console.error("--- RAW DB ERROR ---", error);
+			logger.exception(error as Error);
+			throw new Error("Could not create guest help request");
+		}
 	}
 }

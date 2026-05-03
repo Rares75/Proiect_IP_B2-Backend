@@ -1,145 +1,400 @@
 import { Hono } from "hono";
-import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
-import { z } from "zod";
 import { inject } from "../di";
+import type { AppEnv } from "../app";
 import { RatingsService } from "../services/RatingsService";
 import { Controller } from "../utils/controller";
-
-const createRatingSchema = z
-	.object({
-		taskAssignmentId: z.number().int().positive(),
-		writtenByUserId: z.string().min(1, "writtenByUserId is required"),
-		receivedByUserId: z.string().min(1, "receivedByUserId is required"),
-		stars: z
-			.number()
-			.int()
-			.min(1, "Stars must be at least 1")
-			.max(5, "Stars must be at most 5"),
-		comment: z.string().trim().min(1, "Comment is required"),
-	})
-	.meta({
-		ref: "CreateRatingRequest",
-		example: {
-			taskAssignmentId: 1,
-			writtenByUserId: "user-1",
-			receivedByUserId: "user-2",
-			stars: 5,
-			comment: "Very helpful and responsive.",
-		},
-	});
-
-const ratingSchema = createRatingSchema
-	.extend({
-		id: z.number().int().positive(),
-	})
-	.meta({
-		ref: "Rating",
-		example: {
-			id: 1,
-			taskAssignmentId: 1,
-			writtenByUserId: "user-1",
-			receivedByUserId: "user-2",
-			stars: 5,
-			comment: "Very helpful and responsive.",
-		},
-	});
-
-const ratingErrorSchema = z
-	.object({
-		error: z.string(),
-		details: z.unknown().optional(),
-	})
-	.meta({
-		ref: "RatingError",
-	});
+import { createRatingSchema } from "../utils/validators/ratingsValidator";
+import { sendApiResponse } from "../utils/apiReponse";
+import { logger } from "../utils/logger";
+import { describeRoute } from "hono-openapi";
 
 @Controller("/ratings")
 export class RatingsController {
 	constructor(
 		@inject(RatingsService) private readonly ratingService: RatingsService,
 	) {}
-	controller = new Hono()
+	controller = new Hono<AppEnv>()
 		.post(
 			"/",
 			describeRoute({
-				summary: "Create rating",
-				description: "Creates a rating between users for a task assignment.",
 				tags: ["Ratings"],
+				summary: "Create a new rating",
+				description: `
+Create a rating for a user after completing a task.
+Only task participants (requester or volunteer) can rate each other.
+Ratings can only be created for completed task assignments.
+				`,
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								required: [
+									"taskAssignmentId",
+									"writtenByUserId",
+									"receivedByUserId",
+									"stars",
+									"comment",
+								],
+								properties: {
+									taskAssignmentId: {
+										type: "integer",
+										description: "ID of the completed task assignment",
+										example: 1,
+									},
+									writtenByUserId: {
+										type: "string",
+										description: "ID of the user giving the rating",
+										example: "user123",
+									},
+									receivedByUserId: {
+										type: "string",
+										description: "ID of the user receiving the rating",
+										example: "user456",
+									},
+									stars: {
+										type: "integer",
+										minimum: 1,
+										maximum: 5,
+										description: "Star rating from 1 to 5",
+										example: 5,
+									},
+									comment: {
+										type: "string",
+										minLength: 1,
+										description: "Feedback comment for the rating",
+										example: "Great volunteer, very professional and helpful",
+									},
+								},
+							},
+						},
+					},
+				},
 				responses: {
-					200: {
+					201: {
 						description: "Rating created successfully",
 						content: {
 							"application/json": {
-								schema: resolver(ratingSchema),
+								schema: {
+									type: "object",
+									properties: {
+										data: {
+											type: "object",
+											properties: {
+												id: { type: "integer", example: 1 },
+												taskAssignmentId: { type: "integer", example: 1 },
+												writtenByUserId: { type: "string", example: "user123" },
+												receivedByUserId: {
+													type: "string",
+													example: "user456",
+												},
+												stars: { type: "integer", example: 5 },
+												comment: { type: "string", example: "Great volunteer" },
+												createdAt: {
+													type: "string",
+													format: "date-time",
+													example: "2024-01-15T10:30:00Z",
+												},
+											},
+										},
+										message: {
+											type: "string",
+											example: "Resource created successfully",
+										},
+										notFound: { type: "boolean", example: false },
+										isUnauthorized: { type: "boolean", example: false },
+										isServerError: { type: "boolean", example: false },
+										isClientError: { type: "boolean", example: false },
+										app: {
+											type: "object",
+											properties: {
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
+											},
+										},
+										statusCode: { type: "integer", example: 201 },
+									},
+								},
 							},
 						},
 					},
 					400: {
-						description: "Invalid request body",
+						description: "Validation error or business rule violation",
 						content: {
 							"application/json": {
-								schema: resolver(ratingErrorSchema),
-							},
-						},
-					},
-					404: {
-						description: "Rating target not found",
-						content: {
-							"application/json": {
-								schema: resolver(
-									z.object({
-										data: z.null(),
-									}),
-								),
+								schema: {
+									type: "object",
+									properties: {
+										data: { type: "null", example: null },
+										message: {
+											type: "string",
+											example: "Rating already exists or rating is not allowed",
+										},
+										notFound: { type: "boolean", example: false },
+										isUnauthorized: { type: "boolean", example: false },
+										isServerError: { type: "boolean", example: false },
+										isClientError: { type: "boolean", example: true },
+										app: {
+											type: "object",
+											properties: {
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
+											},
+										},
+										statusCode: { type: "integer", example: 400 },
+									},
+								},
 							},
 						},
 					},
 					500: {
-						description: "Internal server error",
+						description: "Server error",
 						content: {
 							"application/json": {
-								schema: resolver(ratingErrorSchema),
+								schema: {
+									type: "object",
+									properties: {
+										data: { type: "null", example: null },
+										message: {
+											type: "string",
+											example: "Internal server error",
+										},
+										notFound: { type: "boolean", example: false },
+										isUnauthorized: { type: "boolean", example: false },
+										isServerError: { type: "boolean", example: true },
+										isClientError: { type: "boolean", example: false },
+										app: {
+											type: "object",
+											properties: {
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
+											},
+										},
+										statusCode: { type: "integer", example: 500 },
+									},
+								},
 							},
 						},
 					},
 				},
 			}),
-			zValidator("json", createRatingSchema),
 			async (c) => {
-				try {
-					const body = c.req.valid("json");
-
-					const result = await this.ratingService.createRating(body);
-					return c.json(result ?? { data: null }, {
-						status: result ? 200 : 404,
+				const body = await c.req.json();
+				const parsed = createRatingSchema.safeParse(body);
+				if (!parsed.success)
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Failed to validate input",
 					});
-				} catch (err) {
-					console.error("RATING ERROR:", err);
-					return c.json({ error: "Internal server error" }, 500);
+
+				try {
+					const result = await this.ratingService.createRating(parsed.data);
+
+					if (!result) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Rating already exists or rating is not allowed",
+						});
+					}
+
+					return sendApiResponse(c, result, { kind: "created" });
+				} catch (error) {
+					logger.exception(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
-		.get("/user/:userId", async (c) => {
-			try {
-				const userId = c.req.param("userId");
-				const result = await this.ratingService.getRatingsForUser(userId);
+		.get(
+			"/user/:userId",
+			describeRoute({
+				tags: ["Ratings"],
+				summary: "Get all ratings for a user",
+				description: `
+Retrieve all ratings that a user has received.
+This includes ratings from both requesters and volunteers.
+				`,
+				parameters: [
+					{
+						name: "userId",
+						in: "path",
+						required: true,
+						description: "ID of the user to get ratings for",
+						schema: {
+							type: "string",
+							example: "user456",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "List of ratings for the user",
+						content: {
+							"application/json": {
+								schema: {
+									type: "object",
+									properties: {
+										data: {
+											type: "array",
+											items: {
+												type: "object",
+												properties: {
+													id: { type: "integer", example: 1 },
+													taskAssignmentId: { type: "integer", example: 1 },
+													writtenByUserId: {
+														type: "string",
+														example: "user123",
+													},
+													receivedByUserId: {
+														type: "string",
+														example: "user456",
+													},
+													stars: { type: "integer", example: 5 },
+													comment: { type: "string", example: "Great work!" },
+													createdAt: {
+														type: "string",
+														format: "date-time",
+														example: "2024-01-15T10:30:00Z",
+													},
+												},
+											},
+										},
+										message: {
+											type: "string",
+											example: "Request completed successfully",
+										},
+										notFound: { type: "boolean", example: false },
+										isUnauthorized: { type: "boolean", example: false },
+										isServerError: { type: "boolean", example: false },
+										isClientError: { type: "boolean", example: false },
+										app: {
+											type: "object",
+											properties: {
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
+											},
+										},
+										statusCode: { type: "integer", example: 200 },
+									},
+								},
+							},
+						},
+					},
+					400: {
+						description: "Invalid user ID",
+					},
+					500: {
+						description: "Server error",
+					},
+				},
+			}),
+			async (c) => {
+				const { userId } = c.req.param();
 
-				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
-			} catch (err) {
-				console.error("GET RATINGS ERROR: ", err);
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		})
-		.get("/user/:userId/summary", async (c) => {
-			try {
-				const userId = c.req.param("userId");
-				const result =
-					await this.ratingService.getRatingsSummaryForUser(userId);
+				try {
+					const result = await this.ratingService.getRatingsForUser(userId);
+					return sendApiResponse(c, result);
+				} catch (error) {
+					logger.exception(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+		.get(
+			"/user/:userId/summary",
+			describeRoute({
+				tags: ["Ratings"],
+				summary: "Get rating summary for a user",
+				description: `
+Get aggregated rating statistics for a user including:
+- Average rating score
+- Total number of ratings received
+				`,
+				parameters: [
+					{
+						name: "userId",
+						in: "path",
+						required: true,
+						description: "ID of the user to get rating summary for",
+						schema: {
+							type: "string",
+							example: "user456",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "Rating summary for the user",
+						content: {
+							"application/json": {
+								schema: {
+									type: "object",
+									properties: {
+										data: {
+											type: "object",
+											properties: {
+												averageRating: {
+													type: ["string", "null"],
+													description:
+														"Average rating score (1-5), null if no ratings",
+													example: "4.5",
+												},
+												ratingsCount: {
+													type: "integer",
+													description: "Total number of ratings received",
+													example: 10,
+												},
+											},
+										},
+										message: {
+											type: "string",
+											example: "Request completed successfully",
+										},
+										notFound: { type: "boolean", example: false },
+										isUnauthorized: { type: "boolean", example: false },
+										isServerError: { type: "boolean", example: false },
+										isClientError: { type: "boolean", example: false },
+										app: {
+											type: "object",
+											properties: {
+												url: {
+													type: "string",
+													example: "http://localhost:3000",
+												},
+											},
+										},
+										statusCode: { type: "integer", example: 200 },
+									},
+								},
+							},
+						},
+					},
+					400: {
+						description: "Invalid user ID",
+					},
+					500: {
+						description: "Server error",
+					},
+				},
+			}),
+			async (c) => {
+				const { userId } = c.req.param();
 
-				return c.json(result ?? { data: null }, { status: result ? 200 : 404 });
-			} catch (err) {
-				console.error("GET RATINGS SUMMARY ERROR: ", err);
-				return c.json({ error: "Internal server error" }, 500);
-			}
-		});
+				try {
+					const result =
+						await this.ratingService.getRatingsSummaryForUser(userId);
+					return sendApiResponse(c, result);
+				} catch (error) {
+					logger.exception(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		);
 }
