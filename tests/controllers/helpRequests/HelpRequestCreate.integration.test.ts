@@ -9,16 +9,16 @@ import {
 	spyOn,
 } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import auth from "../../src/auth";
-import { loadControllers } from "../../src/utils/controller";
-import { db } from "../../src/db";
-import { user } from "../../src/db/auth-schema";
-import { helpRequests, requestLocations } from "../../src/db/requests";
+import app from "../../../src/app";
+import auth from "../../../src/auth";
+import { loadControllers } from "../../../src/utils/controller";
+import { db } from "../../../src/db";
+import { user } from "../../../src/db/auth-schema";
+import { helpRequests, requestLocations } from "../../../src/db/requests";
 import { eq } from "drizzle-orm";
-import { expectApiEnvelope } from "./apiResponseAssertions";
-import { UserRepository } from "../../src/db/repositories/user.repository";
-import { container } from "../../src/di";
+import { expectApiEnvelope } from "../apiResponseAssertions";
+import { UserRepository } from "../../../src/db/repositories/user.repository";
+import { container } from "../../../src/di";
 
 beforeAll(async () => {
 	const controllersPath = join(
@@ -28,7 +28,11 @@ beforeAll(async () => {
 	await loadControllers(controllersPath);
 });
 
-describe("POST /api/tasks (Integration BE1-34)", () => {
+const describeWithDatabase = process.env.DATABASE_URL
+	? describe
+	: describe.skip;
+
+describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	const authenticatedUserId = "task-integration-user";
 	let createdTaskIds: number[] = [];
 	let authSpy: ReturnType<typeof spyOn> | undefined;

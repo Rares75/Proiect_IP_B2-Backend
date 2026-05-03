@@ -1,17 +1,17 @@
 /// <reference types="bun-types" />
 import { describe, expect, it, beforeAll, spyOn, afterEach } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
-import auth from "../../src/auth";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import auth from "../../../src/auth";
 import {
 	expectClientErrorApiResponse,
 	expectNotFoundApiResponse,
 	expectApiEnvelope,
 	expectServerErrorApiResponse,
 	expectSuccessApiResponse,
-} from "./apiResponseAssertions";
+} from "../apiResponseAssertions";
 
 //import { HelpRequestController } from "../../src/controllers/HelpRequestController";
 
@@ -205,11 +205,10 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
 		});
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expectClientErrorApiResponse(
-			body,
-			"Eroare: 'pageSize' trebuie sa fie intre 1 si 100.",
-			400,
-		);
+		expect(body.errors).toContainEqual({
+			field: "pageSize",
+			message: "Page size must be greater than 0",
+		});
 	});
 
 	it("ar trebui sa returneze 400 daca page este numar negativ", async () => {

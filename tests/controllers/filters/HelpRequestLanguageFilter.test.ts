@@ -5,10 +5,7 @@ import app from "../../../src/app";
 import auth from "../../../src/auth";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import { loadControllers } from "../../../src/utils/controller";
-import {
-	expectClientErrorApiResponse,
-	expectSuccessApiResponse,
-} from "../apiResponseAssertions";
+import { expectSuccessApiResponse } from "../apiResponseAssertions";
 
 beforeAll(async () => {
 	await loadControllers(join(process.cwd(), "/src/controllers"));
@@ -73,12 +70,14 @@ describe("GET /api/tasks language filter", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(400);
-
-		expectClientErrorApiResponse(
-			body,
-			"Error: 'language' cannot be empty",
-			400,
-		);
+		expect(body).toEqual({
+			errors: [
+				{
+					field: "language",
+					message: "Language must not be empty",
+				},
+			],
+		});
 	});
 
 	it("includes tasks without requestDetails in response for a valid language", async () => {
@@ -162,5 +161,110 @@ describe("GET /api/tasks language filter", () => {
 		} finally {
 			serviceSpy.mockRestore();
 		}
+	});
+});
+
+describe("GET /api/tasks skill filter", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
+	});
+
+	const authenticate = () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+	};
+
+	it("maps a single skill query param to filters.skills", async () => {
+		authenticate();
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [{ id: 1, skillsNeeded: ["sofer"] } as any],
+			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+		});
+
+		try {
+			const response = await app.request("/api/tasks?skill=sofer", {
+				headers: { Authorization: "Bearer fake-test-token" },
+			});
+
+			expect(response.status).toBe(200);
+			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
+				skills: ["sofer"],
+			});
+		} finally {
+			serviceSpy.mockRestore();
+		}
+	});
+
+	it("maps repeated skill query params to filters.skills", async () => {
+		authenticate();
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [{ id: 2, skillsNeeded: ["sofer", "traducator"] } as any],
+			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+		});
+
+		try {
+			const response = await app.request(
+				"/api/tasks?skill=sofer&skill=traducator",
+				{
+					headers: { Authorization: "Bearer fake-test-token" },
+				},
+			);
+
+			expect(response.status).toBe(200);
+			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
+				skills: ["sofer", "traducator"],
+			});
+		} finally {
+			serviceSpy.mockRestore();
+		}
+	});
+
+	it("returns 400 when skill is empty", async () => {
+		authenticate();
+
+		const response = await app.request("/api/tasks?skill=", {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
+				},
+			],
+		});
+	});
+
+	it("returns 400 when skill is only spaces after trim", async () => {
+		authenticate();
+
+		const response = await app.request("/api/tasks?skill=%20%20", {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body).toEqual({
+			errors: [
+				{
+					field: "skill",
+					message: "Skill must not be empty",
+				},
+			],
+		});
 	});
 });
