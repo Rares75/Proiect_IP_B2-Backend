@@ -4,6 +4,7 @@ import {
 	geometry,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	serial,
 	text,
@@ -13,6 +14,7 @@ import {
 import { user } from "./auth-schema";
 import {
 	assignmentStatusEnum,
+	helpRequestCategoryEnum,
 	offerStatusEnum,
 	requestStatusEnum,
 	urgencyLevelEnum,
@@ -28,8 +30,12 @@ export const helpRequests = pgTable("help_requests", {
 	title: varchar("title", { length: 255 }).notNull(),
 	description: text("description"),
 	urgency: urgencyLevelEnum("urgency").notNull().default("MEDIUM"),
+	skillsNeeded: jsonb("skills").$type<string[]>().notNull().default([]),
 	status: requestStatusEnum("status").notNull().default("OPEN"),
 	anonymousMode: boolean("anonymous_mode").notNull().default(false),
+	category: helpRequestCategoryEnum("category")
+		.notNull()
+		.default("FACE_TO_FACE"),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.notNull()
 		.defaultNow(),

@@ -11,11 +11,11 @@ describe("UserAccessService", () => {
 		expect(await service.checkUserStatus("user-1")).toBe("BLOCKED");
 	});
 
-	test("defaults to ACTIVE when the user has no access override", async () => {
+	test("defaults to LIMITED when the user has no access override", async () => {
 		const service = new UserAccessService({
 			findFirstBy: async () => undefined,
 		} as any);
 
-		expect(await service.checkUserStatus("missing-user")).toBe("ACTIVE");
+		expect(await service.checkUserStatus("missing-user")).toBe("LIMITED");
 	});
 });

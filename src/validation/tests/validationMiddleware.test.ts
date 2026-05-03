@@ -11,7 +11,8 @@ const validPayload = {
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
-	category: "Transport",
+	category: "FACE_TO_FACE",
+	location: { x: 47.15, y: 27.58 },
 };
 
 const createTestApp = (): Hono => {
@@ -55,8 +56,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "title",
@@ -81,6 +86,10 @@ describe("validationMiddleware", () => {
 				{
 					field: "category",
 					message: "Category is required",
+				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received undefined",
 				},
 			],
 		});
@@ -101,11 +110,16 @@ describe("validationMiddleware", () => {
 				status: "PENDING",
 				anonymousMode: "no",
 				category: 999,
+				location: "Bucuresti",
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "title",
@@ -131,6 +145,10 @@ describe("validationMiddleware", () => {
 					field: "category",
 					message: "Category is required",
 				},
+				{
+					field: "location",
+					message: "Invalid input: expected object, received string",
+				},
 			],
 		});
 	});
@@ -149,8 +167,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -178,8 +200,12 @@ describe("validationMiddleware", () => {
 			}),
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -200,8 +226,12 @@ describe("validationMiddleware", () => {
 			body: "null",
 		});
 
+		const payload = (await response.json()) as any;
+
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
