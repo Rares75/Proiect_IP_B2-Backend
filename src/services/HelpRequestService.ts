@@ -203,9 +203,13 @@ export class HelpRequestService {
 		};
 	}
 	//BE1-31
-	async createGuestHelpRequest(sessionId: string, data: Partial<CreateHelpRequestDTO>) {
+	async createGuestHelpRequest(
+		sessionId: string,
+		data: Partial<CreateHelpRequestDTO>,
+	) {
 		// 1. Verificam limita de 3 task-uri active pe sesiune
-		const activeCount = await this.helpRequestRepo.countActiveByGuestSession(sessionId);
+		const activeCount =
+			await this.helpRequestRepo.countActiveByGuestSession(sessionId);
 		if (activeCount >= 3) {
 			const error: any = new Error("Too many active requests");
 			error.name = "RateLimitError"; // Nume specific pentru a-l prinde in controller cu 429
@@ -214,7 +218,7 @@ export class HelpRequestService {
 
 		// 2. Construim datele finale, forțând regulile de business pentru Guest
 		const guestData: CreateHelpRequestDTO = {
-			...data as any,
+			...(data as any),
 			guestSessionId: sessionId,
 			requestedByUserId: null, // Guestul nu are cont
 			urgency: "CRITICAL", // Fortat conform cerintelor
@@ -224,15 +228,22 @@ export class HelpRequestService {
 
 		// 3. Scanare pentru moderarea continutului
 		const titleResult = this.moderationService.scanContent(guestData.title);
-		const descResult = this.moderationService.scanContent(guestData.description || "");
+		const descResult = this.moderationService.scanContent(
+			guestData.description || "",
+		);
 
 		let finalResult = ModerationLevel.CLEAN;
-		if (titleResult.level === ModerationLevel.BLOCKED || descResult.level === ModerationLevel.BLOCKED) {
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
 			finalResult = ModerationLevel.BLOCKED;
 		}
 
 		if (finalResult === ModerationLevel.BLOCKED) {
-			throw new ModerationError(titleResult.reason || descResult.reason || "Inappropriate content.");
+			throw new ModerationError(
+				titleResult.reason || descResult.reason || "Inappropriate content.",
+			);
 		}
 
 		try {
@@ -242,5 +253,35 @@ export class HelpRequestService {
 			logger.exception(error as Error);
 			throw new Error("Could not create guest help request");
 		}
+	}
+
+	async getGuestHelpRequests(
+		sessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const { data, total } =
+			await this.helpRequestRepo.findPaginatedByGuestSession(
+				sessionId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const formattedData = data.map((task) => {
+			const { requestedByUserId, guestSessionId, ...rest } = task;
+			return rest;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages: Math.ceil(total / pageSize),
+			},
+		};
 	}
 }
