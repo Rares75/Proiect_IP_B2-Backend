@@ -1,6 +1,7 @@
 import {
 	parseLanguageFilter,
 	parseStatusFilter,
+	parseCityFilter,
 	parseSkillFilter,
 	type TaskFilterParams,
 } from "../../filters";
@@ -73,6 +74,12 @@ export const validateTasksQuery = (
 		return { error: skillValidation.error };
 	}
 	Object.assign(filters, skillValidation.validData);
+
+	const cityValidation = parseCityFilter(query.city);
+	if (cityValidation.error) {
+		return { error: cityValidation.error };
+	}
+	Object.assign(filters, cityValidation.validData);
 
 	return {
 		validData: {
