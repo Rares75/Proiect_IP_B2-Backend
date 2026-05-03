@@ -8,12 +8,12 @@ import {
 	test,
 } from "bun:test";
 import { Hono } from "hono";
-import { expectNotFoundApiResponse } from "./apiResponseAssertions";
+import { expectNotFoundApiResponse } from "../apiResponseAssertions";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import "../../src/app";
-import auth from "../../src/auth";
-import { Controller } from "../../src/di/decorators/controller";
+import "../../../src/app";
+import auth from "../../../src/auth";
+import { Controller } from "../../../src/di/decorators/controller";
 
 const loadControllers = async (dir: string) => {
 	const controllersDir = existsSync(dir)
@@ -37,7 +37,7 @@ mock.module("../../src/utils/controller", () => ({
 //const Controller = () => (_target: unknown) => {};
 
 const { RequestDetailsController } = await import(
-	"../../src/controllers/RequestDetailsController"
+	"../../../src/controllers/RequestDetailsController"
 );
 
 type TaskStatus =

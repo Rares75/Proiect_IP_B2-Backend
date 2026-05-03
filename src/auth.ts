@@ -22,8 +22,8 @@ const auth = betterAuth({
 	baseURL: process.env.BETTER_AUTH_URL,
 	user: {
 		changeEmail: {
-        enabled: true,
-    },
+			enabled: true,
+		},
 		deleteUser: {
 			enabled: true,
 			afterDelete: async (ctx) => {
@@ -63,9 +63,9 @@ const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
-		
 	},
 
+	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
 	advanced: {
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
@@ -135,8 +135,8 @@ const auth = betterAuth({
 		phoneNumber(),
 		emailOTP({
 			changeEmail: {
-        		enabled: true,
-    		},
+				enabled: true,
+			},
 			async sendVerificationOTP({ email, otp, type }) {
 				const mailer = getMailer();
 				try {
