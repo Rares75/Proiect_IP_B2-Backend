@@ -9,13 +9,13 @@ import {
 } from "bun:test";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import app from "../../src/app";
+import app from "../../../src/app";
 import {
 	expectClientErrorApiResponse,
 	expectNotFoundApiResponse,
-} from "./apiResponseAssertions";
-import auth from "../../src/auth";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
+} from "../apiResponseAssertions";
+import auth from "../../../src/auth";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
 
 const loadControllers = async (dir: string) => {
 	const controllersDir = existsSync(dir)
@@ -41,7 +41,7 @@ describe("PATCH /api/tasks/:id/status", () => {
 	beforeAll(async () => {
 		const controllersPath = join(
 			(import.meta as any).dir,
-			"../../src/controllers",
+			"../../../src/controllers",
 		);
 		await loadControllers(controllersPath);
 	});
