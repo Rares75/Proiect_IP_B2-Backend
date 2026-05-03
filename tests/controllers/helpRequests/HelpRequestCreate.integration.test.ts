@@ -27,7 +27,11 @@ beforeAll(async () => {
 	await loadControllers(controllersPath);
 });
 
-describe("POST /api/tasks (Integration BE1-34)", () => {
+const describeWithDatabase = process.env.DATABASE_URL
+	? describe
+	: describe.skip;
+
+describeWithDatabase("POST /api/tasks (Integration BE1-34)", () => {
 	const authenticatedUserId = "task-integration-user";
 	let createdTaskIds: number[] = [];
 	let authSpy: ReturnType<typeof spyOn> | undefined;

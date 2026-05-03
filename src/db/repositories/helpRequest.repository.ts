@@ -20,6 +20,7 @@ import type { requestStatusEnum } from "../enums";
 import {
 	calculateSkillMachScore,
 	buildLanguageFilter,
+	buildSkillFilter,
 	buildStatusFilter,
 	buildCityFilter,
 	type TaskFilterParams,
@@ -203,6 +204,7 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		const skillFilter = filters ? buildSkillFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
 		//skills
