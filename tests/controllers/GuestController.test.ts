@@ -9,7 +9,7 @@ import { HelpRequestService } from "../../src/services/HelpRequestService";
 import {
 	expectClientErrorApiResponse,
 	expectSuccessApiResponse,
-	expectApiEnvelope
+	expectApiEnvelope,
 } from "./apiResponseAssertions";
 
 describe("POST /api/guest/tasks", () => {
@@ -50,7 +50,7 @@ describe("POST /api/guest/tasks", () => {
 
 		expect(response.status).toBe(401);
 		const body: any = await response.json();
-		
+
 		// Folosim assert-urile voastre
 		expectApiEnvelope(body, 401);
 		expect(body.isUnauthorized).toBe(true);
@@ -68,12 +68,12 @@ describe("POST /api/guest/tasks", () => {
 
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		
+
 		// Folosim functia pentru Client Error cu mesajul specificat in controller
 		expectClientErrorApiResponse(
-			body, 
-			"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.", 
-			400
+			body,
+			"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.",
+			400,
 		);
 	});
 
@@ -111,7 +111,7 @@ describe("POST /api/guest/tasks", () => {
 
 	it("5. ar trebui sa returneze 400 daca lipseste description (schema invalidation)", async () => {
 		const { description, ...bodyFaraDescriere } = validBody;
-		
+
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
 			headers: {
@@ -130,7 +130,10 @@ describe("POST /api/guest/tasks", () => {
 	it("6. ar trebui sa returneze 429 daca limita de 3 task-uri a fost atinsa", async () => {
 		const rateLimitError = new Error("Too many requests");
 		rateLimitError.name = "RateLimitError";
-		serviceSpy = spyOn(HelpRequestService.prototype, "createGuestHelpRequest").mockRejectedValue(rateLimitError);
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"createGuestHelpRequest",
+		).mockRejectedValue(rateLimitError);
 
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
@@ -159,7 +162,10 @@ describe("POST /api/guest/tasks", () => {
 			status: "OPEN",
 		};
 
-		serviceSpy = spyOn(HelpRequestService.prototype, "createGuestHelpRequest").mockResolvedValue(mockCreatedTask as any);
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"createGuestHelpRequest",
+		).mockResolvedValue(mockCreatedTask as any);
 
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
@@ -172,7 +178,7 @@ describe("POST /api/guest/tasks", () => {
 
 		expect(response.status).toBe(201);
 		const body: any = await response.json();
-		
+
 		// Folosim functia voastra oficiala de Success API Response!
 		expectSuccessApiResponse(body, mockCreatedTask, 201);
 	});

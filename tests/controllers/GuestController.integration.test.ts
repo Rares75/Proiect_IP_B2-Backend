@@ -10,7 +10,10 @@ import { eq } from "drizzle-orm";
 
 describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 	beforeAll(async () => {
-		const controllersPath = join((import.meta as any).dir, "../../src/controllers");
+		const controllersPath = join(
+			(import.meta as any).dir,
+			"../../src/controllers",
+		);
 		await loadControllers(controllersPath);
 	}, 15000);
 
@@ -29,7 +32,10 @@ describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 		for (let i = 0; i < 3; i++) {
 			const res = await app.request("/api/guest/tasks", {
 				method: "POST",
-				headers: { "Content-Type": "application/json", "X-Guest-Session": testSessionId },
+				headers: {
+					"Content-Type": "application/json",
+					"X-Guest-Session": testSessionId,
+				},
 				body: JSON.stringify(validBody),
 			});
 			expect(res.status).toBe(201);
@@ -38,7 +44,10 @@ describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 		// PASUL 2: Al 4-lea task trebuie sa primeasca 429 (Too Many Requests)
 		const res4 = await app.request("/api/guest/tasks", {
 			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Guest-Session": testSessionId },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": testSessionId,
+			},
 			body: JSON.stringify(validBody),
 		});
 		expect(res4.status).toBe(429);
@@ -49,7 +58,7 @@ describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 			.from(helpRequests)
 			.where(eq(helpRequests.guestSessionId, testSessionId))
 			.limit(1);
-			
+
 		// Setam primul task gasit ca "COMPLETED" (eliberam un "slot")
 		await db
 			.update(helpRequests)
@@ -59,12 +68,15 @@ describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 		// PASUL 4: Incercam sa inseram din nou al 4-lea task. Acum trebuie sa mearga (201)
 		const res5 = await app.request("/api/guest/tasks", {
 			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Guest-Session": testSessionId },
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": testSessionId,
+			},
 			body: JSON.stringify({ ...validBody, title: "Slot eliberat" }),
 		});
-		
+
 		expect(res5.status).toBe(201);
-		
+
 		const responseBody: any = await res5.json();
 		expect(responseBody.data.guestSessionId).toBe(testSessionId);
 	});
