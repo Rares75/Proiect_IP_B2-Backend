@@ -1,8 +1,11 @@
 import { z } from "zod";
+import {
+	requestStatusEnum,
+	urgencyLevelEnum,
+	helpRequestCategoryEnum,
+} from "../../db/enums";
 
-import { requestStatusEnum, urgencyLevelEnum } from "../../db/enums";
-
-export const helpRequestInputSchema = z
+const baseHelpRequestInputSchema = z
 	.object({
 		userId: z.unknown().optional(),
 		requestedByUserId: z.unknown().optional(),
@@ -18,7 +21,11 @@ export const helpRequestInputSchema = z
 				error: "Description is required",
 			})
 			.trim()
-			.min(1, "Description is required"),
+			.min(1, "Description is required")
+			.optional(), // <-- Am pus optional aici!
+
+		audioUrl: z.string().url({ message: "Must be a valid URL" }).optional(),
+
 		urgency: z.enum(urgencyLevelEnum.enumValues, {
 			error: "Urgency is required",
 		}),
@@ -28,17 +35,51 @@ export const helpRequestInputSchema = z
 		anonymousMode: z.boolean({
 			error: "Anonymous mode is required",
 		}),
-		locationCity: z.string().max(100).optional(),
-		locationAddressText: z.string().optional(),
+
+		city: z.string().max(100).optional(),
+		addressText: z.string().optional(),
+
+		// MODIFICARE 1: Categoria este acum obligatorie si de tip enum
+		category: z.enum(helpRequestCategoryEnum.enumValues, {
+			error: "Category is required",
+		}),
+
+		// MODIFICARE 2: skillsNeeded adăugat ca array de string-uri validate
+		skillsNeeded: z.array(z.string().trim().min(1)).optional(),
+
+		// MODIFICARE 3: Am sters .optional() de la location. Acum e OBLIGATORIU!
 		location: z
 			.object({
 				x: z.number(),
 				y: z.number(),
 			})
-			.strict()
-			.optional(),
+			.strict(),
 	})
 	.strict();
 
+// 2. Schema principala (Baza + Refine)
+export const helpRequestInputSchema = baseHelpRequestInputSchema.refine(
+	(data) => data.description || data.audioUrl,
+	{
+		message: "You must provide either a description or an audioUrl",
+		path: ["description"],
+	},
+);
+
+export const helpRequestCreateInputSchema = helpRequestInputSchema;
+
 export const HelpRequestSchema = helpRequestInputSchema;
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
+
+// 3. Schema pentru Guest (Baza + Omit + Refine)
+export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
+	.omit({
+		urgency: true,
+		anonymousMode: true,
+		userId: true,
+	})
+	.strict()
+	.refine((data) => data.description || data.audioUrl, {
+		message: "You must provide either a description or an audioUrl",
+		path: ["description"],
+	});

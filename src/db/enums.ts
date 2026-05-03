@@ -52,4 +52,10 @@ export const notificationTypeEnum = pgEnum("notification_type", [
 	"TASK_UPDATED",
 	"TASK_COMPLETED",
 	"WARNING",
+	"ACCOUNT_DISABLED",
+]);
+
+export const helpRequestCategoryEnum = pgEnum("help_request_category", [
+	"MESSAGES_ONLY",
+	"FACE_TO_FACE",
 ]);

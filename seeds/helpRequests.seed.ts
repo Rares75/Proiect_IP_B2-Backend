@@ -19,6 +19,20 @@ const titles = [
 	"Check in call",
 ];
 
+const skills = [
+	"driving",
+	"it",
+	"web dev",
+	"gardening",
+	"cooking",
+	"cleaning",
+	"child care",
+	"elder care",
+	"pet care",
+	"language translation",
+];
+const categories = ["FACE_TO_FACE", "MESSAGES_ONLY"] as const;
+
 export const helpRequestsSeed: EntitySeed = {
 	name: "helpRequests",
 	run: async (db, context) => {
@@ -34,6 +48,8 @@ export const helpRequestsSeed: EntitySeed = {
 						guestSessionId: anonymous
 							? `guest-session-${String(index + 1).padStart(3, "0")}`
 							: null,
+						skillsNeeded: [pick(skills, index)],
+						category: pick(categories, index),
 						title: `${pick(titles, index)} #${index + 1}`,
 						description: `Seed request ${index + 1} for community support.`,
 						urgency: pick(urgencies, index),

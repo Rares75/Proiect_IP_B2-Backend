@@ -45,7 +45,18 @@ describe("checkStatusMiddleware", () => {
 		);
 
 		expect(response?.status).toBe(401);
-		expect(await response?.json()).toEqual({ error: "Unauthorized" });
+		expect(await response?.json()).toEqual({
+			app: {
+				url: "http://localhost:3000",
+			},
+			data: null,
+			isClientError: false,
+			isServerError: false,
+			isUnauthorized: true,
+			message: "Unauthorized",
+			notFound: false,
+			statusCode: 401,
+		});
 		expect(nextCalled).toBe(false);
 		expect(statusChecked).toBe(false);
 	});
@@ -68,7 +79,16 @@ describe("checkStatusMiddleware", () => {
 
 		expect(response?.status).toBe(403);
 		expect(await response?.json()).toEqual({
-			error: "Unauthorized: Account is blocked",
+			app: {
+				url: "http://localhost:3000",
+			},
+			data: null,
+			isClientError: false,
+			isServerError: false,
+			isUnauthorized: false,
+			message: "Forbidden",
+			notFound: false,
+			statusCode: 403,
 		});
 		expect(nextCalled).toBe(false);
 	});
