@@ -321,7 +321,7 @@ export class HelpRequestService {
 				total: total,
 				totalPages: totalPages,
 			},
-		}
+		};
 	}
 	//BE1-31
 	async createGuestHelpRequest(
@@ -374,5 +374,34 @@ export class HelpRequestService {
 			logger.exception(error as Error);
 			throw new Error("Could not create guest help request");
 		}
-	};
+	}
+
+	async getGuestHelpRequests(
+		sessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const { data, total } = await this.helpRequestRepo.findPaginatedByGuestSession(
+			sessionId,
+			page,
+			pageSize,
+			status,
+		);
+
+		const formattedData = data.map((task) => {
+			const { requestedByUserId, guestSessionId, ...rest } = task;
+			return rest;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages: Math.ceil(total / pageSize),
+			},
+		};
+	}
 }

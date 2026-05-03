@@ -44,8 +44,7 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
-{
+	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
 		return await db.transaction(async (tx) => {
@@ -255,13 +254,15 @@ export class HelpRequestRepository
 		}
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
-		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
-			...helpRequest,
-			requestDetails,
-							city: requestLocation?.city ?? null,
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
 				addressText: requestLocation?.addressText ?? null,
 				location: requestLocation?.location ?? null,
-		}));
+			}),
+		);
 
 		const countQuery = db
 			.select({ value: drizzleCount() })
@@ -307,5 +308,50 @@ export class HelpRequestRepository
 				),
 			);
 		return value;
+	}
+
+	// BE1-32
+	async findPaginatedByGuestSession(
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const offset = (page - 1) * pageSize;
+
+		const conditions = [
+			eq(helpRequests.guestSessionId, guestSessionId),
+			...(status ? [eq(helpRequests.status, status)] : []),
+		];
+		const where = and(...conditions);
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+			})
+			.from(helpRequests)
+			.leftJoin(requestDetails, eq(requestDetails.helpRequestId, helpRequests.id))
+			.leftJoin(requestLocations, eq(requestLocations.helpRequestId, helpRequests.id))
+			.where(where)
+			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
+			...helpRequest,
+			requestDetails,
+			city: requestLocation?.city ?? null,
+			addressText: requestLocation?.addressText ?? null,
+			location: requestLocation?.location ?? null,
+		}));
+
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(where);
+
+		return { data, total: value };
 	}
 }

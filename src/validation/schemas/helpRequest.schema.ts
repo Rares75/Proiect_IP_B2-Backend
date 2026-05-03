@@ -83,3 +83,17 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 		message: "You must provide either a description or an audioUrl",
 		path: ["description"],
 	});
+
+export const guestTasksQuerySchema = z.object({
+	page: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 1))
+		.pipe(z.number().int().min(1)),
+	pageSize: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 10))
+		.pipe(z.number().int().min(1).max(50)),
+	status: z.enum(requestStatusEnum.enumValues).optional(),
+});
