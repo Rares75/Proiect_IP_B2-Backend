@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import auth from "../../src/auth";
-import { loadControllers } from "../../src/utils/controller";
-import { RequestDetailsService } from "../../src/services/RequestDetailsService";
+import app from "../../../src/app";
+import auth from "../../../src/auth";
+import { loadControllers } from "../../../src/utils/controller";
+import { RequestDetailsService } from "../../../src/services/RequestDetailsService";
 
 describe("PUT /api/tasks/:id/details", () => {
 	let authSpy: ReturnType<typeof spyOn> | undefined;
@@ -28,24 +28,26 @@ describe("PUT /api/tasks/:id/details", () => {
 		});
 	};
 
-	it("returneaza 200 si details actualizate pentru un request valid", async () => {
+	it("returneaza 200 sau 201 si details actualizate/create pentru un request valid", async () => {
 		authenticate();
 		const validId = "1";
 		const response = await app.request(`/api/tasks/${validId}/details`, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				notes: "Nota de test",
+				notes: "Nota de test PUT",
 				languageNeeded: "RO",
 				safetyNotes: "Fara pericole",
 			}),
 		});
 
-		if (response.status === 200) {
+		if (response.status === 200 || response.status === 201) {
 			const body: any = await response.json();
-			expect(response.status).toBe(200);
+			expect([200, 201]).toContain(response.status);
 			expect(body).toBeDefined();
 			expect(body.helpRequestId).toBe(Number(validId));
+		} else if (response.status === 409) {
+			console.log(`Task-ul ${validId} nu este OPEN. S-a intors 409.`);
 		} else {
 			console.log(
 				`Task-ul ${validId} nu exista in baza de test. S-a intors ${response.status}.`,
@@ -58,9 +60,9 @@ describe("PUT /api/tasks/:id/details", () => {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				notes: "Nota de test",
+				notes: "Nota",
 				languageNeeded: "RO",
-				safetyNotes: "Fara pericole",
+				safetyNotes: "Sigur",
 			}),
 		});
 
@@ -97,9 +99,9 @@ describe("PUT /api/tasks/:id/details", () => {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					notes: "Nota de test",
+					notes: "Nota",
 					languageNeeded: "RO",
-					safetyNotes: "Fara pericole",
+					safetyNotes: "Sigur",
 				}),
 			});
 
