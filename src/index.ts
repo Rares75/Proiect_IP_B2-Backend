@@ -3,15 +3,17 @@ import app from "./app";
 import { parseEnv } from "./env";
 import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
-import { join, parse } from "node:path";
+import { join } from "node:path";
 import { logger } from "./utils/logger";
 import * as Sentry from "@sentry/bun";
 
-Sentry.init({
-	dsn: Bun.env.SENTRY_URL,
-	// Send structured logs to Sentry
-	enableLogs: true,
-});
+if (Bun.env.NODE_ENV === "production") {
+	Sentry.init({
+		dsn: Bun.env.SENTRY_URL,
+		// Send structured logs to Sentry
+		enableLogs: true,
+	});
+}
 
 await loadDiModules(
 	join(import.meta.dir, "db", "repositories"),
