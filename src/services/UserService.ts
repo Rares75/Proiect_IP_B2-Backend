@@ -12,6 +12,16 @@ export class UserService {
 	constructor(
 		@inject(UserRepository) private readonly userRepository: UserRepository,
 	) {}
+
+	// /**
+	//  * @param userId id of the user
+	//  * @returns success
+	//  */
+	// async makeAnonymus(userId: string) {
+	// 	const updatedUser = await this.userRepository.update(userId, {
+	// 		isAnonymus: true,
+	// 	});
+	// }
 	/**
 	 * Creates a new user after checking for duplicate email.
 	 */
