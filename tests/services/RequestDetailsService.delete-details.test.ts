@@ -25,23 +25,11 @@ describe("RequestDetailsService.deleteHelpRequestDetails", () => {
 			deleteByHelpRequestId: async () => false,
 		};
 
-		requestDetailsService = new RequestDetailsService();
-		(
-			requestDetailsService as RequestDetailsService & {
-				getHelpRequestRepository: () => Promise<typeof helpRequestRepository>;
-				getRequestDetailsRepository: () => Promise<
-					typeof requestDetailsRepository
-				>;
-			}
-		).getHelpRequestRepository = async () => helpRequestRepository;
-		(
-			requestDetailsService as RequestDetailsService & {
-				getHelpRequestRepository: () => Promise<typeof helpRequestRepository>;
-				getRequestDetailsRepository: () => Promise<
-					typeof requestDetailsRepository
-				>;
-			}
-		).getRequestDetailsRepository = async () => requestDetailsRepository;
+		//requestDetailsService = new RequestDetailsService();
+		requestDetailsService = new RequestDetailsService(
+			helpRequestRepository as any,
+			requestDetailsRepository as any,
+		);
 	});
 
 	test("returns 404 when task does not exist", async () => {

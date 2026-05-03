@@ -12,15 +12,37 @@ import { username } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { container } from "./di";
 import { ProfileRepository } from "./db/repositories/profile.repository";
+import { ProfileService } from "./services/ProfileService";
+import { twoFactor } from "better-auth/plugins";
+import { changeEmailTemplate } from "./mailers/templates/changeEmail";
 
 const profileRepository = container.get<ProfileRepository>(ProfileRepository);
 const auth = betterAuth({
+	appName: "My App",
+	baseURL: process.env.BETTER_AUTH_URL,
 	user: {
-		deleteUser: {
+		changeEmail: {
 			enabled: true,
 		},
+		deleteUser: {
+			enabled: true,
+			afterDelete: async (ctx) => {
+				const profileService = container.get<ProfileService>(ProfileService);
+				const result = await profileService.deleteProfile(ctx.id);
+				if (!result) {
+					logger.error(`Failed to delete profile for user ${ctx.id}`);
+				} else {
+					logger.info(`Deleted profile for user ${ctx.id}`);
+				}
+			},
+		},
+		additionalFields: {
+			isAnonymus: {
+				type: "boolean",
+				defaultValue: false,
+			},
+		},
 	},
-	baseURL: Bun.env.BETTER_AUTH_URL,
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	logger: {
 		disableColors: false,
@@ -40,8 +62,10 @@ const auth = betterAuth({
 
 	emailAndPassword: {
 		enabled: true,
+		requireEmailVerification: true,
 	},
 
+	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
 	advanced: {
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
@@ -65,7 +89,7 @@ const auth = betterAuth({
 	rateLimit: {
 		enabled: true,
 		window: 60 * 1000,
-		max: 100,
+		max: 1000,
 	},
 
 	emailVerification: {
@@ -87,15 +111,32 @@ const auth = betterAuth({
 			const newUser = ctx.context.newSession?.user;
 			if (!newUser) return;
 
-			await profileRepository.create({ userId: newUser.id });
+			const result = await profileRepository.create({ userId: newUser.id });
+			logger.info(JSON.stringify(result));
 		}),
 	},
 
 	plugins: [
+		twoFactor({
+			issuer: "My App",
+			otpOptions: {
+				async sendOTP({ user, otp }) {
+					const mailer = getMailer();
+					await mailer.send({
+						to: user.email,
+						subject: "2 Factor Authentification Code",
+						html: signInTemplate(otp, 10),
+					});
+				},
+			},
+		}),
 		username(),
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			changeEmail: {
+				enabled: true,
+			},
 			async sendVerificationOTP({ email, otp, type }) {
 				const mailer = getMailer();
 				try {
@@ -111,11 +152,17 @@ const auth = betterAuth({
 							subject: "Cod autentificare",
 							html: signInTemplate(otp, 10),
 						});
-					} else {
+					} else if (type === "forget-password") {
 						await mailer.send({
 							to: email,
 							subject: "Resetare parolă",
 							html: resetPasswordTemplate(otp, 10),
+						});
+					} else if (type === "change-email") {
+						await mailer.send({
+							to: email,
+							subject: "Confirmare schimbare email",
+							html: changeEmailTemplate(otp, 10),
 						});
 					}
 				} catch (error) {
