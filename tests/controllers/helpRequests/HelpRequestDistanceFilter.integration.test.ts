@@ -8,7 +8,7 @@ import {
 	it,
 	spyOn,
 } from "bun:test";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { inArray } from "drizzle-orm";
 import { join } from "node:path";
 import app from "../../../src/app";
@@ -160,5 +160,49 @@ describe("GET /api/tasks distance filter integration", () => {
 			data: [],
 			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
 		});
+	});
+
+	it("keeps sortBy priority when distance filter is active", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const highUrgencyCloserId = await createTaskWithLocation(
+			"High urgency closer task",
+			{
+				x: 27.58,
+				y: 47.15,
+			},
+		);
+		await db
+			.update(helpRequests)
+			.set({ urgency: "HIGH" })
+			.where(eq(helpRequests.id, highUrgencyCloserId));
+
+		const lowUrgencyFartherId = await createTaskWithLocation(
+			"Low urgency farther task",
+			{
+				x: 27.62,
+				y: 47.2,
+			},
+		);
+		await db
+			.update(helpRequests)
+			.set({ urgency: "LOW" })
+			.where(eq(helpRequests.id, lowUrgencyFartherId));
+
+		const response = await app.request(
+			"/api/tasks?lat=47.15&lng=27.58&radius=10&sortBy=urgency&order=ASC",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.data.map((task: any) => task.id)).toEqual([
+			lowUrgencyFartherId,
+			highUrgencyCloserId,
+		]);
 	});
 });
