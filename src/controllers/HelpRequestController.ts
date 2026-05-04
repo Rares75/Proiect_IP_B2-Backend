@@ -97,7 +97,7 @@ const requireSession = async (c: any) => {
 		return existingSession;
 	}
 
-	const response = await authMiddlware(c, async () => { });
+	const response = await authMiddlware(c, async () => {});
 	if (response) {
 		return response;
 	}
@@ -130,12 +130,18 @@ const sanitizeAnonymousTask = (
 	return safeTask;
 };
 
+enum OfferStatus {
+	PENDING = "PENDING",
+	ACCEPTED = "ACCEPTED",
+	REJECTED = "REJECTED",
+}
+
 @Controller("/tasks")
 export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) { }
+	) {}
 
 	controller = new Hono<AppEnv>()
 		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
@@ -181,9 +187,9 @@ export class HelpRequestController {
 					const safeBody = removeClientOwnerFields(body);
 					const createData = session
 						? {
-							...safeBody,
-							requestedByUserId: session.userId,
-						}
+								...safeBody,
+								requestedByUserId: session.userId,
+							}
 						: safeBody;
 					const result = await this.helpRequestService.createHelpRequest(
 						createData as CreateHelpRequestDTO,
@@ -486,8 +492,8 @@ export class HelpRequestController {
 
 					const assignment = session
 						? await this.helpRequestService.getAssignmentAuthorization(
-							requestId,
-						)
+								requestId,
+							)
 						: undefined;
 					const isOwner =
 						"requestedByUserId" in task &&
@@ -537,11 +543,13 @@ export class HelpRequestController {
 			},
 		)
 
-		.get("/:id/offers",
+		.get(
+			"/:id/offers",
 			authMiddleware,
 			describeRoute({
 				summary: "Get offers for a specific task",
-				description: "Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
+				description:
+					"Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
 				tags: ["Tasks"],
 				responses: {
 					200: {
@@ -551,7 +559,8 @@ export class HelpRequestController {
 						},
 					},
 					400: {
-						description: "Invalid task ID, pagination parameters, or status filter",
+						description:
+							"Invalid task ID, pagination parameters, or status filter",
 						content: {
 							"application/json": { schema: resolver(emptyApiResponseSchema) },
 						},
@@ -592,7 +601,10 @@ export class HelpRequestController {
 
 					const taskId = Number(c.req.param("id"));
 					if (!Number.isInteger(taskId) || taskId <= 0) {
-						return sendApiResponse(c, null, { kind: "clientError" });
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Provide a real number",
+						});
 					}
 
 					// Extragem și validăm query params cu defaults
@@ -611,14 +623,18 @@ export class HelpRequestController {
 					}
 
 					const statusRaw = query.status;
-					if (
-						statusRaw &&
-						!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED",
-						});
+
+					if (statusRaw) {
+						const isValidStatus = Object.values(OfferStatus).includes(
+							statusRaw as OfferStatus,
+						);
+
+						if (!isValidStatus) {
+							return sendApiResponse(c, null, {
+								kind: "clientError",
+								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
+							});
+						}
 					}
 
 					const status = statusRaw as
@@ -651,5 +667,6 @@ export class HelpRequestController {
 
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
-			});
+			},
+		);
 }

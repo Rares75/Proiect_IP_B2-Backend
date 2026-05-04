@@ -79,7 +79,7 @@ describe("GET /tasks/:id/offers endpoint", () => {
 		const body = (await response.json()) as ApiResponseType<null>;
 		expect(body.isClientError).toBe(true);
 		expect(body.statusCode).toBe(400);
-		expect(body.message).toBe("Invalid request");
+		expect(body.message).toBe("Provide a real number");
 		expect(getPaginatedOffersForTaskOwner).not.toHaveBeenCalled();
 	});
 
@@ -182,5 +182,72 @@ describe("GET /tasks/:id/offers endpoint", () => {
 		expect(body.statusCode).toBe(200);
 		expect(body.message).toBe("Request completed successfully");
 		expect(body.data).toEqual(mockServiceResult);
+	});
+
+	test("returnează 400 dacă page este 0", async () => {
+		const response = await app.request(
+			"http://localhost/tasks/1/offers?page=0",
+			{
+				method: "GET",
+				headers: { Authorization: "Bearer valid-token" },
+			},
+		);
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as ApiResponseType<null>;
+		expect(body.isClientError).toBe(true);
+		expect(getPaginatedOffersForTaskOwner).not.toHaveBeenCalled();
+	});
+
+	test("returnează 400 dacă pageSize este 0", async () => {
+		const response = await app.request(
+			"http://localhost/tasks/1/offers?pageSize=0",
+			{
+				method: "GET",
+				headers: { Authorization: "Bearer valid-token" },
+			},
+		);
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as ApiResponseType<null>;
+		expect(body.isClientError).toBe(true);
+		expect(getPaginatedOffersForTaskOwner).not.toHaveBeenCalled();
+	});
+
+	test("returnează 400 dacă pageSize este negativ", async () => {
+		const response = await app.request(
+			"http://localhost/tasks/1/offers?pageSize=-5",
+			{
+				method: "GET",
+				headers: { Authorization: "Bearer valid-token" },
+			},
+		);
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as ApiResponseType<null>;
+		expect(body.isClientError).toBe(true);
+		expect(getPaginatedOffersForTaskOwner).not.toHaveBeenCalled();
+	});
+
+	test("returnează 200 și array gol pentru o pagină foarte mare (fără rezultate)", async () => {
+		const emptyResult = {
+			data: [],
+			meta: { page: 999999, pageSize: 10, total: 5, totalPages: 1 },
+		};
+
+		getPaginatedOffersForTaskOwner.mockResolvedValueOnce(emptyResult);
+
+		const response = await app.request(
+			"http://localhost/tasks/1/offers?page=999999",
+			{
+				method: "GET",
+				headers: { Authorization: "Bearer valid-token" },
+			},
+		);
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as ApiResponseType<typeof emptyResult>;
+		expect(body.data?.data).toEqual([]);
+		expect(getPaginatedOffersForTaskOwner).toHaveBeenCalled();
 	});
 });
