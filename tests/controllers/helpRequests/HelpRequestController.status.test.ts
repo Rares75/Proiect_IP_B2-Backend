@@ -9,6 +9,7 @@ import {
 } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import {
 	expectClientErrorApiResponse,
 	expectNotFoundApiResponse,
@@ -126,7 +127,10 @@ describe("PATCH /tasks/:id/status", () => {
 			detailsRepo as any,
 			moderationService as any,
 		);
-		const controller = new HelpRequestController(service as any);
+		const controller = new HelpRequestController(
+			service as any,
+			HelpOfferService.prototype as any,
+		);
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);

@@ -13,6 +13,7 @@ import { join } from "node:path";
 import "../../../src/app";
 import auth from "../../../src/auth";
 import { Controller } from "../../../src/di/decorators/controller";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import { expectApiEnvelope } from "../apiResponseAssertions";
 
 const loadControllers = async (dir: string) => {
@@ -62,9 +63,12 @@ describe("POST /tasks validation", () => {
 			...(body as Record<string, unknown>),
 		}));
 
-		const controller = new HelpRequestController({
-			createHelpRequest,
-		} as any);
+		const controller = new HelpRequestController(
+			{
+				createHelpRequest,
+			} as any,
+			HelpOfferService.prototype as any,
+		);
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);

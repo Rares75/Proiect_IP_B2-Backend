@@ -18,6 +18,14 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { RadiusRequiredError } from "../services/helpRequestDistance";
+import {
+	HelpOfferDuplicatePendingError,
+	HelpOfferForbiddenError,
+	HelpOfferService,
+	HelpOfferTaskNotFoundError,
+	HelpOfferTaskStatusConflictError,
+} from "../services/HelpOfferService";
+import { helpOfferCreateInputSchema } from "../validation";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -130,6 +138,8 @@ export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
+		@inject(HelpOfferService)
+		private readonly helpOfferService: HelpOfferService,
 	) {}
 
 	controller = new Hono<AppEnv>()
@@ -528,6 +538,129 @@ export class HelpRequestController {
 					}
 
 					throw error;
+				}
+			},
+		)
+
+		// Offer-specific endpoint kept here temporarily by team decision.
+		// Constraints enforced for POST /tasks/:id/offers:
+		// - authenticated session required
+		// - task id must be a positive integer
+		// - request body must match helpOfferCreateInputSchema
+		// - service layer verifies OPEN task status, volunteer ownership rules,
+		//   and duplicate pending offers
+		.post(
+			"/:id/offers",
+			describeRoute({
+				summary: "Create a task offer",
+				description:
+					"Creates a volunteer offer for a task. This endpoint is currently kept in HelpRequestController for routing consistency.",
+				tags: ["Tasks"],
+				responses: {
+					201: {
+						description: "The offer was successfully created",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					400: {
+						description: "Invalid task id or invalid request body",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden. The session user cannot submit this offer",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					409: {
+						description: "Task status conflict or duplicate pending offer",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				const session = await requireSession(c);
+				if (session instanceof Response) {
+					return session;
+				}
+
+				const helpRequestId = Number(c.req.param("id"));
+				if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid id",
+					});
+				}
+
+				const body = await c.req.json().catch(() => null);
+				const parsedBody = helpOfferCreateInputSchema.safeParse(body);
+				if (!parsedBody.success) {
+					return sendApiResponse(
+						c,
+						{
+							errors: parsedBody.error.issues.map((issue) => ({
+								field: issue.path.length === 0 ? "body" : issue.path.join("."),
+								message: issue.message,
+							})),
+						},
+						{
+							statusCode: 400,
+						},
+					);
+				}
+
+				try {
+					const createdOffer = await this.helpOfferService.createOffer(
+						helpRequestId,
+						session.userId,
+						parsedBody.data,
+					);
+
+					return sendApiResponse(c, createdOffer, { kind: "created" });
+				} catch (error) {
+					if (error instanceof HelpOfferTaskNotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					if (error instanceof HelpOfferForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					if (
+						error instanceof HelpOfferTaskStatusConflictError ||
+						error instanceof HelpOfferDuplicatePendingError
+					) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					console.error("Could not create help offer:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		);

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { Hono } from "hono";
 import auth from "../../../src/auth";
-import { HelpOfferController } from "../../../src/controllers/HelpOfferController";
+import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
 import {
 	HelpOfferDuplicatePendingError,
 	HelpOfferForbiddenError,
@@ -21,7 +21,8 @@ describe("POST /api/tasks/:id/offers", () => {
 	let app: Hono;
 
 	beforeEach(() => {
-		const controller = new HelpOfferController(
+		const controller = new HelpRequestController(
+			{} as any,
 			HelpOfferService.prototype as any,
 		);
 		app = new Hono().basePath("/api");
