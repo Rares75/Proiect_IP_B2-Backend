@@ -21,11 +21,11 @@
 		"dev": "bun run --hot src/index.ts",
 		"fmt": "bunx @biomejs/biome check . --write",
 		"lint": "bunx @biomejs/biome lint .",
-		"test": "bun test",
+		"test": "docker compose -f docker-compose.test.yaml up -d --wait && bun --no-env-file --env-file=.env.test run db:migrate && bun --no-env-file --env-file=.env.test test && docker compose -f docker-compose.test.yaml down -v --remove-orphans || (docker compose -f docker-compose.test.yaml down -v --remove-orphans && exit 1)",
 		"build": "bun run ./build.ts"
 	},
 	"dependencies": {
-		"@aws-sdk/client-s3": "^3.1033.0",
+		"@aws-sdk/client-s3": "^3.1041.0",
 		"@better-auth/drizzle-adapter": "^1.6.5",
 		"@hono/standard-validator": "^0.2.2",
 		"@scalar/hono-api-reference": "^0.10.10",

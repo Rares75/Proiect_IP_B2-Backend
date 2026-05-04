@@ -99,6 +99,19 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const helpOfferRepo = {
+	findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
+	create: async (data: any) => data,
+};
+
+const volunteerRepo = {
+	findByUserId: async () => undefined,
+};
+
+const moderationService = {
+	scanContent: () => ({ level: "CLEAN" }),
+};
+
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
 	let authSpy: ReturnType<typeof spyOn> | undefined;

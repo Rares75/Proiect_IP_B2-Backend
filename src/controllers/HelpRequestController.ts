@@ -5,17 +5,24 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
+
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
-import { authMiddlware } from "../middlware/authMiddleware";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
+import {
+	InvalidStatusTransitionError,
+	NotFoundError,
+	ForbiddenError,
+} from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { RadiusRequiredError } from "../services/helpRequestDistance";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -123,6 +130,12 @@ const sanitizeAnonymousTask = (
 	return safeTask;
 };
 
+enum OfferStatus {
+	PENDING = "PENDING",
+	ACCEPTED = "ACCEPTED",
+	REJECTED = "REJECTED",
+}
+
 @Controller("/tasks")
 export class HelpRequestController {
 	constructor(
@@ -202,6 +215,7 @@ export class HelpRequestController {
 
 		.get(
 			"/",
+			queryValidationMiddleware,
 			describeRoute({
 				summary: "Get paginated tasks",
 				description:
@@ -246,7 +260,11 @@ export class HelpRequestController {
 					}
 
 					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const validation = validateTasksQuery(c.req.query());
+					const repeatedSkills = c.req.queries("skill");
+					const validation = validateTasksQuery({
+						...c.req.query(),
+						...(repeatedSkills ? { skill: repeatedSkills } : {}),
+					});
 
 					//Daca validatorul gaseste o problema
 					if (validation.error || !validation.validData) {
@@ -265,10 +283,21 @@ export class HelpRequestController {
 						sortBy,
 						order,
 						filters,
+						c.get("user")?.id,
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
 				} catch (error) {
+					if (
+						error instanceof RadiusRequiredError ||
+						(error instanceof Error && error.message === "Radius is required")
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: error.message,
+						});
+					}
+
 					console.error("Eroare la GET /tasks paginat si sortat:", error);
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
@@ -510,6 +539,133 @@ export class HelpRequestController {
 					}
 
 					throw error;
+				}
+			},
+		)
+
+		.get(
+			"/:id/offers",
+			authMiddleware,
+			describeRoute({
+				summary: "Get offers for a specific task",
+				description:
+					"Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved offers",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					400: {
+						description:
+							"Invalid task ID, pagination parameters, or status filter",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the owner of this task",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					// Extragem user-ul curent pus de middleware-ul de auth
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					const taskId = Number(c.req.param("id"));
+					if (!Number.isInteger(taskId) || taskId <= 0) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Provide a real number",
+						});
+					}
+
+					// Extragem și validăm query params cu defaults
+					const query = c.req.query();
+					const page = query.page ? Number(query.page) : 1;
+					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+					if (
+						!Number.isInteger(page) ||
+						page < 1 ||
+						!Number.isInteger(pageSize) ||
+						pageSize < 1 ||
+						pageSize > 50
+					) {
+						return sendApiResponse(c, null, { kind: "clientError" });
+					}
+
+					const statusRaw = query.status;
+
+					if (statusRaw) {
+						const isValidStatus = Object.values(OfferStatus).includes(
+							statusRaw as OfferStatus,
+						);
+
+						if (!isValidStatus) {
+							return sendApiResponse(c, null, {
+								kind: "clientError",
+								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
+							});
+						}
+					}
+
+					const status = statusRaw as
+						| "PENDING"
+						| "ACCEPTED"
+						| "REJECTED"
+						| undefined;
+
+					const result =
+						await this.helpRequestService.getPaginatedOffersForTaskOwner(
+							taskId,
+							session.userId,
+							page,
+							pageSize,
+							status,
+						);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: "the task does not exist",
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, { kind: "forbidden" });
+					}
+
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		);

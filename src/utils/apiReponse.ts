@@ -26,6 +26,7 @@ export type ApiResponseType<T> = {
 	notFound: boolean;
 	isUnauthorized: boolean;
 	isServerError: boolean;
+	isForbidden: boolean;
 	isClientError: boolean;
 	app: {
 		url: string;
@@ -40,8 +41,8 @@ const statusCodeByKind = {
 	notFound: 404,
 	unauthorized: 401,
 	clientError: 400,
-	serverError: 500,
 	forbidden: 403,
+	serverError: 500,
 } as const satisfies Record<ApiResponseKind, ApiResponseStatusCode>;
 
 const messageByKind = {
@@ -51,8 +52,8 @@ const messageByKind = {
 	notFound: "Resource not found",
 	unauthorized: "Unauthorized",
 	clientError: "Invalid request",
-	serverError: "Internal server error",
 	forbidden: "Forbidden",
+	serverError: "Internal server error",
 } as const satisfies Record<ApiResponseKind, string>;
 
 const inferKind = <T>(
@@ -71,6 +72,9 @@ const inferKind = <T>(
 	}
 	if (options.statusCode === 404) {
 		return "notFound";
+	}
+	if (options.statusCode === 403) {
+		return "forbidden";
 	}
 	if (options.statusCode && options.statusCode >= 500) {
 		return "serverError";
@@ -97,6 +101,7 @@ export const createApiResponse = <T>(
 		message: options.message ?? messageByKind[kind],
 		notFound: kind === "notFound",
 		isUnauthorized: kind === "unauthorized",
+		isForbidden: kind === "forbidden",
 		isServerError: kind === "serverError",
 		isClientError: kind === "clientError",
 		app: {

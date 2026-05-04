@@ -10,15 +10,14 @@ import {
 	ValidationError,
 } from "../utils/Errors";
 import { OfferService } from "../services/OfferService";
+import { sendApiResponse } from "../utils/apiReponse";
 
 const parsePositiveId = (value: string): number | undefined => {
 	const id = Number(value);
 	return Number.isInteger(id) && id > 0 ? id : undefined;
 };
 
-const readOfferMessage = async (
-	request: Request,
-): Promise<string | null> => {
+const readOfferMessage = async (request: Request): Promise<string | null> => {
 	try {
 		const body = (await request.json()) as { message?: unknown };
 		if (body.message === undefined || body.message === null) {
@@ -51,7 +50,10 @@ export class OfferController {
 		.post("/tasks/:id/offers", async (c) => {
 			const helpRequestId = parsePositiveId(c.req.param("id"));
 			if (!helpRequestId) {
-				return c.json({ message: "'id' must be a positive integer" }, 400);
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "'id' must be a positive integer",
+				});
 			}
 
 			try {
@@ -63,14 +65,20 @@ export class OfferController {
 					{ message },
 				);
 
-				return c.json(offer, 201);
+				return sendApiResponse(c, offer, { kind: "created" });
 			} catch (error) {
 				if (error instanceof NotFoundError) {
-					return c.json({ message: error.message }, 404);
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: error.message,
+					});
 				}
 
 				if (error instanceof ValidationError) {
-					return c.json({ message: error.message }, 400);
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: error.message,
+					});
 				}
 
 				throw error;
@@ -79,7 +87,10 @@ export class OfferController {
 		.patch("/offers/:id/status", async (c) => {
 			const offerId = parsePositiveId(c.req.param("id"));
 			if (!offerId) {
-				return c.json({ message: "'id' must be a positive integer" }, 400);
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "'id' must be a positive integer",
+				});
 			}
 
 			const queryStatus = c.req.query("status");
@@ -96,7 +107,10 @@ export class OfferController {
 
 			const status = queryStatus ?? bodyStatus;
 			if (status !== "ACCEPTED") {
-				return c.json({ message: "'status' must be ACCEPTED" }, 400);
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "'status' must be ACCEPTED",
+				});
 			}
 
 			try {
@@ -106,21 +120,30 @@ export class OfferController {
 					session.userId,
 				);
 
-				return c.json(result, 200);
+				return sendApiResponse(c, result);
 			} catch (error) {
 				if (error instanceof NotFoundError) {
-					return c.json({ message: error.message }, 404);
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: error.message,
+					});
 				}
 
 				if (error instanceof ForbiddenError) {
-					return c.json({ message: error.message }, 403);
+					return sendApiResponse(c, null, {
+						kind: "forbidden",
+						message: error.message,
+					});
 				}
 
 				if (
 					error instanceof ValidationError ||
 					error instanceof InvalidStatusTransitionError
 				) {
-					return c.json({ message: error.message }, 400);
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: error.message,
+					});
 				}
 
 				throw error;

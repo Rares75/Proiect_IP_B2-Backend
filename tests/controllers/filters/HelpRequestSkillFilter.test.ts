@@ -22,6 +22,9 @@ type SeedTask = {
 	createdAt: string;
 	urgency: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 	skillsNeeded: string[] | null;
+	city?: string | null;
+	addressText?: string | null;
+	location?: { x: number; y: number } | null;
 	requestDetails: {
 		languageNeeded: string | null;
 	} | null;
@@ -37,6 +40,9 @@ const seedTasks: SeedTask[] = [
 		createdAt: "2025-01-05T10:00:00.000Z",
 		urgency: "HIGH",
 		skillsNeeded: ["sofer", "traducator"],
+		city: "Bucharest",
+		addressText: "Str. Victoriei 1",
+		location: { x: 44.4268, y: 26.1025 },
 		requestDetails: { languageNeeded: "RO" },
 	},
 	{
@@ -46,6 +52,9 @@ const seedTasks: SeedTask[] = [
 		createdAt: "2025-01-04T10:00:00.000Z",
 		urgency: "MEDIUM",
 		skillsNeeded: ["sofer"],
+		city: "Cluj-Napoca",
+		addressText: "Str. Memorandumului 10",
+		location: { x: 46.7712, y: 23.6236 },
 		requestDetails: { languageNeeded: "RO" },
 	},
 	{
@@ -55,6 +64,9 @@ const seedTasks: SeedTask[] = [
 		createdAt: "2025-01-03T10:00:00.000Z",
 		urgency: "LOW",
 		skillsNeeded: null,
+		city: null,
+		addressText: null,
+		location: null,
 		requestDetails: null,
 	},
 	{
@@ -64,6 +76,9 @@ const seedTasks: SeedTask[] = [
 		createdAt: "2025-01-02T10:00:00.000Z",
 		urgency: "LOW",
 		skillsNeeded: [],
+		city: null,
+		addressText: null,
+		location: null,
 		requestDetails: { languageNeeded: null },
 	},
 	{
@@ -73,6 +88,9 @@ const seedTasks: SeedTask[] = [
 		createdAt: "2025-01-01T10:00:00.000Z",
 		urgency: "LOW",
 		skillsNeeded: ["mecanic"],
+		city: "Iasi",
+		addressText: "Bd. Independentei 5",
+		location: { x: 47.1585, y: 27.6014 },
 		requestDetails: { languageNeeded: "RO" },
 	},
 ];
@@ -216,10 +234,16 @@ describe("GET /api/tasks - filtrare si sortare dupa skill", () => {
 		console.log(body);
 		expect(body.data.data).toHaveLength(5);
 		expect(body.data.data[0].id).toBe(1);
+		expect(body.data.data[0].city).toBe("Bucharest");
+		expect(body.data.data[0].addressText).toBe("Str. Victoriei 1");
+		expect(body.data.data[0].location).toEqual({ x: 44.4268, y: 26.1025 });
 		expect(body.data.data[1].id).toBe(2);
+		expect(body.data.data[1].city).toBe("Cluj-Napoca");
 		expect(body.data.data[2].skillsNeeded).toBeNull();
+		expect(body.data.data[2].city).toBeNull();
 		expect(body.data.data[3].skillsNeeded).toEqual([]);
 		expect(body.data.data[4].skillsNeeded).toEqual(["mecanic"]);
+		expect(body.data.data[4].location).toEqual({ x: 47.1585, y: 27.6014 });
 		expect(body.data.meta.total).toBe(5);
 		expect(body.statusCode).toBe(200);
 		expect(body.isClientError).toBe(false);
@@ -241,6 +265,7 @@ describe("GET /api/tasks - filtrare si sortare dupa skill", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.data.data[0].id).toBe(1);
+		expect(body.data.data[0].city).toBe("Bucharest");
 		expect(body.data.data[1].id).toBe(2);
 		expect(body.data.data[2].id).toBe(3);
 		expect(body.data.meta.total).toBe(5);
