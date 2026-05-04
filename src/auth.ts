@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
 import { emailOTP, openAPI, phoneNumber } from "better-auth/plugins";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -64,7 +64,6 @@ const auth = betterAuth({
 
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: true,
 	},
 
 	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
