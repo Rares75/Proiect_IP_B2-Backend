@@ -1,4 +1,4 @@
-import { APIError, betterAuth } from "better-auth";
+import { betterAuth } from "better-auth";
 import { emailOTP, openAPI, phoneNumber } from "better-auth/plugins";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
