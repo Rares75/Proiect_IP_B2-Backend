@@ -53,9 +53,16 @@ describe("GET /api/tasks language filter", () => {
 			expect(body.data.meta.total).toBe(0);
 
 			// language este normalizat la lowercase de validator
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				language: "zz",
-			});
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					language: "zz",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -125,9 +132,16 @@ describe("GET /api/tasks language filter", () => {
 			expect(body.data.data).toHaveLength(3);
 			expect(body.data.data[0].requestDetails).toBeNull();
 
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				language: "ro",
-			});
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					language: "ro",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -155,9 +169,16 @@ describe("GET /api/tasks language filter", () => {
 			expect(response.status).toBe(200);
 			expectSuccessApiResponse(body, mockResponse, 200);
 
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				language: "ro",
-			});
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					language: "ro",
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -195,9 +216,16 @@ describe("GET /api/tasks skill filter", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				skills: ["sofer"],
-			});
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					skills: ["sofer"],
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -222,9 +250,16 @@ describe("GET /api/tasks skill filter", () => {
 			);
 
 			expect(response.status).toBe(200);
-			expect(serviceSpy).toHaveBeenCalledWith(1, 10, "createdAt", "DESC", {
-				skills: ["sofer", "traducator"],
-			});
+			expect(serviceSpy).toHaveBeenCalledWith(
+				1,
+				10,
+				"createdAt",
+				"DESC",
+				{
+					skills: ["sofer", "traducator"],
+				},
+				"user-123",
+			);
 		} finally {
 			serviceSpy.mockRestore();
 		}

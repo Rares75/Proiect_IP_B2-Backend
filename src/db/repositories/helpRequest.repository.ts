@@ -19,6 +19,9 @@ import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
 	calculateSkillMachScore,
+	buildDistanceFilter,
+	buildDistanceLocationPresenceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
 	buildCityFilter,
@@ -205,15 +208,26 @@ export class HelpRequestRepository
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceLocationPresenceFilter = filters
+			? buildDistanceLocationPresenceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 
 		//skills
 		const requestedSkills = filters?.skills;
 		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
-			Boolean,
-		);
+		const whereClause = [
+			statusFilter,
+			languageFilter,
+			cityFilter,
+			distanceLocationPresenceFilter,
+			distanceFilter,
+		].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
@@ -223,8 +237,9 @@ export class HelpRequestRepository
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 
 		//basic sorting by urgency level
-		const orderBy =
-			sortBy === "urgency"
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 

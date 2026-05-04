@@ -17,6 +17,7 @@ import {
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { RadiusRequiredError } from "../services/helpRequestDistance";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -271,10 +272,21 @@ export class HelpRequestController {
 						sortBy,
 						order,
 						filters,
+						c.get("user")?.id,
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
 				} catch (error) {
+					if (
+						error instanceof RadiusRequiredError ||
+						(error instanceof Error && error.message === "Radius is required")
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: error.message,
+						});
+					}
+
 					console.error("Eroare la GET /tasks paginat si sortat:", error);
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
