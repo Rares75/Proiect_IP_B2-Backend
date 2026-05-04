@@ -18,7 +18,7 @@ export const envSchema = z.object({
 	R2_DOMAIN: z.string(),
 	R2_BUCKET_NAME: z.string(),
 	R2_BUCKET: z.string(),
-	SENTRY_URL: z.string(),
+	SENTRY_DSN: z.string(),
 });
 
 export function parseEnv() {

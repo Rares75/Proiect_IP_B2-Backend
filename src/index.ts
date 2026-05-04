@@ -8,7 +8,7 @@ import { logger } from "./utils/logger";
 import * as Sentry from "@sentry/bun";
 
 Sentry.init({
-	dsn: Bun.env.SENTRY_URL,
+	dsn: Bun.env.SENTRY_DSN,
 	environment: Bun.env.NODE_ENV,
 	// Send structured logs to Sentry
 	enableLogs: true,
