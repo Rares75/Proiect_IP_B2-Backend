@@ -97,7 +97,7 @@ const requireSession = async (c: any) => {
 		return existingSession;
 	}
 
-	const response = await authMiddlware(c, async () => {});
+	const response = await authMiddlware(c, async () => { });
 	if (response) {
 		return response;
 	}
@@ -135,7 +135,7 @@ export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) {}
+	) { }
 
 	controller = new Hono<AppEnv>()
 		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
@@ -181,9 +181,9 @@ export class HelpRequestController {
 					const safeBody = removeClientOwnerFields(body);
 					const createData = session
 						? {
-								...safeBody,
-								requestedByUserId: session.userId,
-							}
+							...safeBody,
+							requestedByUserId: session.userId,
+						}
 						: safeBody;
 					const result = await this.helpRequestService.createHelpRequest(
 						createData as CreateHelpRequestDTO,
@@ -486,8 +486,8 @@ export class HelpRequestController {
 
 					const assignment = session
 						? await this.helpRequestService.getAssignmentAuthorization(
-								requestId,
-							)
+							requestId,
+						)
 						: undefined;
 					const isOwner =
 						"requestedByUserId" in task &&
@@ -537,74 +537,119 @@ export class HelpRequestController {
 			},
 		)
 
-		.get("/:id/offers", authMiddleware, async (c) => {
-			try {
-				// Extragem user-ul curent pus de middleware-ul de auth
-				const session = c.get("session");
-				if (!session?.userId) {
-					return sendApiResponse(c, null, { kind: "unauthorized" });
+		.get("/:id/offers",
+			authMiddleware,
+			describeRoute({
+				summary: "Get offers for a specific task",
+				description: "Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved offers",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					400: {
+						description: "Invalid task ID, pagination parameters, or status filter",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the owner of this task",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					// Extragem user-ul curent pus de middleware-ul de auth
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					const taskId = Number(c.req.param("id"));
+					if (!Number.isInteger(taskId) || taskId <= 0) {
+						return sendApiResponse(c, null, { kind: "clientError" });
+					}
+
+					// Extragem și validăm query params cu defaults
+					const query = c.req.query();
+					const page = query.page ? Number(query.page) : 1;
+					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+					if (
+						!Number.isInteger(page) ||
+						page < 1 ||
+						!Number.isInteger(pageSize) ||
+						pageSize < 1 ||
+						pageSize > 50
+					) {
+						return sendApiResponse(c, null, { kind: "clientError" });
+					}
+
+					const statusRaw = query.status;
+					if (
+						statusRaw &&
+						!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED",
+						});
+					}
+
+					const status = statusRaw as
+						| "PENDING"
+						| "ACCEPTED"
+						| "REJECTED"
+						| undefined;
+
+					const result =
+						await this.helpRequestService.getPaginatedOffersForTaskOwner(
+							taskId,
+							session.userId,
+							page,
+							pageSize,
+							status,
+						);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: "the task does not exist",
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, { kind: "forbidden" });
+					}
+
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
-
-				const taskId = Number(c.req.param("id"));
-				if (!Number.isInteger(taskId) || taskId <= 0) {
-					return sendApiResponse(c, null, { kind: "clientError" });
-				}
-
-				// Extragem și validăm query params cu defaults
-				const query = c.req.query();
-				const page = query.page ? Number(query.page) : 1;
-				const pageSize = query.pageSize ? Number(query.pageSize) : 10;
-
-				if (
-					!Number.isInteger(page) ||
-					page < 1 ||
-					!Number.isInteger(pageSize) ||
-					pageSize < 1 ||
-					pageSize > 50
-				) {
-					return sendApiResponse(c, null, { kind: "clientError" });
-				}
-
-				const statusRaw = query.status;
-				if (
-					statusRaw &&
-					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
-				) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: "invalid status; accepted: PENDING, ACCEPTED, REJECTED",
-					});
-				}
-
-				const status = statusRaw as
-					| "PENDING"
-					| "ACCEPTED"
-					| "REJECTED"
-					| undefined;
-
-				const result =
-					await this.helpRequestService.getPaginatedOffersForTaskOwner(
-						taskId,
-						session.userId,
-						page,
-						pageSize,
-						status,
-					);
-
-				return sendApiResponse(c, result);
-			} catch (error) {
-				if (error instanceof NotFoundError) {
-					return sendApiResponse(c, null, {
-						kind: "notFound",
-						message: "the task does not exist",
-					});
-				}
-
-				if (error instanceof ForbiddenError) {
-					return sendApiResponse(c, null, { kind: "forbidden" });
-				}
-
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		});
+			});
 }
