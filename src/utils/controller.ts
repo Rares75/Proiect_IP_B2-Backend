@@ -23,7 +23,10 @@ function resolveControllersDir(dir: string) {
 	if (existsSync(dir)) return dir;
 
 	const fallback = join(process.cwd(), "src", "controllers");
-	if (dir.includes(`${join("tests", "src", "controllers")}`) && existsSync(fallback)) {
+	if (
+		dir.includes(`${join("tests", "src", "controllers")}`) &&
+		existsSync(fallback)
+	) {
 		return fallback;
 	}
 

@@ -273,34 +273,34 @@ describe("queryValidationMiddleware", () => {
 		expect(await response.json()).toEqual({
 			data: {
 				errors: [
-				{
-					field: "title",
-					message: "Title is required",
-				},
-				{
-					field: "description",
-					message: "Description is required",
-				},
-				{
-					field: "urgency",
-					message: "Urgency is required",
-				},
-				{
-					field: "status",
-					message: "Status is required",
-				},
-				{
-					field: "anonymousMode",
-					message: "Anonymous mode is required",
-				},
-				{
-					field: "category",
-					message: "Category is required",
-				},
-				{
-					field: "location",
-					message: "Invalid input: expected object, received undefined",
-				},
+					{
+						field: "title",
+						message: "Title is required",
+					},
+					{
+						field: "description",
+						message: "Description is required",
+					},
+					{
+						field: "urgency",
+						message: "Urgency is required",
+					},
+					{
+						field: "status",
+						message: "Status is required",
+					},
+					{
+						field: "anonymousMode",
+						message: "Anonymous mode is required",
+					},
+					{
+						field: "category",
+						message: "Category is required",
+					},
+					{
+						field: "location",
+						message: "Invalid input: expected object, received undefined",
+					},
 				],
 			},
 			message: "Invalid request",
