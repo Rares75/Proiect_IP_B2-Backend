@@ -64,7 +64,6 @@ const auth = betterAuth({
 
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: true,
 	},
 
 	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
@@ -124,6 +123,10 @@ const auth = betterAuth({
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			sendVerificationOnSignUp: true,
+			storeOTP: "hashed",
+			otpLength: 6,
+			allowedAttempts: 3,
 			changeEmail: {
 				enabled: true,
 			},
