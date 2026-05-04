@@ -21,6 +21,7 @@ import {
 	calculateSkillMachScore,
 	buildLanguageFilter,
 	buildStatusFilter,
+	buildCityFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -202,13 +203,17 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
 
 		//skills
 		const requestedSkills = filters?.skills;
 		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
+			Boolean,
+		);
 
 		//if there are active filters, combine them
 		const composedWhere =
@@ -255,13 +260,15 @@ export class HelpRequestRepository
 		}
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
-		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
-			...helpRequest,
-			requestDetails,
-							city: requestLocation?.city ?? null,
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
 				addressText: requestLocation?.addressText ?? null,
 				location: requestLocation?.location ?? null,
-		}));
+			}),
+		);
 
 		const countQuery = db
 			.select({ value: drizzleCount() })
@@ -269,6 +276,10 @@ export class HelpRequestRepository
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere);
 

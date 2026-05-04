@@ -1,19 +1,5 @@
-import { beforeEach, describe, expect, test, mock } from "bun:test";
-
-// Variabila mutabila — o schimbam per test
-let mockGetSession: any = async () => ({
-	user: { id: "user-1", email: "test@test.com" },
-	session: { userId: "user-1", id: "session-1" },
-});
-
-// Mock auth INAINTE de orice alt import care il foloseste
-mock.module("../../src/auth", () => ({
-	default: {
-		api: {
-			getSession: (...args: any[]) => mockGetSession(...args),
-		},
-	},
-}));
+import { afterEach, beforeEach, describe, expect, test, spyOn } from "bun:test";
+import auth from "../../src/auth";
 
 import { ProfileController } from "../../src/controllers/ProfileController";
 import { NotFoundError } from "../../src/utils/Errors";
@@ -26,11 +12,17 @@ const makeApp = (mockService: any) => {
 describe("ProfileController", () => {
 	let app: any;
 	let mockService: any;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
+	});
 
 	beforeEach(() => {
-		mockGetSession = async () => ({
-			user: { id: "user-1", email: "test@test.com" },
-			session: { userId: "user-1", id: "session-1" },
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-1", email: "test@test.com" } as any,
+			session: { userId: "user-1", id: "session-1" } as any,
 		});
 
 		mockService = {
@@ -128,7 +120,8 @@ describe("ProfileController", () => {
 		});
 
 		test("should return 401 when session is missing", async () => {
-			mockGetSession = async () => null;
+			authSpy?.mockRestore();
+			authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
 
 			const res = await app.request("/", {
 				method: "POST",
@@ -200,7 +193,8 @@ describe("ProfileController", () => {
 		});
 
 		test("should return 401 when session is missing", async () => {
-			mockGetSession = async () => null;
+			authSpy?.mockRestore();
+			authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
 
 			const res = await app.request("/me", {
 				method: "PUT",
@@ -256,7 +250,8 @@ describe("ProfileController", () => {
 		});
 
 		test("should return 401 when session is missing", async () => {
-			mockGetSession = async () => null;
+			authSpy?.mockRestore();
+			authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
 
 			const res = await app.request("/me", { method: "DELETE" });
 

@@ -12,6 +12,7 @@ import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
@@ -202,6 +203,7 @@ export class HelpRequestController {
 
 		.get(
 			"/",
+			queryValidationMiddleware,
 			describeRoute({
 				summary: "Get paginated tasks",
 				description:
@@ -246,10 +248,11 @@ export class HelpRequestController {
 					}
 
 					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const validation = validateTasksQuery(
-						c.req.query(),
-						c.req.queries("skill"),
-					);
+					const repeatedSkills = c.req.queries("skill");
+					const validation = validateTasksQuery({
+						...c.req.query(),
+						...(repeatedSkills ? { skill: repeatedSkills } : {}),
+					});
 
 					//Daca validatorul gaseste o problema
 					if (validation.error || !validation.validData) {
