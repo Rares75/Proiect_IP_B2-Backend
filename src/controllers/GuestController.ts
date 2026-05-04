@@ -50,7 +50,7 @@ export class GuestController {
 		.post("/session", (c) => {
 			const sessionId = this.guestSessionService.createSessionId();
 
-			return c.json({ sessionId }, 201);
+			return sendApiResponse(c, { sessionId }, { kind: "created" });
 		})
 		.post(
 			"/tasks",
@@ -93,7 +93,7 @@ export class GuestController {
 					return sendApiResponse(c, null, {
 						kind: "clientError",
 						message:
-							"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.",
+							"Format invalid pentru X-Guest-Session. Trebuie sÄƒ fie UUID.",
 					});
 				}
 
@@ -115,7 +115,7 @@ export class GuestController {
 					if (error.name === "RateLimitError") {
 						return sendApiResponse(c, null, {
 							statusCode: 429,
-							message: "Limita atinsă. Poți avea maxim 3 task-uri active.",
+							message: "Limita atinsÄƒ. PoÈ›i avea maxim 3 task-uri active.",
 						});
 					}
 

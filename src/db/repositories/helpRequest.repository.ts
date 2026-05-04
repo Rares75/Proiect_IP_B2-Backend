@@ -308,12 +308,16 @@ export class HelpRequestRepository
 		rows: Array<{
 			helpRequest: HelpRequest;
 			requestDetails: typeof requestDetails.$inferSelect | null;
+			requestLocation: typeof requestLocations.$inferSelect | null;
 		}>,
 		requestedSkills: string[] | undefined,
 	) {
-		return rows.map(({ helpRequest, requestDetails }) => ({
+		return rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
 			...helpRequest,
 			requestDetails,
+			city: requestLocation?.city ?? null,
+			addressText: requestLocation?.addressText ?? null,
+			location: requestLocation?.location ?? null,
 			skillScore: calculateSkillMachScore(
 				requestedSkills,
 				helpRequest?.skillsNeeded,

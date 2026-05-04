@@ -9,6 +9,7 @@ import {
 } from "bun:test";
 import { Hono } from "hono";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import {
 	expectClientErrorApiResponse,
 	expectNotFoundApiResponse,
@@ -99,6 +100,19 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const helpOfferRepo = {
+	findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
+	create: async (data: any) => data,
+};
+
+const volunteerRepo = {
+	findByUserId: async () => undefined,
+};
+
+const moderationService = {
+	scanContent: () => ({ level: "CLEAN" }),
+};
+
 describe("PATCH /tasks/:id/status", () => {
 	let app: Hono;
 	let authSpy: ReturnType<typeof spyOn> | undefined;
@@ -126,7 +140,10 @@ describe("PATCH /tasks/:id/status", () => {
 			detailsRepo as any,
 			moderationService as any,
 		);
-		const controller = new HelpRequestController(service as any);
+		const controller = new HelpRequestController(
+			service as any,
+			HelpOfferService.prototype as any,
+		);
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);

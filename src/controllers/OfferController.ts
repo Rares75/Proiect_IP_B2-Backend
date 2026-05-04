@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
 import { authMiddleware } from "../middlware/authMiddleware";
+import { describeRoute } from "hono-openapi";
 import { Controller } from "../utils/controller";
 import {
 	ForbiddenError,
@@ -10,33 +11,11 @@ import {
 	ValidationError,
 } from "../utils/Errors";
 import { OfferService } from "../services/OfferService";
+import { sendApiResponse } from "../utils/apiReponse";
 
 const parsePositiveId = (value: string): number | undefined => {
 	const id = Number(value);
 	return Number.isInteger(id) && id > 0 ? id : undefined;
-};
-
-const readOfferMessage = async (
-	request: Request,
-): Promise<string | null> => {
-	try {
-		const body = (await request.json()) as { message?: unknown };
-		if (body.message === undefined || body.message === null) {
-			return null;
-		}
-
-		if (typeof body.message !== "string") {
-			throw new ValidationError("'message' must be a string");
-		}
-
-		return body.message;
-	} catch (error) {
-		if (error instanceof ValidationError) {
-			throw error;
-		}
-
-		return null;
-	}
 };
 
 @Controller("/")
@@ -47,82 +26,87 @@ export class OfferController {
 	) {}
 
 	controller = new Hono<AppEnv>()
-		.post("/tasks/:id/offers", authMiddleware, async (c) => {
-			const helpRequestId = parsePositiveId(c.req.param("id"));
-			if (!helpRequestId) {
-				return c.json({ message: "'id' must be a positive integer" }, 400);
-			}
-
-			try {
-				const message = await readOfferMessage(c.req.raw);
-				const session = c.get("session");
-				const offer = await this.offerService.createOfferForTask(
-					helpRequestId,
-					session.userId,
-					{ message },
-				);
-
-				return c.json(offer, 201);
-			} catch (error) {
-				if (error instanceof NotFoundError) {
-					return c.json({ message: error.message }, 404);
+		.patch(
+			"/offers/:id/status",
+			authMiddleware,
+			describeRoute({
+				summary: "Accept offer status",
+				description:
+					"Updates an offer status to ACCEPTED for the authenticated task owner.",
+				tags: ["Offers"],
+				responses: {
+					200: { description: "Offer accepted successfully" },
+					400: { description: "Invalid id or invalid status value" },
+					401: { description: "Unauthorized" },
+					403: { description: "Forbidden" },
+					404: { description: "Offer not found" },
+					409: { description: "Invalid status transition" },
+				},
+			}),
+			async (c) => {
+				const offerId = parsePositiveId(c.req.param("id"));
+				if (!offerId) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "'id' must be a positive integer",
+					});
 				}
 
-				if (error instanceof ValidationError) {
-					return c.json({ message: error.message }, 400);
+				const queryStatus = c.req.query("status");
+				let bodyStatus: unknown;
+
+				if (!queryStatus) {
+					try {
+						const body = (await c.req.json()) as { status?: unknown };
+						bodyStatus = body.status;
+					} catch {
+						bodyStatus = undefined;
+					}
 				}
 
-				throw error;
-			}
-		})
-		.patch("/offers/:id/status", authMiddleware, async (c) => {
-			const offerId = parsePositiveId(c.req.param("id"));
-			if (!offerId) {
-				return c.json({ message: "'id' must be a positive integer" }, 400);
-			}
+				const status = queryStatus ?? bodyStatus;
+				if (status !== "ACCEPTED") {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "'status' must be ACCEPTED",
+					});
+				}
 
-			const queryStatus = c.req.query("status");
-			let bodyStatus: unknown;
-
-			if (!queryStatus) {
 				try {
-					const body = (await c.req.json()) as { status?: unknown };
-					bodyStatus = body.status;
-				} catch {
-					bodyStatus = undefined;
+					const session = c.get("session");
+					const result = await this.offerService.acceptOffer(
+						offerId,
+						session.userId,
+					);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							kind: "forbidden",
+							message: error.message,
+						});
+					}
+
+					if (
+						error instanceof ValidationError ||
+						error instanceof InvalidStatusTransitionError
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: error.message,
+						});
+					}
+
+					throw error;
 				}
-			}
-
-			const status = queryStatus ?? bodyStatus;
-			if (status !== "ACCEPTED") {
-				return c.json({ message: "'status' must be ACCEPTED" }, 400);
-			}
-
-			try {
-				const session = c.get("session");
-				const result = await this.offerService.acceptOffer(
-					offerId,
-					session.userId,
-				);
-
-				return c.json(result, 200);
-			} catch (error) {
-				if (error instanceof NotFoundError) {
-					return c.json({ message: error.message }, 404);
-				}
-
-				if (error instanceof ForbiddenError) {
-					return c.json({ message: error.message }, 403);
-				}
-
-				if (
-					error instanceof ValidationError ||
-					error instanceof InvalidStatusTransitionError
-				) {
-					return c.json({ message: error.message }, 400);
-				}
-
-				throw error;
-			}
-		});
+			},
+		);
 }

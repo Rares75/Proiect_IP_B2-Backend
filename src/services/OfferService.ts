@@ -57,7 +57,9 @@ export class OfferService {
 			volunteer.id,
 		);
 		if (existingOffer) {
-			throw new ValidationError("Volunteer already created an offer for this task");
+			throw new ValidationError(
+				"Volunteer already created an offer for this task",
+			);
 		}
 
 		const offer = await this.offerRepo.create({
@@ -85,7 +87,10 @@ export class OfferService {
 		return offer;
 	}
 
-	async acceptOffer(offerId: number, userId: string): Promise<AcceptedOfferResult> {
+	async acceptOffer(
+		offerId: number,
+		userId: string,
+	): Promise<AcceptedOfferResult> {
 		const context = await this.offerRepo.findNotificationContextById(offerId);
 
 		if (!context) {
@@ -97,7 +102,9 @@ export class OfferService {
 		}
 
 		if (!context.requestedByUserId) {
-			throw new ValidationError("Offer cannot be accepted without a task owner");
+			throw new ValidationError(
+				"Offer cannot be accepted without a task owner",
+			);
 		}
 
 		if (context.requestedByUserId !== userId) {

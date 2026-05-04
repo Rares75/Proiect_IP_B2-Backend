@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import auth from "../../../src/auth";
 import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import {
 	expectApiEnvelope,
 	expectClientErrorApiResponse,
@@ -16,6 +17,7 @@ describe("GET /api/tasks distance filter", () => {
 	beforeEach(() => {
 		const controller = new HelpRequestController(
 			HelpRequestService.prototype as any,
+			HelpOfferService.prototype as any,
 		);
 
 		app = new Hono().basePath("/api");

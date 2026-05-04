@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { Hono } from "hono";
 import auth from "../../src/auth";
+import { HelpOfferService } from "../../src/services/HelpOfferService";
 
 // 1. Mock the Controller decorator
 const Controller = () => (_target: unknown) => {};
@@ -30,9 +31,12 @@ describe("GET /tasks validation - City Filter", () => {
 			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
 		}));
 
-		const controller = new HelpRequestController({
-			getPaginatedTasks,
-		} as any);
+		const controller = new HelpRequestController(
+			{
+				getPaginatedTasks,
+			} as any,
+			HelpOfferService.prototype as any,
+		);
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);

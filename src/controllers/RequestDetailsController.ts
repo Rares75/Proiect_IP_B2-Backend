@@ -299,10 +299,10 @@ export class RequestDetailsController {
 						statusCode: "status" in result ? result.status : 200,
 					});
 				} catch (_error) {
-					return c.json(
-						{ error: "Could not update help request details" },
-						500,
-					);
+					return sendApiResponse(c, null, {
+						kind: "serverError",
+						message: "Could not update help request details",
+					});
 				}
 			},
 		)
