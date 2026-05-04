@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
+	helpRequestCategoryEnum,
 	requestStatusEnum,
 	urgencyLevelEnum,
-	helpRequestCategoryEnum,
 } from "../../db/enums";
 
 const baseHelpRequestInputSchema = z
@@ -38,16 +38,10 @@ const baseHelpRequestInputSchema = z
 
 		city: z.string().max(100).optional(),
 		addressText: z.string().optional(),
-
-		// MODIFICARE 1: Categoria este acum obligatorie si de tip enum
 		category: z.enum(helpRequestCategoryEnum.enumValues, {
 			error: "Category is required",
 		}),
-
-		// MODIFICARE 2: skillsNeeded adăugat ca array de string-uri validate
 		skillsNeeded: z.array(z.string().trim().min(1)).optional(),
-
-		// MODIFICARE 3: Am sters .optional() de la location. Acum e OBLIGATORIU!
 		location: z
 			.object({
 				x: z.number(),
@@ -83,3 +77,17 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 		message: "You must provide either a description or an audioUrl",
 		path: ["description"],
 	});
+
+export const guestTasksQuerySchema = z.object({
+	page: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 1))
+		.pipe(z.number().int().min(1)),
+	pageSize: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 10))
+		.pipe(z.number().int().min(1).max(50)),
+	status: z.enum(requestStatusEnum.enumValues).optional(),
+});

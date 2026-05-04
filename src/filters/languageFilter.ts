@@ -21,6 +21,12 @@ export const parseLanguageFilter = (language?: string) => {
 			error: "Error: 'language' cannot be empty",
 		};
 	}
+
+	if (normalized.length > 50) {
+		return {
+			error: "Error: 'language' must be at most 50 characters",
+		};
+	}
 	/* Daca va trebui de flidat si formatul decomentati!
     if (!/^[a-zA-Z]{2,5}$/.test(normalized)) {
         return {
