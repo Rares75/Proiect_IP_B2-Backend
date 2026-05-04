@@ -17,10 +17,12 @@ import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
 } from "../validation";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { RadiusRequiredError } from "../services/helpRequestDistance";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -207,6 +209,7 @@ export class HelpRequestController {
 
 		.get(
 			"/",
+			queryValidationMiddleware,
 			describeRoute({
 				summary: "Get paginated tasks",
 				description:
@@ -251,7 +254,11 @@ export class HelpRequestController {
 					}
 
 					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const validation = validateTasksQuery(c.req.query());
+					const repeatedSkills = c.req.queries("skill");
+					const validation = validateTasksQuery({
+						...c.req.query(),
+						...(repeatedSkills ? { skill: repeatedSkills } : {}),
+					});
 
 					//Daca validatorul gaseste o problema
 					if (validation.error || !validation.validData) {
@@ -270,10 +277,21 @@ export class HelpRequestController {
 						sortBy,
 						order,
 						filters,
+						c.get("user")?.id,
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
 				} catch (error) {
+					if (
+						error instanceof RadiusRequiredError ||
+						(error instanceof Error && error.message === "Radius is required")
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: error.message,
+						});
+					}
+
 					console.error("Eroare la GET /tasks paginat si sortat:", error);
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });

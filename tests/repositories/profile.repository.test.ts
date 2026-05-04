@@ -1,35 +1,24 @@
-import { afterEach, describe, expect, test, mock } from "bun:test";
-
-mock.module("../../src/db", () => ({
-	db: {
-		select: () => ({}),
-		insert: () => ({}),
-		update: () => ({}),
-		delete: () => ({}),
-	},
-}));
-
+import { afterEach, describe, expect, test } from "bun:test";
+import { db } from "../../src/db";
 import { ProfileRepository } from "../../src/db/repositories/profile.repository";
 import { userProfiles } from "../../src/db/profile";
 
 describe("ProfileRepository", () => {
 	const repository = new ProfileRepository();
+	const originalSelect = (db as any).select;
+	const originalInsert = (db as any).insert;
+	const originalUpdate = (db as any).update;
+	const originalDelete = (db as any).delete;
 
-	let originalDb: any;
-
-	afterEach(async () => {
-		const { db } = await import("../../src/db");
-		if (originalDb) {
-			(db as any).select = originalDb.select;
-			(db as any).insert = originalDb.insert;
-			(db as any).update = originalDb.update;
-			(db as any).delete = originalDb.delete;
-		}
+	afterEach(() => {
+		(db as any).select = originalSelect;
+		(db as any).insert = originalInsert;
+		(db as any).update = originalUpdate;
+		(db as any).delete = originalDelete;
 	});
 
 	describe("create", () => {
 		test("should insert into userProfiles and return created profile", async () => {
-			const { db } = await import("../../src/db");
 			const input = { userId: "user-1", bio: "Hello", languages: ["ro"] };
 			const expected = { id: 1, ...input };
 			let insertedTable: unknown;
@@ -57,7 +46,6 @@ describe("ProfileRepository", () => {
 
 	describe("update", () => {
 		test("should update correct record and return updated profile", async () => {
-			const { db } = await import("../../src/db");
 			const expected = { id: 1, userId: "user-1", bio: "New bio" };
 			let updatedTable: unknown;
 
@@ -79,8 +67,6 @@ describe("ProfileRepository", () => {
 		});
 
 		test("should return undefined when record not found", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).update = () => ({
 				set: () => ({
 					where: () => ({
@@ -97,7 +83,6 @@ describe("ProfileRepository", () => {
 
 	describe("delete", () => {
 		test("should delete correct record and return true", async () => {
-			const { db } = await import("../../src/db");
 			let deletedTable: unknown;
 
 			(db as any).delete = (table: unknown) => {
@@ -116,8 +101,6 @@ describe("ProfileRepository", () => {
 		});
 
 		test("should return false when record not found", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).delete = () => ({
 				where: () => ({
 					returning: async () => [],
@@ -132,8 +115,6 @@ describe("ProfileRepository", () => {
 
 	describe("exists", () => {
 		test("should return true when profile exists", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).select = () => ({
 				from: () => ({
 					where: async () => [{ value: 1 }],
@@ -146,8 +127,6 @@ describe("ProfileRepository", () => {
 		});
 
 		test("should return false when profile does not exist", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).select = () => ({
 				from: () => ({
 					where: async () => [{ value: 0 }],
@@ -162,7 +141,6 @@ describe("ProfileRepository", () => {
 
 	describe("findById", () => {
 		test("should return profile when found", async () => {
-			const { db } = await import("../../src/db");
 			const expected = { id: 1, userId: "user-1", bio: "Hello" };
 			let fromTable: unknown;
 
@@ -182,8 +160,6 @@ describe("ProfileRepository", () => {
 		});
 
 		test("should return undefined when not found", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).select = () => ({
 				from: () => ({
 					where: async () => [],
@@ -198,7 +174,6 @@ describe("ProfileRepository", () => {
 
 	describe("findFirstBy", () => {
 		test("should return profile matching criteria", async () => {
-			const { db } = await import("../../src/db");
 			const expected = { id: 1, userId: "user-1", bio: "Hello" };
 			let fromTable: unknown;
 
@@ -220,8 +195,6 @@ describe("ProfileRepository", () => {
 		});
 
 		test("should return undefined when no match found", async () => {
-			const { db } = await import("../../src/db");
-
 			(db as any).select = () => ({
 				from: () => ({
 					where: () => ({
@@ -245,7 +218,6 @@ describe("ProfileRepository", () => {
 
 	describe("findMany", () => {
 		test("should query from userProfiles and return profiles", async () => {
-			const { db } = await import("../../src/db");
 			const expected = [{ id: 1 }, { id: 2 }];
 			let fromTable: unknown;
 
@@ -269,7 +241,6 @@ describe("ProfileRepository", () => {
 
 	describe("count", () => {
 		test("should return count from userProfiles", async () => {
-			const { db } = await import("../../src/db");
 			let fromTable: unknown;
 
 			(db as any).select = () => ({

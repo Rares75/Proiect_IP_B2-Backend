@@ -27,6 +27,7 @@ import {
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
+import { resolveTaskDistanceFilter } from "./helpRequestDistance";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -49,7 +50,7 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
-	) { }
+	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
@@ -139,10 +140,10 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-					city: location?.city ?? null,
-					addressText: location?.addressText ?? null,
-					location: location?.location ?? null,
-				}
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
+						location: location?.location ?? null,
+					}
 				: {}),
 			details: details || null,
 		};
@@ -230,13 +231,19 @@ export class HelpRequestService {
 		sortBy: "createdAt" | "urgency" = "createdAt",
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
+		userId?: string,
 	) {
+		const resolvedFilters = await resolveTaskDistanceFilter(
+			filters,
+			userId,
+			this.volunteerRepo,
+		);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
 			sortBy,
 			order,
-			filters,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);
@@ -382,12 +389,13 @@ export class HelpRequestService {
 		pageSize: number,
 		status?: (typeof requestStatusEnum.enumValues)[number],
 	) {
-		const { data, total } = await this.helpRequestRepo.findPaginatedByGuestSession(
-			sessionId,
-			page,
-			pageSize,
-			status,
-		);
+		const { data, total } =
+			await this.helpRequestRepo.findPaginatedByGuestSession(
+				sessionId,
+				page,
+				pageSize,
+				status,
+			);
 
 		const formattedData = data.map((task) => {
 			const { requestedByUserId, guestSessionId, ...rest } = task;

@@ -19,8 +19,12 @@ import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
 	calculateSkillMachScore,
+	buildDistanceFilter,
+	buildDistanceLocationPresenceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
+	buildCityFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -44,7 +48,8 @@ export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 @repository()
 export class HelpRequestRepository
 	implements
-	IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number> {
+		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
+{
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
 		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
 		return await db.transaction(async (tx) => {
@@ -201,13 +206,28 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceLocationPresenceFilter = filters
+			? buildDistanceLocationPresenceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 
 		//skills
 		const requestedSkills = filters?.skills;
 		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [
+			statusFilter,
+			languageFilter,
+			cityFilter,
+			distanceLocationPresenceFilter,
+			distanceFilter,
+		].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
@@ -217,8 +237,9 @@ export class HelpRequestRepository
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 
 		//basic sorting by urgency level
-		const orderBy =
-			sortBy === "urgency"
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
@@ -270,6 +291,10 @@ export class HelpRequestRepository
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.where(composedWhere);
 
@@ -332,20 +357,28 @@ export class HelpRequestRepository
 				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
-			.leftJoin(requestDetails, eq(requestDetails.helpRequestId, helpRequests.id))
-			.leftJoin(requestLocations, eq(requestLocations.helpRequestId, helpRequests.id))
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(where)
 			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
 			.limit(pageSize)
 			.offset(offset);
 
-		const data = rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
-			...helpRequest,
-			requestDetails,
-			city: requestLocation?.city ?? null,
-			addressText: requestLocation?.addressText ?? null,
-			location: requestLocation?.location ?? null,
-		}));
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
 
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })
