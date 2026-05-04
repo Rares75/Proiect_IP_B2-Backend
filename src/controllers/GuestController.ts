@@ -4,7 +4,10 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 //import { createValidationMiddleware } from "../validation";
-import { guestHelpRequestInputSchema } from "../validation/schemas/helpRequest.schema";
+import {
+	guestHelpRequestInputSchema,
+	guestTasksQuerySchema,
+} from "../validation/schemas/helpRequest.schema";
 import { sendApiResponse } from "../utils/apiReponse";
 import { z } from "zod";
 import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
@@ -39,7 +42,7 @@ export class GuestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
-	) {}
+	) { }
 
 	controller = new Hono().post(
 		"/",
@@ -117,5 +120,61 @@ export class GuestController {
 				return sendApiResponse(c, null, { kind: "serverError" }); // Returneaza 500
 			}
 		},
-	);
+	)
+
+		.get(
+			"/",
+			describeRoute({
+				summary: "Listează task-urile unui guest",
+				description:
+					"Returnează task-urile create cu X-Guest-Session. Nu expune informații despre voluntari sau assignment-uri.",
+				tags: ["Guest Tasks"],
+				responses: {
+					200: { description: "Listă paginată de task-uri" },
+					400: { description: "Query params invalizi sau header malformat" },
+					401: { description: "Lipsește header-ul X-Guest-Session" },
+				},
+			}),
+			zValidator("query", guestTasksQuerySchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid query param",
+					});
+				}
+			}),
+			async (c) => {
+				const guestSession = c.req.header("X-Guest-Session");
+				if (!guestSession) {
+					return sendApiResponse(c, null, {
+						kind: "unauthorized",
+						message: "No header X-Guest-Session",
+					});
+				}
+
+				const isValidUuid = z.string().uuid().safeParse(guestSession);
+				if (!isValidUuid.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid format for X-Guest-Session; must be: UUID.",
+					});
+				}
+
+				const { page, pageSize, status } = c.req.valid("query");
+
+				try {
+					const result = await this.helpRequestService.getGuestHelpRequests(
+						guestSession,
+						page,
+						pageSize,
+						status,
+					);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					console.error(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		);
 }

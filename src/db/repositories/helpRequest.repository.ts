@@ -334,4 +334,57 @@ export class HelpRequestRepository
 			);
 		return value;
 	}
+
+	// BE1-32
+	async findPaginatedByGuestSession(
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const offset = (page - 1) * pageSize;
+
+		const conditions = [
+			eq(helpRequests.guestSessionId, guestSessionId),
+			...(status ? [eq(helpRequests.status, status)] : []),
+		];
+		const where = and(...conditions);
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(where)
+			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
+
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(where);
+
+		return { data, total: value };
+	}
 }
