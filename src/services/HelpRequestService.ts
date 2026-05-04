@@ -29,6 +29,8 @@ import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
+import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
+import { RatingsRepository } from "../db/repositories/ratings.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -38,6 +40,13 @@ const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
 	MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
 	IN_PROGRESS: ["COMPLETED", "CANCELLED"],
 };
+
+export class HelpRequestOffersForbiddenError extends Error {
+	constructor() {
+		super("You don't have permission to see this task.");
+		this.name = "HelpRequestOffersForbiddenError";
+	}
+}
 
 @Service()
 export class HelpRequestService {
@@ -51,6 +60,12 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository = new HelpOfferRepository(),
+		@inject(RatingsRepository)
+		private readonly ratingsRepo: RatingsRepository = new RatingsRepository(),
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},
