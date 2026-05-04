@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { helpOffers, helpRequests, taskAssignments } from "../requests";
 import { volunteers } from "../profile";
-import type { offerStatusEnum } from "../enums";
+import type { offerStatusEnum, requestStatusEnum } from "../enums";
 import type { DatabaseClient } from "./databaseClient";
 
 export type HelpOffer = typeof helpOffers.$inferSelect;
@@ -16,6 +16,7 @@ export type OfferNotificationContext = {
 	helpRequestId: number;
 	volunteerId: number;
 	status: OfferStatus;
+	taskStatus: (typeof requestStatusEnum.enumValues)[number];
 	requestTitle: string;
 	requestedByUserId: string | null;
 	volunteerUserId: string;
@@ -64,6 +65,7 @@ export class OfferRepository {
 				helpRequestId: helpOffers.helpRequestId,
 				volunteerId: helpOffers.volunteerId,
 				status: helpOffers.status,
+				taskStatus: helpRequests.status,
 				requestTitle: helpRequests.title,
 				requestedByUserId: helpRequests.requestedByUserId,
 				volunteerUserId: volunteers.userId,
@@ -77,20 +79,58 @@ export class OfferRepository {
 		return context;
 	}
 
+	async ensureTaskOpenForOfferTransition(
+		helpRequestId: number,
+		client: DatabaseClient = db,
+		newStatus: "OPEN" | "MATCHED",
+	): Promise<boolean> {
+		const [task] = await client
+			.update(helpRequests)
+			.set({ status: newStatus })
+			.where(
+				and(
+					eq(helpRequests.id, helpRequestId),
+					eq(helpRequests.status, "OPEN"),
+				),
+			)
+			.returning({ id: helpRequests.id });
+
+		return Boolean(task);
+	}
+
+	async updatePendingOfferStatus(
+		offerId: number,
+		status: "ACCEPTED" | "REJECTED",
+		client: DatabaseClient = db,
+	): Promise<HelpOffer | undefined> {
+		const [offer] = await client
+			.update(helpOffers)
+			.set({ status })
+			.where(and(eq(helpOffers.id, offerId), eq(helpOffers.status, "PENDING")))
+			.returning();
+
+		return offer;
+	}
+
 	async acceptOffer(
 		context: AcceptableOfferNotificationContext,
 		client: DatabaseClient = db,
 	): Promise<AcceptedOfferResult> {
-		const [offer] = await client
-			.update(helpOffers)
-			.set({ status: "ACCEPTED" })
-			.where(
-				and(
-					eq(helpOffers.id, context.offerId),
-					eq(helpOffers.status, "PENDING"),
-				),
-			)
-			.returning();
+		const taskOpen = await this.ensureTaskOpenForOfferTransition(
+			context.helpRequestId,
+			client,
+			"MATCHED",
+		);
+
+		if (!taskOpen) {
+			throw new Error("Offer could not be accepted");
+		}
+
+		const offer = await this.updatePendingOfferStatus(
+			context.offerId,
+			"ACCEPTED",
+			client,
+		);
 
 		if (!offer) {
 			throw new Error("Offer could not be accepted");
@@ -110,6 +150,17 @@ export class OfferRepository {
 			.update(helpRequests)
 			.set({ status: "MATCHED" })
 			.where(eq(helpRequests.id, context.helpRequestId));
+
+		await client
+			.update(helpOffers)
+			.set({ status: "REJECTED" })
+			.where(
+				and(
+					eq(helpOffers.helpRequestId, context.helpRequestId),
+					eq(helpOffers.status, "PENDING"),
+					sql`${helpOffers.id} <> ${context.offerId}`,
+				),
+			);
 
 		return { offer, taskAssignment };
 	}

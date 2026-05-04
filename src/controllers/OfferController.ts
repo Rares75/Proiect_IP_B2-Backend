@@ -12,11 +12,18 @@ import {
 } from "../utils/Errors";
 import { OfferService } from "../services/OfferService";
 import { sendApiResponse } from "../utils/apiReponse";
+import { z } from "zod";
 
 const parsePositiveId = (value: string): number | undefined => {
 	const id = Number(value);
 	return Number.isInteger(id) && id > 0 ? id : undefined;
 };
+
+const offerStatusTransitionSchema = z
+	.object({
+		status: z.enum(["ACCEPTED", "REJECTED", "PENDING"]),
+	})
+	.strict();
 
 @Controller("/")
 export class OfferController {
@@ -51,34 +58,27 @@ export class OfferController {
 				});
 			}
 
-			const queryStatus = c.req.query("status");
-			let bodyStatus: unknown;
-
-			if (!queryStatus) {
-				try {
-					const body = (await c.req.json()) as { status?: unknown };
-					bodyStatus = body.status;
-				} catch {
-					bodyStatus = undefined;
-				}
-			}
-
-			const status = queryStatus ?? bodyStatus;
-			if (status !== "ACCEPTED") {
+			const body = await c.req.json().catch(() => null);
+			const parsedBody = offerStatusTransitionSchema.safeParse(body);
+			if (!parsedBody.success) {
 				return sendApiResponse(c, null, {
 					kind: "clientError",
-					message: "'status' must be ACCEPTED",
+					message: "Request body must contain a valid status",
 				});
 			}
 
 			try {
 				const session = c.get("session");
-				const result = await this.offerService.acceptOffer(
+				if (!session?.userId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+				const result = await this.offerService.updateOfferStatus(
 					offerId,
 					session.userId,
+					parsedBody.data.status,
 				);
 
-				return sendApiResponse(c, result);
+				return sendApiResponse(c, result, { kind: "success" });
 			} catch (error) {
 				if (error instanceof NotFoundError) {
 					return sendApiResponse(c, null, {
@@ -89,7 +89,7 @@ export class OfferController {
 
 				if (error instanceof ForbiddenError) {
 					return sendApiResponse(c, null, {
-						kind: "forbidden",
+						statusCode: 403,
 						message: error.message,
 					});
 				}
@@ -99,7 +99,7 @@ export class OfferController {
 					error instanceof InvalidStatusTransitionError
 				) {
 					return sendApiResponse(c, null, {
-						kind: "clientError",
+						statusCode: 409,
 						message: error.message,
 					});
 				}
