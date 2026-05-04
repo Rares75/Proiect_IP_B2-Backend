@@ -3,6 +3,7 @@ import { db } from "../";
 import { repository } from "../../di/decorators/repository";
 import { userAccesses, volunteers } from "../profile";
 import { notifications } from "../social";
+import type { DatabaseClient } from "./databaseClient";
 
 export type Notification = typeof notifications.$inferSelect;
 export type CreateNotificationDTO = typeof notifications.$inferInsert;
@@ -32,11 +33,26 @@ export class NotificationRepository {
 			);
 	}
 
-	async createMany(data: CreateNotificationDTO[]): Promise<Notification[]> {
+	async create(
+		data: CreateNotificationDTO,
+		client: DatabaseClient = db,
+	): Promise<Notification> {
+		const [notification] = await client
+			.insert(notifications)
+			.values(data)
+			.returning();
+
+		return notification;
+	}
+
+	async createMany(
+		data: CreateNotificationDTO[],
+		client: DatabaseClient = db,
+	): Promise<Notification[]> {
 		if (data.length === 0) {
 			return [];
 		}
 
-		return db.insert(notifications).values(data).returning();
+		return client.insert(notifications).values(data).returning();
 	}
 }

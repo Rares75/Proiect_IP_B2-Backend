@@ -59,6 +59,7 @@ export class HelpRequestService {
 		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
+		@inject(ModerationService)
 		private readonly moderationService: ModerationService = new ModerationService(),
 		@inject(VolunteerRepository)
 		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),

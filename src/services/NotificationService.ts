@@ -1,7 +1,15 @@
-import type { HelpRequest } from "../db/repositories/helpRequest.repository";
 import { NotificationRepository } from "../db/repositories/notification.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
+import {
+	notifyEligibleVolunteersForNewRequest,
+	notifyOwnerOfferReceived,
+	notifyVolunteerOfferAccepted,
+	type NewRequestNotificationContext,
+	type NotificationDbClient,
+	type OfferAcceptedNotificationContext,
+	type OfferReceivedNotificationContext,
+} from "./notifications";
 
 @Service()
 export class NotificationService {
@@ -11,22 +19,25 @@ export class NotificationService {
 	) {}
 
 	async notifyEligibleVolunteersForNewRequest(
-		helpRequest: Pick<HelpRequest, "id" | "title">,
+		helpRequest: NewRequestNotificationContext,
 	): Promise<void> {
-		const recipients =
-			await this.notificationRepo.findEligibleNewRequestRecipients();
-
-		if (recipients.length === 0) {
-			return;
-		}
-
-		await this.notificationRepo.createMany(
-			recipients.map((recipient) => ({
-				userId: recipient.userId,
-				type: "NEW_REQUEST",
-				text: `Un task nou in zona ta: ${helpRequest.title}`,
-				relatedRequestId: helpRequest.id,
-			})),
+		await notifyEligibleVolunteersForNewRequest(
+			this.notificationRepo,
+			helpRequest,
 		);
+	}
+
+	async notifyOwnerOfferReceived(
+		context: OfferReceivedNotificationContext,
+		client?: NotificationDbClient,
+	): Promise<void> {
+		await notifyOwnerOfferReceived(this.notificationRepo, context, client);
+	}
+
+	async notifyVolunteerOfferAccepted(
+		context: OfferAcceptedNotificationContext,
+		client?: NotificationDbClient,
+	): Promise<void> {
+		await notifyVolunteerOfferAccepted(this.notificationRepo, context, client);
 	}
 }

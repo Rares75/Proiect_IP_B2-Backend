@@ -14,6 +14,14 @@ export class InvalidStatusTransitionError extends Error {
 	}
 }
 
+// 403 utilizatorul autentificat nu are dreptul sa execute actiunea
+export class ForbiddenError extends Error {
+	constructor(message = "Forbidden") {
+		super(message);
+		this.name = "ForbiddenError";
+	}
+}
+
 export class ConflictError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -26,13 +34,5 @@ export class ValidationError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "ValidationError";
-	}
-}
-
-//nu are permisiunea de a vizualiza
-export class ForbiddenError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = "ForbidenError";
 	}
 }
