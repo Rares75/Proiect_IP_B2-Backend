@@ -25,6 +25,7 @@ import {
 	NotFoundError,
 } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
@@ -50,6 +51,10 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService = {
+			notifyEligibleVolunteersForNewRequest: async () => {},
+		} as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -80,10 +85,23 @@ export class HelpRequestService {
 		}
 
 		try {
-			return await this.helpRequestRepo.create({
+			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
+
+			try {
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
+					createdRequest,
+				);
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify eligible volunteers for new help request:",
+					notificationError,
+				);
+			}
+
+			return createdRequest;
 		} catch (error) {
 			console.error("--- RAW DB ERROR ---", error);
 			logger.exception(error);
