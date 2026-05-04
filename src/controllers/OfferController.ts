@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
-import { authMiddlware } from "../middlware/authMiddleware";
+import { authMiddleware } from "../middlware/authMiddleware";
+import { describeRoute } from "hono-openapi";
 import { Controller } from "../utils/controller";
 import {
 	ForbiddenError,
@@ -17,27 +18,6 @@ const parsePositiveId = (value: string): number | undefined => {
 	return Number.isInteger(id) && id > 0 ? id : undefined;
 };
 
-const readOfferMessage = async (request: Request): Promise<string | null> => {
-	try {
-		const body = (await request.json()) as { message?: unknown };
-		if (body.message === undefined || body.message === null) {
-			return null;
-		}
-
-		if (typeof body.message !== "string") {
-			throw new ValidationError("'message' must be a string");
-		}
-
-		return body.message;
-	} catch (error) {
-		if (error instanceof ValidationError) {
-			throw error;
-		}
-
-		return null;
-	}
-};
-
 @Controller("/")
 export class OfferController {
 	constructor(
@@ -45,46 +25,24 @@ export class OfferController {
 		private readonly offerService: OfferService,
 	) {}
 
-	controller = new Hono<AppEnv>()
-		.use("*", authMiddlware)
-		.post("/tasks/:id/offers", async (c) => {
-			const helpRequestId = parsePositiveId(c.req.param("id"));
-			if (!helpRequestId) {
-				return sendApiResponse(c, null, {
-					kind: "clientError",
-					message: "'id' must be a positive integer",
-				});
-			}
-
-			try {
-				const message = await readOfferMessage(c.req.raw);
-				const session = c.get("session");
-				const offer = await this.offerService.createOfferForTask(
-					helpRequestId,
-					session.userId,
-					{ message },
-				);
-
-				return sendApiResponse(c, offer, { kind: "created" });
-			} catch (error) {
-				if (error instanceof NotFoundError) {
-					return sendApiResponse(c, null, {
-						kind: "notFound",
-						message: error.message,
-					});
-				}
-
-				if (error instanceof ValidationError) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: error.message,
-					});
-				}
-
-				throw error;
-			}
-		})
-		.patch("/offers/:id/status", async (c) => {
+	controller = new Hono<AppEnv>().patch(
+		"/offers/:id/status",
+		authMiddleware,
+		describeRoute({
+			summary: "Accept offer status",
+			description:
+				"Updates an offer status to ACCEPTED for the authenticated task owner.",
+			tags: ["Offers"],
+			responses: {
+				200: { description: "Offer accepted successfully" },
+				400: { description: "Invalid id or invalid status value" },
+				401: { description: "Unauthorized" },
+				403: { description: "Forbidden" },
+				404: { description: "Offer not found" },
+				409: { description: "Invalid status transition" },
+			},
+		}),
+		async (c) => {
 			const offerId = parsePositiveId(c.req.param("id"));
 			if (!offerId) {
 				return sendApiResponse(c, null, {
@@ -148,5 +106,6 @@ export class OfferController {
 
 				throw error;
 			}
-		});
+		},
+	);
 }

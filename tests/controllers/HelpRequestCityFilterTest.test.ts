@@ -1,5 +1,14 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
+import auth from "../../src/auth";
 import { HelpOfferService } from "../../src/services/HelpOfferService";
 
 // 1. Mock the Controller decorator
@@ -8,13 +17,7 @@ mock.module("../../src/utils/controller", () => ({
 	Controller,
 }));
 
-// 2. Mock the Auth Middleware so it doesn't block the test requests with 401s
-mock.module("../../src/middlware/authMiddleware", () => ({
-	authMiddleware: async (_c: unknown, next: () => Promise<void>) =>
-		await next(),
-}));
-
-// 3. Dynamically import the controller AFTER the mocks are set
+// 2. Dynamically import the controller AFTER the decorator mock is set
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
 );
@@ -22,8 +25,14 @@ const { HelpRequestController } = await import(
 describe("GET /tasks validation - City Filter", () => {
 	let app: Hono;
 	let getPaginatedTasks: ReturnType<typeof mock>;
+	let authSpy: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "test-user", email: "test@example.com" } as any,
+			session: { id: "test-session" } as any,
+		});
+
 		// Mock the exact method used by the GET endpoint
 		getPaginatedTasks = mock(async () => ({
 			data: [],
@@ -41,6 +50,10 @@ describe("GET /tasks validation - City Filter", () => {
 		app.route("/tasks", controller.controller);
 	});
 
+	afterEach(() => {
+		authSpy.mockRestore();
+	});
+
 	test("returns 200 and filtered list for a valid city", async () => {
 		// Override mock return value specifically for this test
 		getPaginatedTasks.mockResolvedValueOnce({
@@ -55,10 +68,12 @@ describe("GET /tasks validation - City Filter", () => {
 		expect(response.status).toBe(200);
 
 		// FIX: Assert the expected type to resolve the 'unknown' error
-		const body = (await response.json()) as { data: any[] };
+		const body = (await response.json()) as {
+			data: { data: any[] };
+		};
 
-		expect(body.data).toHaveLength(1);
-		expect(body.data[0].locationCity).toBe("Tokio");
+		expect(body.data.data).toHaveLength(1);
+		expect(body.data.data[0].locationCity).toBe("Tokio");
 
 		// Verify the service was called with the 'city' property in the filters argument
 		const callArgs = getPaginatedTasks.mock.calls[0];
@@ -74,8 +89,8 @@ describe("GET /tasks validation - City Filter", () => {
 
 		expect(response.status).toBe(400);
 
-		const body = (await response.json()) as { error: string };
-		expect(body.error).toContain("city requires valid value");
+		const body = await response.json();
+		expect(JSON.stringify(body)).toContain("City must not be empty");
 		expect(getPaginatedTasks).not.toHaveBeenCalled();
 	});
 
@@ -91,8 +106,8 @@ describe("GET /tasks validation - City Filter", () => {
 
 		expect(response.status).toBe(400);
 
-		const body = (await response.json()) as { error: string };
-		expect(body.error).toContain("city requires valid value");
+		const body = await response.json();
+		expect(JSON.stringify(body)).toContain("City must not be empty");
 		expect(getPaginatedTasks).not.toHaveBeenCalled();
 	});
 
@@ -113,9 +128,11 @@ describe("GET /tasks validation - City Filter", () => {
 		expect(response.status).toBe(200);
 
 		// FIX: Assert the expected type to resolve the 'unknown' error
-		const body = (await response.json()) as { data: any[] };
+		const body = (await response.json()) as {
+			data: { data: any[] };
+		};
 
-		expect(body.data).toEqual([]); // Assert strict empty array
+		expect(body.data.data).toEqual([]); // Assert strict empty array
 		expect(getPaginatedTasks).toHaveBeenCalledTimes(1);
 	});
 

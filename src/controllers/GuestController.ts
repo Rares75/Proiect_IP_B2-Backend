@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
+import { GuestSessionService } from "../services/GuestSessionService";
 import { ModerationError } from "../services/ModerationService";
-//import { createValidationMiddleware } from "../validation";
 import {
 	guestHelpRequestInputSchema,
 	guestTasksQuerySchema,
@@ -28,7 +28,7 @@ const guestTaskSuccessSchema = z
 		example: {
 			data: {
 				id: "550e8400-e29b-41d4-a716-446655440000",
-				title: "Ajutor transport clinică",
+				title: "Ajutor transport clinica",
 				urgency: "CRITICAL",
 				status: "OPEN",
 			},
@@ -37,20 +37,27 @@ const guestTaskSuccessSchema = z
 		},
 	});
 
-@Controller("/guest/tasks")
+@Controller("/guest")
 export class GuestController {
 	constructor(
+		@inject(GuestSessionService)
+		private readonly guestSessionService: GuestSessionService,
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
 	) {}
 
 	controller = new Hono()
+		.post("/session", (c) => {
+			const sessionId = this.guestSessionService.createSessionId();
+
+			return sendApiResponse(c, { sessionId }, { kind: "created" });
+		})
 		.post(
-			"/",
+			"/tasks",
 			describeRoute({
-				summary: "Creează un help request ca guest",
+				summary: "Creeaza un help request ca guest",
 				description:
-					"Permite utilizatorilor neautentificați să creeze task-uri urgente (max 3 active).",
+					"Permite utilizatorilor neautentificati sa creeze task-uri urgente (max 3 active).",
 				tags: ["Guest Tasks"],
 				responses: {
 					201: {
@@ -59,11 +66,11 @@ export class GuestController {
 							"application/json": { schema: resolver(guestTaskSuccessSchema) },
 						},
 					},
-					400: { description: "Validare eșuată sau header malformat" },
-					401: { description: "Lipsește header-ul X-Guest-Session" },
-					429: { description: "Limita de 3 task-uri active a fost atinsă" },
+					400: { description: "Validare esuata sau header malformat" },
+					401: { description: "Lipseste header-ul X-Guest-Session" },
+					429: { description: "Limita de 3 task-uri active a fost atinsa" },
 				},
-			}), // + ADAUGĂM: Documentația pentru Scalar
+			}),
 			zValidator("json", guestHelpRequestInputSchema, (result, c) => {
 				if (!result.success) {
 					return sendApiResponse(c, null, {
@@ -72,37 +79,32 @@ export class GuestController {
 					});
 				}
 			}),
-
 			async (c) => {
-				// 1. Verificare existenta header obligatoriu
 				const guestSession = c.req.header("X-Guest-Session");
 				if (!guestSession) {
 					return sendApiResponse(c, null, {
-						kind: "unauthorized", // Returneaza 401
-						message: "Lipsește header-ul X-Guest-Session",
+						kind: "unauthorized",
+						message: "Lipseste header-ul X-Guest-Session",
 					});
 				}
 
-				// 2. Verificare format header (trebuie sa fie UUID)
-				const uuidSchema = z.string().uuid();
-				const isValidUuid = uuidSchema.safeParse(guestSession);
+				const isValidUuid = z.string().uuid().safeParse(guestSession);
 				if (!isValidUuid.success) {
 					return sendApiResponse(c, null, {
-						kind: "clientError", // Returneaza 400
+						kind: "clientError",
 						message:
-							"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.",
+							"Format invalid pentru X-Guest-Session. Trebuie sÄƒ fie UUID.",
 					});
 				}
 
 				try {
 					const body = c.req.valid("json") as any;
-					// 3. Creare task
 					const result = await this.helpRequestService.createGuestHelpRequest(
 						guestSession,
 						body,
 					);
 
-					return sendApiResponse(c, result, { kind: "created" }); // Returneaza 201
+					return sendApiResponse(c, result, { kind: "created" });
 				} catch (error: any) {
 					if (error instanceof ModerationError) {
 						return sendApiResponse(c, null, {
@@ -113,27 +115,26 @@ export class GuestController {
 					if (error.name === "RateLimitError") {
 						return sendApiResponse(c, null, {
 							statusCode: 429,
-							message: "Limita atinsă. Poți avea maxim 3 task-uri active.",
+							message: "Limita atinsÄƒ. PoÈ›i avea maxim 3 task-uri active.",
 						});
 					}
 
 					console.error(error);
-					return sendApiResponse(c, null, { kind: "serverError" }); // Returneaza 500
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
-
 		.get(
-			"/",
+			"/tasks",
 			describeRoute({
-				summary: "Listează task-urile unui guest",
+				summary: "Listeaza task-urile unui guest",
 				description:
-					"Returnează task-urile create cu X-Guest-Session. Nu expune informații despre voluntari sau assignment-uri.",
+					"Returneaza task-urile create cu X-Guest-Session. Nu expune informatii despre voluntari sau assignment-uri.",
 				tags: ["Guest Tasks"],
 				responses: {
-					200: { description: "Listă paginată de task-uri" },
+					200: { description: "Lista paginata de task-uri" },
 					400: { description: "Query params invalizi sau header malformat" },
-					401: { description: "Lipsește header-ul X-Guest-Session" },
+					401: { description: "Lipseste header-ul X-Guest-Session" },
 				},
 			}),
 			zValidator("query", guestTasksQuerySchema, (result, c) => {

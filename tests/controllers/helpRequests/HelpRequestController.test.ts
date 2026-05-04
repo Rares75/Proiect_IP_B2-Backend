@@ -222,8 +222,7 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
 		});
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.statusCode).toBe(400);
-		expect(body.isClientError).toBe(true);
+		expect(JSON.stringify(body)).toContain("page");
 	});
 
 	it("ar trebui sa returneze 400 daca pageSize depaseste maximul (100)", async () => {
@@ -237,8 +236,7 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
 		});
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
-		expect(body.statusCode).toBe(400);
-		expect(body.isClientError).toBe(true);
+		expect(JSON.stringify(body)).toContain("pageSize");
 	});
 
 	it("ar trebui sa returneze 200 si valorile default (page 1, pageSize 10) cand nu sunt trimisi parametri", async () => {

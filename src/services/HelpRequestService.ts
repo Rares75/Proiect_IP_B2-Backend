@@ -29,8 +29,6 @@ import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
-import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
-import { RatingsRepository } from "../db/repositories/ratings.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -61,12 +59,6 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService = new ModerationService(),
-		@inject(VolunteerRepository)
-		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
-		@inject(HelpOfferRepository)
-		private readonly helpOfferRepo: HelpOfferRepository = new HelpOfferRepository(),
-		@inject(RatingsRepository)
-		private readonly ratingsRepo: RatingsRepository = new RatingsRepository(),
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},

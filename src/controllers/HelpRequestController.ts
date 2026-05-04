@@ -4,14 +4,10 @@ import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
-import { offerStatusEnum, requestStatusEnum } from "../db/enums";
+import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
-import {
-	InvalidStatusTransitionError,
-	NotFoundError,
-	ForbiddenError,
-} from "../utils/Errors";
+import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
@@ -92,14 +88,12 @@ const successDetailsSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-type OfferStatus = (typeof offerStatusEnum.enumValues)[number];
 type HelpRequestResponse = Awaited<
 	ReturnType<HelpRequestService["getHelpRequestById"]>
 >;
 type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
-const VALID_OFFER_STATUSES = new Set<OfferStatus>(offerStatusEnum.enumValues);
 
 const requireSession = async (c: any) => {
 	const existingSession = c.get("session");
@@ -705,6 +699,12 @@ export class HelpRequestController {
 						description: "The offer was successfully created",
 						content: {
 							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
 						},
 					},
 					400: {
