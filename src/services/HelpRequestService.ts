@@ -38,12 +38,12 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},
 		} as NotificationService,
-		@inject(VolunteerRepository)
-		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {

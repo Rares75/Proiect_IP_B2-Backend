@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
-import { authMiddlware } from "../middlware/authMiddleware";
+import { authMiddleware } from "../middlware/authMiddleware";
 import { Controller } from "../utils/controller";
 import {
 	ForbiddenError,
@@ -47,8 +47,7 @@ export class OfferController {
 	) {}
 
 	controller = new Hono<AppEnv>()
-		.use("*", authMiddlware)
-		.post("/tasks/:id/offers", async (c) => {
+		.post("/tasks/:id/offers", authMiddleware, async (c) => {
 			const helpRequestId = parsePositiveId(c.req.param("id"));
 			if (!helpRequestId) {
 				return c.json({ message: "'id' must be a positive integer" }, 400);
@@ -76,7 +75,7 @@ export class OfferController {
 				throw error;
 			}
 		})
-		.patch("/offers/:id/status", async (c) => {
+		.patch("/offers/:id/status", authMiddleware, async (c) => {
 			const offerId = parsePositiveId(c.req.param("id"));
 			if (!offerId) {
 				return c.json({ message: "'id' must be a positive integer" }, 400);

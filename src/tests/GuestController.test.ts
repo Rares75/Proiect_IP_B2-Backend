@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 
 import app from "../app";
-import "../controllers/GuestController";
+import { loadControllers } from "../utils/controller";
 
 type GuestSessionResponse = {
 	sessionId: string;
@@ -11,6 +12,10 @@ const uuidV4Pattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 describe("GuestController", () => {
+	beforeAll(async () => {
+		await loadControllers(join(import.meta.dir, "../controllers"));
+	});
+
 	test("POST /guest/session creates a guest session id", async () => {
 		const response = await app.request("http://localhost/api/guest/session", {
 			method: "POST",

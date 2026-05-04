@@ -271,7 +271,8 @@ describe("queryValidationMiddleware", () => {
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({
-			errors: [
+			data: {
+				errors: [
 				{
 					field: "title",
 					message: "Title is required",
@@ -300,7 +301,17 @@ describe("queryValidationMiddleware", () => {
 					field: "location",
 					message: "Invalid input: expected object, received undefined",
 				},
-			],
+				],
+			},
+			message: "Invalid request",
+			notFound: false,
+			isUnauthorized: false,
+			isServerError: false,
+			isClientError: true,
+			app: {
+				url: "http://localhost:3000",
+			},
+			statusCode: 400,
 		});
 	});
 });
