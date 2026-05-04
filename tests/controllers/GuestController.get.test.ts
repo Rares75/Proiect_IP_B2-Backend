@@ -4,7 +4,6 @@ import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
-import { z } from "zod";
 
 import {
 	expectClientErrorApiResponse,

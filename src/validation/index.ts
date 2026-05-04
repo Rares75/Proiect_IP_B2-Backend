@@ -1,6 +1,7 @@
 export * from "./middleware/registerValidation";
 export * from "./middleware/queryValidationMiddleware";
 export * from "./middleware/validationMiddleware";
+export * from "./schemas/helpOffer.schema";
 export * from "./schemas/helpRequest.schema";
 export * from "./schemas/queryParams.schema";
 export * from "./schemas/requestDetails.schema";
