@@ -17,6 +17,8 @@ import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import { NotificationService } from "./NotificationService";
 import type { TaskFilterParams } from "../filters";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import { resolveTaskDistanceFilter } from "./helpRequestDistance";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -40,6 +42,8 @@ export class HelpRequestService {
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},
 		} as NotificationService,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -191,13 +195,19 @@ export class HelpRequestService {
 		sortBy: "createdAt" | "urgency" = "createdAt",
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
+		userId?: string,
 	) {
+		const resolvedFilters = await resolveTaskDistanceFilter(
+			filters,
+			userId,
+			this.volunteerRepo,
+		);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
 			sortBy,
 			order,
-			filters,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);
@@ -271,5 +281,35 @@ export class HelpRequestService {
 			logger.exception(error as Error);
 			throw new Error("Could not create guest help request");
 		}
+	}
+
+	async getGuestHelpRequests(
+		sessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const { data, total } =
+			await this.helpRequestRepo.findPaginatedByGuestSession(
+				sessionId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const formattedData = data.map((task) => {
+			const { requestedByUserId, guestSessionId, ...rest } = task;
+			return rest;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages: Math.ceil(total / pageSize),
+			},
+		};
 	}
 }

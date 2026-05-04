@@ -4,7 +4,10 @@ import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { GuestSessionService } from "../services/GuestSessionService";
 import { ModerationError } from "../services/ModerationService";
-import { guestHelpRequestInputSchema } from "../validation/schemas/helpRequest.schema";
+import {
+	guestHelpRequestInputSchema,
+	guestTasksQuerySchema,
+} from "../validation/schemas/helpRequest.schema";
 import { sendApiResponse } from "../utils/apiReponse";
 import { z } from "zod";
 import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
@@ -85,13 +88,12 @@ export class GuestController {
 					});
 				}
 
-				const uuidSchema = z.string().uuid();
-				const isValidUuid = uuidSchema.safeParse(guestSession);
+				const isValidUuid = z.string().uuid().safeParse(guestSession);
 				if (!isValidUuid.success) {
 					return sendApiResponse(c, null, {
 						kind: "clientError",
 						message:
-							"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.",
+							"Format invalid pentru X-Guest-Session. Trebuie sa fie UUID.",
 					});
 				}
 
@@ -113,10 +115,65 @@ export class GuestController {
 					if (error.name === "RateLimitError") {
 						return sendApiResponse(c, null, {
 							statusCode: 429,
-							message: "Limita atinsă. Poți avea maxim 3 task-uri active.",
+							message: "Limita atinsa. Poti avea maxim 3 task-uri active.",
 						});
 					}
 
+					console.error(error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+		.get(
+			"/",
+			describeRoute({
+				summary: "Listeaza task-urile unui guest",
+				description:
+					"Returneaza task-urile create cu X-Guest-Session. Nu expune informatii despre voluntari sau assignment-uri.",
+				tags: ["Guest Tasks"],
+				responses: {
+					200: { description: "Lista paginata de task-uri" },
+					400: { description: "Query params invalizi sau header malformat" },
+					401: { description: "Lipseste header-ul X-Guest-Session" },
+				},
+			}),
+			zValidator("query", guestTasksQuerySchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid query param",
+					});
+				}
+			}),
+			async (c) => {
+				const guestSession = c.req.header("X-Guest-Session");
+				if (!guestSession) {
+					return sendApiResponse(c, null, {
+						kind: "unauthorized",
+						message: "No header X-Guest-Session",
+					});
+				}
+
+				const isValidUuid = z.string().uuid().safeParse(guestSession);
+				if (!isValidUuid.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid format for X-Guest-Session; must be: UUID.",
+					});
+				}
+
+				const { page, pageSize, status } = c.req.valid("query");
+
+				try {
+					const result = await this.helpRequestService.getGuestHelpRequests(
+						guestSession,
+						page,
+						pageSize,
+						status,
+					);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
 					console.error(error);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}

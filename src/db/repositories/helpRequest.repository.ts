@@ -19,6 +19,9 @@ import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
 	calculateSkillMachScore,
+	buildDistanceFilter,
+	buildDistanceLocationPresenceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
 	buildCityFilter,
@@ -205,15 +208,26 @@ export class HelpRequestRepository
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceLocationPresenceFilter = filters
+			? buildDistanceLocationPresenceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
 
 		//skills
 		const requestedSkills = filters?.skills;
 		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter, cityFilter].filter(
-			Boolean,
-		);
+		const whereClause = [
+			statusFilter,
+			languageFilter,
+			cityFilter,
+			distanceLocationPresenceFilter,
+			distanceFilter,
+		].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
@@ -223,8 +237,9 @@ export class HelpRequestRepository
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
 
 		//basic sorting by urgency level
-		const orderBy =
-			sortBy === "urgency"
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
@@ -318,5 +333,58 @@ export class HelpRequestRepository
 				),
 			);
 		return value;
+	}
+
+	// BE1-32
+	async findPaginatedByGuestSession(
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const offset = (page - 1) * pageSize;
+
+		const conditions = [
+			eq(helpRequests.guestSessionId, guestSessionId),
+			...(status ? [eq(helpRequests.status, status)] : []),
+		];
+		const where = and(...conditions);
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(where)
+			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
+
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(where);
+
+		return { data, total: value };
 	}
 }
