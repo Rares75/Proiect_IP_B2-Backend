@@ -7,13 +7,12 @@ import { join } from "node:path";
 import { logger } from "./utils/logger";
 import * as Sentry from "@sentry/bun";
 
-if (Bun.env.NODE_ENV === "production") {
-	Sentry.init({
-		dsn: Bun.env.SENTRY_URL,
-		// Send structured logs to Sentry
-		enableLogs: true,
-	});
-}
+Sentry.init({
+	dsn: Bun.env.SENTRY_URL,
+	environment: Bun.env.NODE_ENV,
+	// Send structured logs to Sentry
+	enableLogs: true,
+});
 
 await loadDiModules(
 	join(import.meta.dir, "db", "repositories"),
