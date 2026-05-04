@@ -123,6 +123,10 @@ const auth = betterAuth({
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			sendVerificationOnSignUp: true,
+			storeOTP: "hashed",
+			otpLength: 6,
+			allowedAttempts: 3,
 			changeEmail: {
 				enabled: true,
 			},
