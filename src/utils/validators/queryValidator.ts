@@ -1,4 +1,5 @@
 import {
+	parseDistanceFilter,
 	parseLanguageFilter,
 	parseStatusFilter,
 	parseCityFilter,
@@ -82,6 +83,12 @@ export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
 		return { error: cityValidation.error };
 	}
 	Object.assign(filters, cityValidation.validData);
+
+	const distanceValidation = parseDistanceFilter(query);
+	if (distanceValidation.error || !distanceValidation.validData) {
+		return { error: distanceValidation.error };
+	}
+	Object.assign(filters, distanceValidation.validData);
 
 	return {
 		validData: {

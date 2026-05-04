@@ -16,6 +16,8 @@ import type { requestStatusEnum } from "../db/enums";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import type { TaskFilterParams } from "../filters";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import { resolveTaskDistanceFilter } from "./helpRequestDistance";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -35,6 +37,8 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -173,13 +177,19 @@ export class HelpRequestService {
 		sortBy: "createdAt" | "urgency" = "createdAt",
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
+		userId?: string,
 	) {
+		const resolvedFilters = await resolveTaskDistanceFilter(
+			filters,
+			userId,
+			this.volunteerRepo,
+		);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
 			sortBy,
 			order,
-			filters,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);
