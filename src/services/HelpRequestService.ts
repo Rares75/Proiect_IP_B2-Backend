@@ -18,6 +18,8 @@ import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.
 import type { TaskFilterParams } from "../filters";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
+import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
+import { RatingsRepository } from "../db/repositories/ratings.repository";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -27,6 +29,13 @@ const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
 	MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
 	IN_PROGRESS: ["COMPLETED", "CANCELLED"],
 };
+
+export class HelpRequestOffersForbiddenError extends Error {
+	constructor() {
+		super("You don't have permission to see this task.");
+		this.name = "HelpRequestOffersForbiddenError";
+	}
+}
 
 @Service()
 export class HelpRequestService {
@@ -39,6 +48,10 @@ export class HelpRequestService {
 		private readonly moderationService: ModerationService = new ModerationService(),
 		@inject(VolunteerRepository)
 		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository = new HelpOfferRepository(),
+		@inject(RatingsRepository)
+		private readonly ratingsRepo: RatingsRepository = new RatingsRepository(),
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -209,6 +222,81 @@ export class HelpRequestService {
 				pageSize: pageSize,
 				total: total,
 				totalPages: totalPages,
+			},
+		};
+	}
+
+	async getPaginatedOffersForTaskOwner(
+		taskId: number,
+		requesterUserId: string,
+		page: number,
+		pageSize: number,
+		status?: "PENDING" | "ACCEPTED" | "REJECTED",
+	) {
+		const task = await this.helpRequestRepo.findById(taskId);
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(taskId));
+		}
+
+		if (task.requestedByUserId !== requesterUserId) {
+			throw new HelpRequestOffersForbiddenError();
+		}
+
+		const { data, total } =
+			await this.helpOfferRepo.findPaginatedOffersByTaskId(
+				taskId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const volunteerUserIds = [
+			...new Set(data.map((offer) => offer.volunteerUserId)),
+		];
+		const ratingsMap: Record<string, number | null> = {};
+
+		if (volunteerUserIds.length > 0) {
+			await Promise.all(
+				volunteerUserIds.map(async (vId) => {
+					const summary = await this.ratingsRepo.getRatingsSummaryByUserId(vId);
+					ratingsMap[vId] = summary[0]?.averageRating
+						? Number(summary[0].averageRating)
+						: null;
+				}),
+			);
+		}
+
+		const formattedOffers = data.map((offer) => {
+			const volunteerInfo: any = {
+				username: offer.username,
+				trustScore: offer.trustScore,
+				averageRating: ratingsMap[offer.volunteerUserId] ?? null,
+				bio: offer.bio || null,
+			};
+
+			if (offer.hiddenIdentity === false) {
+				volunteerInfo.name = offer.name;
+			}
+
+			return {
+				id: offer.id,
+				volunteerId: offer.volunteerId,
+				message: offer.message,
+				status: offer.status,
+				createdAt: offer.createdAt,
+				volunteer: volunteerInfo,
+			};
+		});
+
+		const totalPages = Math.ceil(total / pageSize);
+
+		return {
+			data: formattedOffers,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages,
 			},
 		};
 	}

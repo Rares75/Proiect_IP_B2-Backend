@@ -4,7 +4,7 @@ import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
-import { requestStatusEnum } from "../db/enums";
+import { offerStatusEnum, requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware } from "../middlware/authMiddleware";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
@@ -18,6 +18,7 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { RadiusRequiredError } from "../services/helpRequestDistance";
+import { HelpRequestOffersForbiddenError } from "../services/HelpRequestService";
 import {
 	HelpOfferDuplicatePendingError,
 	HelpOfferForbiddenError,
@@ -87,12 +88,14 @@ const successDetailsSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
+type OfferStatus = (typeof offerStatusEnum.enumValues)[number];
 type HelpRequestResponse = Awaited<
 	ReturnType<HelpRequestService["getHelpRequestById"]>
 >;
 type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
+const VALID_OFFER_STATUSES = new Set<OfferStatus>(offerStatusEnum.enumValues);
 
 const requireSession = async (c: any) => {
 	const existingSession = c.get("session");
@@ -538,6 +541,130 @@ export class HelpRequestController {
 					}
 
 					throw error;
+				}
+			},
+		)
+
+		// Offer list endpoint kept here on purpose so task-related routes stay in one controller.
+		// Constraints enforced for GET /tasks/:id/offers:
+		// - authenticated session required
+		// - task id must be a positive integer
+		// - page/pageSize must stay within accepted bounds
+		// - status filter, when provided, must be one of the offer statuses
+		.get(
+			"/:id/offers",
+			describeRoute({
+				summary: "Get offers for a specific task",
+				description:
+					"Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved offers",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					400: {
+						description:
+							"Invalid task ID, pagination parameters, or status filter",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the owner of this task",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					const session = await requireSession(c);
+					if (session instanceof Response) {
+						return session;
+					}
+
+					const taskId = Number(c.req.param("id"));
+					if (!Number.isInteger(taskId) || taskId <= 0) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Provide a real number",
+						});
+					}
+
+					const query = c.req.query();
+					const page = query.page ? Number(query.page) : 1;
+					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+					if (
+						!Number.isInteger(page) ||
+						page < 1 ||
+						!Number.isInteger(pageSize) ||
+						pageSize < 1 ||
+						pageSize > 50
+					) {
+						return sendApiResponse(c, null, { kind: "clientError" });
+					}
+
+					const statusRaw = query.status?.toUpperCase();
+					if (
+						statusRaw &&
+						!VALID_OFFER_STATUSES.has(statusRaw as OfferStatus)
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: `invalid status; accepted: ${[...VALID_OFFER_STATUSES].join(", ")}`,
+						});
+					}
+
+					const result =
+						await this.helpRequestService.getPaginatedOffersForTaskOwner(
+							taskId,
+							session.userId,
+							page,
+							pageSize,
+							statusRaw as OfferStatus | undefined,
+						);
+
+					return sendApiResponse(c, result, { kind: "success" });
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: "the task does not exist",
+						});
+					}
+
+					if (error instanceof HelpRequestOffersForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					console.error("Could not get task offers:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
