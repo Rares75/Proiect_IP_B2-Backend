@@ -4,6 +4,11 @@ import {
 	type HelpRequest,
 	type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
+import {
+	HelpOfferRepository,
+	type HelpOffer,
+} from "../db/repositories/helpOffer.repository";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
@@ -13,10 +18,16 @@ import {
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { NotificationService } from "./NotificationService";
+import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
-import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
 import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
 import { RatingsRepository } from "../db/repositories/ratings.repository";
@@ -42,9 +53,12 @@ export class HelpRequestService {
 	constructor(
 		@inject(HelpRequestRepository)
 		private readonly helpRequestRepo: HelpRequestRepository,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
-		@inject(ModerationService)
 		private readonly moderationService: ModerationService = new ModerationService(),
 		@inject(VolunteerRepository)
 		private readonly volunteerRepo: VolunteerRepository = new VolunteerRepository(),
@@ -52,6 +66,10 @@ export class HelpRequestService {
 		private readonly helpOfferRepo: HelpOfferRepository = new HelpOfferRepository(),
 		@inject(RatingsRepository)
 		private readonly ratingsRepo: RatingsRepository = new RatingsRepository(),
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService = {
+			notifyEligibleVolunteersForNewRequest: async () => {},
+		} as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -82,10 +100,23 @@ export class HelpRequestService {
 		}
 
 		try {
-			return await this.helpRequestRepo.create({
+			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
+
+			try {
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
+					createdRequest,
+				);
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify eligible volunteers for new help request:",
+					notificationError,
+				);
+			}
+
+			return createdRequest;
 		} catch (error) {
 			console.error("--- RAW DB ERROR ---", error);
 			logger.exception(error);
@@ -183,6 +214,49 @@ export class HelpRequestService {
 		return updated;
 	}
 
+	async createOfferForTask(
+		helpRequestId: number,
+		userId: string,
+		input: HelpOfferInput,
+	): Promise<HelpOffer> {
+		const helpRequest = await this.helpRequestRepo.findById(helpRequestId);
+		if (!helpRequest) {
+			throw new NotFoundError("HelpRequest", String(helpRequestId));
+		}
+
+		if (helpRequest.status !== "OPEN") {
+			throw new ConflictError("HelpRequest is not OPEN");
+		}
+
+		const volunteer = await this.volunteerRepo.findByUserId(userId);
+		if (!volunteer) {
+			throw new ForbiddenError("Only volunteers can create offers");
+		}
+
+		if (helpRequest.requestedByUserId === userId) {
+			throw new ForbiddenError("Task owner cannot create offers");
+		}
+
+		const existingPendingOffer =
+			await this.helpOfferRepo.findPendingByHelpRequestIdAndVolunteerId(
+				helpRequestId,
+				volunteer.id,
+			);
+
+		if (existingPendingOffer) {
+			throw new ConflictError(
+				"Volunteer already has a pending offer for this task",
+			);
+		}
+
+		return this.helpOfferRepo.create({
+			helpRequestId,
+			volunteerId: volunteer.id,
+			message: input.message ?? null,
+			status: "PENDING",
+		});
+	}
+
 	//BE1-12
 	async getPaginatedTasks(
 		page: number,
@@ -233,15 +307,18 @@ export class HelpRequestService {
 		pageSize: number,
 		status?: "PENDING" | "ACCEPTED" | "REJECTED",
 	) {
+		// verif existența task-ului și ownership-ul
 		const task = await this.helpRequestRepo.findById(taskId);
 		if (!task) {
 			throw new NotFoundError("HelpRequest", String(taskId));
 		}
 
 		if (task.requestedByUserId !== requesterUserId) {
-			throw new HelpRequestOffersForbiddenError();
+			//console.log(task.requestedByUserId + " " + requesterUserId);
+			throw new ForbiddenError("You don't have permission to see this task.");
 		}
 
+		// 2. ofertele
 		const { data, total } =
 			await this.helpOfferRepo.findPaginatedOffersByTaskId(
 				taskId,
@@ -250,28 +327,14 @@ export class HelpRequestService {
 				status,
 			);
 
-		const volunteerUserIds = [
-			...new Set(data.map((offer) => offer.volunteerUserId)),
-		];
-		const ratingsMap: Record<string, number | null> = {};
-
-		if (volunteerUserIds.length > 0) {
-			await Promise.all(
-				volunteerUserIds.map(async (vId) => {
-					const summary = await this.ratingsRepo.getRatingsSummaryByUserId(vId);
-					ratingsMap[vId] = summary[0]?.averageRating
-						? Number(summary[0].averageRating)
-						: null;
-				}),
-			);
-		}
-
+		// răspunsul cerut
 		const formattedOffers = data.map((offer) => {
+			//datele vizibile garantat
 			const volunteerInfo: any = {
 				username: offer.username,
 				trustScore: offer.trustScore,
-				averageRating: ratingsMap[offer.volunteerUserId] ?? null,
-				bio: offer.bio || null,
+				averageRating:
+					offer.averageRating !== null ? Number(offer.averageRating) : null,
 			};
 
 			if (offer.hiddenIdentity === false) {
@@ -293,10 +356,10 @@ export class HelpRequestService {
 		return {
 			data: formattedOffers,
 			meta: {
-				page,
-				pageSize,
-				total,
-				totalPages,
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
 			},
 		};
 	}
@@ -351,5 +414,35 @@ export class HelpRequestService {
 			logger.exception(error as Error);
 			throw new Error("Could not create guest help request");
 		}
+	}
+
+	async getGuestHelpRequests(
+		sessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const { data, total } =
+			await this.helpRequestRepo.findPaginatedByGuestSession(
+				sessionId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const formattedData = data.map((task) => {
+			const { requestedByUserId, guestSessionId, ...rest } = task;
+			return rest;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages: Math.ceil(total / pageSize),
+			},
+		};
 	}
 }

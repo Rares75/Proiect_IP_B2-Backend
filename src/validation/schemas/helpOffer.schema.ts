@@ -1,13 +1,12 @@
 import { z } from "zod";
 
-export const helpOfferCreateInputSchema = z
+export const helpOfferInputSchema = z
 	.object({
 		message: z
 			.string()
-			.max(500, "Message must be at most 500 characters")
+			.max(599, "Message must be at most 599 characters")
 			.optional(),
 	})
 	.strict();
 
-export const HelpOfferCreateSchema = helpOfferCreateInputSchema;
-export type HelpOfferCreateInput = z.infer<typeof helpOfferCreateInputSchema>;
+export type HelpOfferInput = z.infer<typeof helpOfferInputSchema>;

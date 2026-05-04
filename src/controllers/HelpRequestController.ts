@@ -6,8 +6,12 @@ import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { offerStatusEnum, requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
-import { authMiddlware } from "../middlware/authMiddleware";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
+import {
+	InvalidStatusTransitionError,
+	NotFoundError,
+	ForbiddenError,
+} from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
@@ -135,6 +139,12 @@ const sanitizeAnonymousTask = (
 
 	return safeTask;
 };
+
+enum OfferStatus {
+	PENDING = "PENDING",
+	ACCEPTED = "ACCEPTED",
+	REJECTED = "REJECTED",
+}
 
 @Controller("/tasks")
 export class HelpRequestController {
@@ -545,14 +555,9 @@ export class HelpRequestController {
 			},
 		)
 
-		// Offer list endpoint kept here on purpose so task-related routes stay in one controller.
-		// Constraints enforced for GET /tasks/:id/offers:
-		// - authenticated session required
-		// - task id must be a positive integer
-		// - page/pageSize must stay within accepted bounds
-		// - status filter, when provided, must be one of the offer statuses
 		.get(
 			"/:id/offers",
+			authMiddleware,
 			describeRoute({
 				summary: "Get offers for a specific task",
 				description:
@@ -600,9 +605,10 @@ export class HelpRequestController {
 			}),
 			async (c) => {
 				try {
-					const session = await requireSession(c);
-					if (session instanceof Response) {
-						return session;
+					// Extragem user-ul curent pus de middleware-ul de auth
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
 					}
 
 					const taskId = Number(c.req.param("id"));
@@ -613,6 +619,7 @@ export class HelpRequestController {
 						});
 					}
 
+					// Extragem și validăm query params cu defaults
 					const query = c.req.query();
 					const page = query.page ? Number(query.page) : 1;
 					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
@@ -627,16 +634,26 @@ export class HelpRequestController {
 						return sendApiResponse(c, null, { kind: "clientError" });
 					}
 
-					const statusRaw = query.status?.toUpperCase();
-					if (
-						statusRaw &&
-						!VALID_OFFER_STATUSES.has(statusRaw as OfferStatus)
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: `invalid status; accepted: ${[...VALID_OFFER_STATUSES].join(", ")}`,
-						});
+					const statusRaw = query.status;
+
+					if (statusRaw) {
+						const isValidStatus = Object.values(OfferStatus).includes(
+							statusRaw as OfferStatus,
+						);
+
+						if (!isValidStatus) {
+							return sendApiResponse(c, null, {
+								kind: "clientError",
+								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
+							});
+						}
 					}
+
+					const status = statusRaw as
+						| "PENDING"
+						| "ACCEPTED"
+						| "REJECTED"
+						| undefined;
 
 					const result =
 						await this.helpRequestService.getPaginatedOffersForTaskOwner(
@@ -644,10 +661,10 @@ export class HelpRequestController {
 							session.userId,
 							page,
 							pageSize,
-							statusRaw as OfferStatus | undefined,
+							status,
 						);
 
-					return sendApiResponse(c, result, { kind: "success" });
+					return sendApiResponse(c, result);
 				} catch (error) {
 					if (error instanceof NotFoundError) {
 						return sendApiResponse(c, null, {

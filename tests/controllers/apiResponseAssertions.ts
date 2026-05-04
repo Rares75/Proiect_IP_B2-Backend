@@ -7,6 +7,7 @@ export const API_RESPONSE_KEYS = [
 	"isUnauthorized",
 	"isServerError",
 	"isClientError",
+	"isForbidden",
 	"app",
 	"statusCode",
 ] as const;
