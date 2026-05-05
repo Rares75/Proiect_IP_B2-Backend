@@ -25,8 +25,8 @@ describe("GuestController", () => {
 			Record<string, unknown>;
 
 		expect(response.status).toBe(201);
-		expect(Object.keys(payload)).toEqual(["sessionId"]);
-		expect(payload.sessionId).toMatch(uuidV4Pattern);
+		expect(payload.data).toHaveProperty("sessionId");
+		expect(payload.data.sessionId).toMatch(uuidV4Pattern);
 	});
 
 	test("POST /guest/session returns different ids for consecutive requests", async () => {
@@ -48,8 +48,10 @@ describe("GuestController", () => {
 
 		expect(firstResponse.status).toBe(201);
 		expect(secondResponse.status).toBe(201);
-		expect(firstPayload.sessionId).toMatch(uuidV4Pattern);
-		expect(secondPayload.sessionId).toMatch(uuidV4Pattern);
-		expect(firstPayload.sessionId).not.toBe(secondPayload.sessionId);
+		expect((firstPayload as any).data.sessionId).toMatch(uuidV4Pattern);
+		expect((secondPayload as any).data.sessionId).toMatch(uuidV4Pattern);
+		expect((firstPayload as any).data.sessionId).not.toBe(
+			(secondPayload as any).data.sessionId,
+		);
 	});
 });

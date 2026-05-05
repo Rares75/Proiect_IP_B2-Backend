@@ -1,52 +1,46 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import { Hono } from "hono";
 import { ForbiddenError, NotFoundError } from "../../src/utils/Errors";
 import type { ApiResponseType } from "../../src/utils/apiReponse";
+import auth from "../../src/auth";
 
 const Controller = () => (_target: unknown) => {};
 mock.module("../../src/utils/controller", () => ({
 	Controller,
+	loadControllers: async () => {},
 }));
-
-mock.module("../../src/middlware/authMiddleware", () => {
-	const authMiddlware = async (c: any, next: () => Promise<void>) => {
-		const authHeader = c.req.header("Authorization");
-		if (authHeader === "Bearer valid-token") {
-			c.set("session", { userId: "owner-123" });
-			await next();
-		} else {
-			return c.json(
-				{
-					data: null,
-					message: "Unauthorized",
-					notFound: false,
-					isUnauthorized: true,
-					isServerError: false,
-					isForbidden: false,
-					isClientError: false,
-					app: { url: process.env.SERVER_URL || "" },
-					statusCode: 401,
-				},
-				401,
-			);
-		}
-	};
-
-	return {
-		authMiddlware,
-		authMiddleware: authMiddlware,
-	};
-});
 
 const { HelpRequestController } = await import(
 	"../../src/controllers/HelpRequestController"
 );
 
+afterAll(() => {
+	mock.restore();
+});
+
 describe("GET /tasks/:id/offers endpoint", () => {
 	let app: Hono;
 	let getPaginatedOffersForTaskOwner: ReturnType<typeof mock>;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	const authenticate = () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "owner-123", email: "owner@example.com" } as any,
+			session: { id: "session-1", userId: "owner-123" } as any,
+		});
+	};
 
 	beforeEach(() => {
+		authSpy = undefined;
 		getPaginatedOffersForTaskOwner = mock();
 
 		const controller = new HelpRequestController({
@@ -55,6 +49,11 @@ describe("GET /tasks/:id/offers endpoint", () => {
 
 		app = new Hono();
 		app.route("/tasks", controller.controller);
+	});
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
 	});
 
 	test("returnează 401 dacă lipsește token-ul de autentificare", async () => {
@@ -70,9 +69,9 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 400 dacă ID-ul task-ului este invalid", async () => {
+		authenticate();
 		const response = await app.request("http://localhost/tasks/abc/offers", {
 			method: "GET",
-			headers: { Authorization: "Bearer valid-token" },
 		});
 
 		expect(response.status).toBe(400);
@@ -84,11 +83,11 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 400 pentru status (query param) invalid", async () => {
+		authenticate();
 		const response = await app.request(
 			"http://localhost/tasks/1/offers?status=INVALID_STATUS",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 
@@ -100,13 +99,13 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 404 dacă task-ul nu există", async () => {
+		authenticate();
 		getPaginatedOffersForTaskOwner.mockRejectedValueOnce(
 			new NotFoundError("HelpRequest", "99"),
 		);
 
 		const response = await app.request("http://localhost/tasks/99/offers", {
 			method: "GET",
-			headers: { Authorization: "Bearer valid-token" },
 		});
 
 		expect(response.status).toBe(404);
@@ -117,6 +116,7 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 403 dacă user-ul nu este owner-ul task-ului", async () => {
+		authenticate();
 		getPaginatedOffersForTaskOwner.mockRejectedValueOnce(
 			new ForbiddenError(
 				"Nu ai permisiunea de a vizualiza ofertele pentru acest task.",
@@ -125,7 +125,6 @@ describe("GET /tasks/:id/offers endpoint", () => {
 
 		const response = await app.request("http://localhost/tasks/1/offers", {
 			method: "GET",
-			headers: { Authorization: "Bearer valid-token" },
 		});
 
 		expect(response.status).toBe(403);
@@ -135,6 +134,7 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 200 și lista de oferte în interiorul lui 'data' pentru un request valid", async () => {
+		authenticate();
 		const mockServiceResult = {
 			data: [
 				{
@@ -160,7 +160,6 @@ describe("GET /tasks/:id/offers endpoint", () => {
 			"http://localhost/tasks/1/offers?status=PENDING&page=1&pageSize=10",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 
@@ -185,11 +184,11 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 400 dacă page este 0", async () => {
+		authenticate();
 		const response = await app.request(
 			"http://localhost/tasks/1/offers?page=0",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 
@@ -200,11 +199,11 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 400 dacă pageSize este 0", async () => {
+		authenticate();
 		const response = await app.request(
 			"http://localhost/tasks/1/offers?pageSize=0",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 
@@ -215,11 +214,11 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 400 dacă pageSize este negativ", async () => {
+		authenticate();
 		const response = await app.request(
 			"http://localhost/tasks/1/offers?pageSize=-5",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 
@@ -230,6 +229,7 @@ describe("GET /tasks/:id/offers endpoint", () => {
 	});
 
 	test("returnează 200 și array gol pentru o pagină foarte mare (fără rezultate)", async () => {
+		authenticate();
 		const emptyResult = {
 			data: [],
 			meta: { page: 999999, pageSize: 10, total: 5, totalPages: 1 },
@@ -241,7 +241,6 @@ describe("GET /tasks/:id/offers endpoint", () => {
 			"http://localhost/tasks/1/offers?page=999999",
 			{
 				method: "GET",
-				headers: { Authorization: "Bearer valid-token" },
 			},
 		);
 

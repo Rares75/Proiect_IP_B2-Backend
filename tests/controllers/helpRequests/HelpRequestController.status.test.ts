@@ -12,6 +12,7 @@ import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import {
 	expectClientErrorApiResponse,
+	expectForbiddenApiResponse,
 	expectNotFoundApiResponse,
 	expectSuccessApiResponse,
 } from "../apiResponseAssertions";
@@ -100,16 +101,16 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
-const helpOfferRepo = {
+const _helpOfferRepo = {
 	findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
 	create: async (data: any) => data,
 };
 
-const volunteerRepo = {
+const _volunteerRepo = {
 	findByUserId: async () => undefined,
 };
 
-const moderationService = {
+const _moderationService = {
 	scanContent: () => ({ level: "CLEAN" }),
 };
 
@@ -173,10 +174,9 @@ describe("PATCH /tasks/:id/status", () => {
 		const body = await response.json();
 
 		expect(response.status).toBe(403);
-		expectClientErrorApiResponse(
+		expectForbiddenApiResponse(
 			body,
 			"You do not have permission to change the status of this help request.",
-			403,
 		);
 
 		const unchanged = store.get(14);

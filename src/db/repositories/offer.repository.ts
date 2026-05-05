@@ -5,6 +5,7 @@ import { helpOffers, helpRequests, taskAssignments } from "../requests";
 import { volunteers } from "../profile";
 import type { offerStatusEnum, requestStatusEnum } from "../enums";
 import type { DatabaseClient } from "./databaseClient";
+import { InvalidStatusTransitionError } from "../../utils/Errors";
 
 export type HelpOffer = typeof helpOffers.$inferSelect;
 export type CreateHelpOfferDTO = typeof helpOffers.$inferInsert;
@@ -123,7 +124,7 @@ export class OfferRepository {
 		);
 
 		if (!taskOpen) {
-			throw new Error("Offer could not be accepted");
+			throw new InvalidStatusTransitionError(context.taskStatus, "ACCEPTED");
 		}
 
 		const offer = await this.updatePendingOfferStatus(
@@ -133,7 +134,7 @@ export class OfferRepository {
 		);
 
 		if (!offer) {
-			throw new Error("Offer could not be accepted");
+			throw new InvalidStatusTransitionError(context.status, "ACCEPTED");
 		}
 
 		const [taskAssignment] = await client

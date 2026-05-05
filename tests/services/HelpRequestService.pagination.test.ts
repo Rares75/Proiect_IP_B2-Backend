@@ -26,8 +26,8 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 		const service = new HelpRequestService(
 			helpRequestRepo as any,
 			{} as any,
-			{} as any,
 			volunteerRepo as any,
+			{} as any,
 		);
 
 		await service.getPaginatedTasks(
@@ -68,13 +68,13 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 				}),
 			} as any,
 			{} as any,
-			{} as any,
 			{
 				findDistancePreferencesByUserId: async () => ({
 					volunteerId: 1,
 					maxDistanceKm: null,
 				}),
 			} as any,
+			{} as any,
 		);
 
 		await expect(
@@ -103,10 +103,10 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 				}),
 			} as any,
 			{} as any,
-			{} as any,
 			{
 				findDistancePreferencesByUserId: async () => undefined,
 			} as any,
+			{} as any,
 		);
 
 		await expect(

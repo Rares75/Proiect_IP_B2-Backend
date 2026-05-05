@@ -9,8 +9,7 @@ import {
 } from "bun:test";
 import { Hono } from "hono";
 import auth from "../../../src/auth";
-import { HelpRequestOffersForbiddenError } from "../../../src/services/HelpRequestService";
-import { NotFoundError } from "../../../src/utils/Errors";
+import { ForbiddenError, NotFoundError } from "../../../src/utils/Errors";
 import {
 	expectApiEnvelope,
 	expectClientErrorApiResponse,
@@ -118,7 +117,7 @@ describe("GET /api/tasks/:id/offers", () => {
 		authenticate("random-user");
 
 		getPaginatedOffersForTaskOwner.mockRejectedValueOnce(
-			new HelpRequestOffersForbiddenError(),
+			new ForbiddenError("You don't have permission to see this task."),
 		);
 
 		const response = await app.request("http://localhost/api/tasks/1/offers", {

@@ -7,7 +7,11 @@ import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
@@ -18,7 +22,6 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { RadiusRequiredError } from "../services/helpRequestDistance";
-import { HelpRequestOffersForbiddenError } from "../services/HelpRequestService";
 import {
 	HelpOfferDuplicatePendingError,
 	HelpOfferForbiddenError,
@@ -26,7 +29,7 @@ import {
 	HelpOfferTaskNotFoundError,
 	HelpOfferTaskStatusConflictError,
 } from "../services/HelpOfferService";
-import { helpOfferCreateInputSchema } from "../validation";
+import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -667,9 +670,9 @@ export class HelpRequestController {
 						});
 					}
 
-					if (error instanceof HelpRequestOffersForbiddenError) {
+					if (error instanceof ForbiddenError) {
 						return sendApiResponse(c, null, {
-							statusCode: 403,
+							kind: "forbidden",
 							message: error.message,
 						});
 					}

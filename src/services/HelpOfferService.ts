@@ -76,7 +76,7 @@ export class HelpOfferService {
 		}
 
 		const existingPendingOffer =
-			await this.helpOfferRepo.findPendingByHelpRequestAndVolunteer(
+			await this.helpOfferRepo.findPendingByHelpRequestIdAndVolunteerId(
 				helpRequestId,
 				volunteer.id,
 			);
