@@ -13,6 +13,106 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { z } from "zod";
 import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
 
+const guestDeleteSuccessSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		statusCode: z.literal(204),
+	})
+	.meta({
+		ref: "GuestDeleteSuccess",
+		example: {
+			data: null,
+			message: "Task deleted successfully",
+			statusCode: 204,
+		},
+	});
+
+const guestDeleteBadRequestSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		isClientError: z.boolean(),
+		statusCode: z.literal(400),
+	})
+	.meta({
+		ref: "GuestDeleteBadRequest",
+		example: {
+			data: null,
+			message: "Task id must be a valid number",
+			isClientError: true,
+			statusCode: 400,
+		},
+	});
+
+const guestDeleteUnauthorizedSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		isUnauthorized: z.boolean(),
+		statusCode: z.literal(401),
+	})
+	.meta({
+		ref: "GuestDeleteUnauthorized",
+		example: {
+			data: null,
+			message: "Missing X-Guest-Session header",
+			isUnauthorized: true,
+			statusCode: 401,
+		},
+	});
+
+const guestDeleteForbiddenSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		isForbidden: z.boolean(),
+		statusCode: z.literal(403),
+	})
+	.meta({
+		ref: "GuestDeleteForbidden",
+		example: {
+			data: null,
+			message: "Forbidden: X-Guest-Session does not match task owner",
+			isForbidden: true,
+			statusCode: 403,
+		},
+	});
+
+const guestDeleteNotFoundSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		notFound: z.boolean(),
+		statusCode: z.literal(404),
+	})
+	.meta({
+		ref: "GuestDeleteNotFound",
+		example: {
+			data: null,
+			message: "Task not found",
+			notFound: true,
+			statusCode: 404,
+		},
+	});
+
+const guestDeleteConflictSchema = z
+	.object({
+		data: z.null(),
+		message: z.string(),
+		isClientError: z.boolean(),
+		statusCode: z.literal(409),
+	})
+	.meta({
+		ref: "GuestDeleteConflict",
+		example: {
+			data: null,
+			message: "Conflict: Task cannot be deleted because it is not OPEN",
+			isClientError: true,
+			statusCode: 409,
+		},
+	});
+
 const guestTaskSuccessSchema = z
 	.object({
 		data: z.object({
@@ -189,19 +289,57 @@ export class GuestController {
 					"Deletes a help request created with X-Guest-Session. Only the creator (matching guestSessionId) can delete when status = OPEN.",
 				tags: ["Guest Tasks"],
 				responses: {
-					204: { description: "Task deleted successfully" },
-					400: { description: "Invalid header or parameters" },
-					401: { description: "Missing X-Guest-Session header" },
-					403: { description: "Session ID does not match task owner" },
-					404: { description: "Task not found" },
+					204: {
+						description: "Task deleted successfully",
+						content: {
+							"application/json": { schema: resolver(guestDeleteSuccessSchema) },
+						},
+					},
+					400: {
+						description: "Invalid task id or invalid X-Guest-Session format",
+						content: {
+							"application/json": {
+								schema: resolver(guestDeleteBadRequestSchema),
+							},
+						},
+					},
+					401: {
+						description: "Missing X-Guest-Session header",
+						content: {
+							"application/json": {
+								schema: resolver(guestDeleteUnauthorizedSchema),
+							},
+						},
+					},
+					403: {
+						description: "Session ID does not match task owner",
+						content: {
+							"application/json": {
+								schema: resolver(guestDeleteForbiddenSchema),
+							},
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": {
+								schema: resolver(guestDeleteNotFoundSchema),
+							},
+						},
+					},
 					409: {
-						description: "Conflict: task is not OPEN and cannot be deleted",
+						description: "Task is not OPEN and cannot be deleted",
+						content: {
+							"application/json": {
+								schema: resolver(guestDeleteConflictSchema),
+							},
+						},
 					},
 				},
 			}),
 			zValidator(
 				"param",
-				z.object({ id: z.string().regex(/^[0-9]+$/) }),
+				z.object({ id: z.string() }),
 				(result, c) => {
 					if (!result.success) {
 						return sendApiResponse(c, null, {
