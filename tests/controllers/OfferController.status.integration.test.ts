@@ -46,9 +46,10 @@ describe("PATCH /api/offers/:id/status integration", () => {
 				new VolunteerRepository(),
 				new NotificationService(new NotificationRepository()),
 			),
+			new VolunteerRepository(),
 		);
 		app = new Hono().basePath("/api");
-		app.route("/", offerController.controller);
+		app.route("/offers", offerController.controller);
 
 		try {
 			const result = await db.execute(

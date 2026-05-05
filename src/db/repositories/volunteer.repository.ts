@@ -4,7 +4,7 @@ import { repository } from "../../di/decorators/repository";
 import { userProfiles, volunteerProfiles, volunteers } from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
-import { helpOffers, helpRequests } from "../schema";
+import { helpOffers, helpRequests, requestLocations } from "../schema";
 
 export type Volunteer = typeof volunteers.$inferSelect;
 export type CreateVolunteerDTO = typeof volunteers.$inferInsert;
@@ -22,6 +22,7 @@ export interface OfferWithTaskData {
 		title: string;
 		urgency: string;
 		status: string;
+		city: string | null;
 		description: string | null;
 	};
 }
@@ -243,7 +244,7 @@ export class VolunteerRepository {
 			.from(helpOffers)
 			.where(and(...conditions));
 
-		// Fetch paginated offers with task details
+		// Fetch paginated offers with task details, including city from request_locations.
 		const offers = await db
 			.select({
 				id: helpOffers.id,
@@ -256,10 +257,15 @@ export class VolunteerRepository {
 				taskTitle: helpRequests.title,
 				taskUrgency: helpRequests.urgency,
 				taskStatus: helpRequests.status,
+				taskCity: requestLocations.city,
 				taskDescription: helpRequests.description,
 			})
 			.from(helpOffers)
 			.innerJoin(helpRequests, eq(helpOffers.helpRequestId, helpRequests.id))
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(and(...conditions))
 			.orderBy(desc(helpOffers.createdAt))
 			.limit(pageSize)
@@ -278,6 +284,7 @@ export class VolunteerRepository {
 				title: offer.taskTitle,
 				urgency: offer.taskUrgency,
 				status: offer.taskStatus,
+				city: offer.taskCity,
 				description: offer.taskDescription,
 			},
 		}));

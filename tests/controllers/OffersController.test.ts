@@ -17,8 +17,8 @@ mock.module("../../src/utils/controller", () => ({
 	Controller,
 }));
 
-const { OffersController } = await import(
-	"../../src/controllers/OffersController"
+const { OfferController } = await import(
+	"../../src/controllers/OfferController"
 );
 
 describe("GET /offers", () => {
@@ -52,6 +52,7 @@ describe("GET /offers", () => {
 						title: "Ajutor pentru drum la spital",
 						urgency: "HIGH",
 						status: "OPEN",
+						city: "Iasi",
 						description: "Este nevoie de transport dimineata",
 					},
 				},
@@ -62,10 +63,14 @@ describe("GET /offers", () => {
 		findByUserId = mock(async () => volunteerLookupResult);
 		findOffersByVolunteer = mock(async () => offersResult);
 
-		const controller = new OffersController({
-			findByUserId,
-			findOffersByVolunteer,
-		} as any);
+		// Inject both OfferService and VolunteerRepository
+		const controller = new OfferController(
+			{} as any,  // OfferService (not used in GET /offers)
+			{
+				findByUserId,
+				findOffersByVolunteer,
+			} as any,  // VolunteerRepository
+		);
 
 		app = new Hono();
 		app.route("/offers", controller.controller);
@@ -85,7 +90,9 @@ describe("GET /offers", () => {
 
 		// Assert
 		expect(response.status).toBe(401);
-		expect(body.error).toBe("Unauthorized");
+		expect(body.data).toBeNull();
+		expect(body.isUnauthorized).toBe(true);
+		expect(body.statusCode).toBe(401);
 		expect(findByUserId).not.toHaveBeenCalled();
 		expect(findOffersByVolunteer).not.toHaveBeenCalled();
 	});
@@ -162,6 +169,7 @@ describe("GET /offers", () => {
 				title: "Ajutor pentru drum la spital",
 				urgency: "HIGH",
 				status: "OPEN",
+			city: "Iasi",
 				description: "Este nevoie de transport dimineata",
 			},
 		});
@@ -219,6 +227,7 @@ describe("GET /offers", () => {
 						title: "Cumparaturi urgente",
 						urgency: "LOW",
 						status: "OPEN",
+						city: null,
 						description: null,
 					},
 				},
