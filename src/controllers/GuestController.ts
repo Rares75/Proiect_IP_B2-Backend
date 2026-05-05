@@ -13,21 +13,7 @@ import { sendApiResponse } from "../utils/apiReponse";
 import { z } from "zod";
 import { describeRoute, resolver, validator as zValidator } from "hono-openapi";
 
-const guestDeleteSuccessSchema = z
-	.object({
-		data: z.null(),
-		message: z.string(),
-		statusCode: z.literal(204),
-	})
-	.meta({
-		ref: "GuestDeleteSuccess",
-		example: {
-			data: null,
-			message: "Task deleted successfully",
-			statusCode: 204,
-		},
-	});
-
+// OpenAPI schemas for DELETE response examples
 const guestDeleteBadRequestSchema = z
 	.object({
 		data: z.null(),
@@ -113,6 +99,7 @@ const guestDeleteConflictSchema = z
 		},
 	});
 
+// ...existing code...
 const guestTaskSuccessSchema = z
 	.object({
 		data: z.object({
@@ -291,11 +278,6 @@ export class GuestController {
 				responses: {
 					204: {
 						description: "Task deleted successfully",
-						content: {
-							"application/json": {
-								schema: resolver(guestDeleteSuccessSchema),
-							},
-						},
 					},
 					400: {
 						description: "Invalid task id or invalid X-Guest-Session format",
@@ -342,15 +324,16 @@ export class GuestController {
 			zValidator(
 				"param",
 				z.object({
-					id: z
-						.string()
-						.regex(/^\d+$/, { message: "Task id must be a valid number" }),
+					id: z.coerce
+						.number()
+						.int()
+						.positive("Task id must be a positive integer"),
 				}),
 				(result, c) => {
 					if (!result.success) {
 						return sendApiResponse(c, null, {
 							kind: "clientError",
-							message: "Task id must be a valid number",
+							message: "Task id must be a valid positive number",
 						});
 					}
 				},
@@ -358,7 +341,7 @@ export class GuestController {
 			async (c) => {
 				const guestSession = c.req.header("X-Guest-Session");
 
-				// Validate header
+				// Validate header presence and format
 				if (!guestSession) {
 					return sendApiResponse(c, null, {
 						kind: "unauthorized",
@@ -375,37 +358,35 @@ export class GuestController {
 				}
 
 				try {
-					const { id } = c.req.valid("param");
-					const requestId = Number(id);
+					const { id: requestId } = c.req.valid("param");
 
-					if (!Number.isInteger(requestId) || requestId <= 0) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: "Task id must be a positive integer",
-						});
-					}
+					// Delegate all business logic to service, which will throw appropriate errors
+					await this.helpRequestService.deleteGuestHelpRequest(
+						guestSession,
+						requestId,
+					);
 
-					const task =
-						await this.helpRequestService.getHelpRequestById(requestId);
-
-					// If task not found -> 404
-					if (!task) {
+					// Success: service completed deletion
+					return sendApiResponse(c, null, {
+						statusCode: 204,
+					});
+				} catch (error: any) {
+					// Map service errors to HTTP responses
+					if (error instanceof NotFoundError) {
 						return sendApiResponse(c, null, {
 							kind: "notFound",
 							message: "Task not found",
 						});
 					}
 
-					// If guestSessionId does not match -> 403
-					if (task.guestSessionId !== guestSession) {
+					if (error instanceof ForbiddenError) {
 						return sendApiResponse(c, null, {
 							statusCode: 403,
 							message: "Forbidden: X-Guest-Session does not match task owner",
 						});
 					}
 
-					// If status is not OPEN -> 409
-					if (task.status !== "OPEN") {
+					if (error instanceof ConflictError) {
 						return sendApiResponse(c, null, {
 							statusCode: 409,
 							message:
@@ -413,45 +394,7 @@ export class GuestController {
 						});
 					}
 
-					// Perform deletion. Service throws NotFoundError / ForbiddenError / ConflictError on failures.
-					try {
-						await this.helpRequestService.deleteGuestHelpRequest(
-							guestSession,
-							requestId,
-						);
-
-						return sendApiResponse(c, null, {
-							statusCode: 204,
-							message: "Task deleted successfully",
-						});
-					} catch (err: any) {
-						if (err instanceof NotFoundError) {
-							return sendApiResponse(c, null, {
-								kind: "notFound",
-								message: err.message,
-							});
-						}
-						if (err instanceof ForbiddenError) {
-							return sendApiResponse(c, null, {
-								statusCode: 403,
-								message: err.message,
-							});
-						}
-						if (err instanceof ConflictError) {
-							return sendApiResponse(c, null, {
-								statusCode: 409,
-								message: err.message,
-							});
-						}
-
-						console.error(
-							"[GuestController Delete Task unexpected error]:",
-							err,
-						);
-						return sendApiResponse(c, null, { kind: "serverError" });
-					}
-				} catch (error) {
-					console.error("[GuestController Delete Task Error]:", error);
+					console.error("[GuestController DELETE /tasks/:id Error]:", error);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},

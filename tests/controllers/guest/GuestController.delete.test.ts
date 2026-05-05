@@ -12,6 +12,11 @@ import { join } from "node:path";
 import app from "../../../src/app";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
 import { loadControllers } from "../../../src/utils/controller";
+import {
+	NotFoundError,
+	ForbiddenError,
+	ConflictError,
+} from "../../../src/utils/Errors";
 
 describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 	const validGuestSession = "123e4567-e89b-12d3-a456-426614174000";
@@ -40,14 +45,10 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 	});
 
 	it("returns 404 when the task does not exist", async () => {
-		const getSpy = spyOn(
-			HelpRequestService.prototype,
-			"getHelpRequestById",
-		).mockResolvedValue(undefined);
 		const deleteSpy = spyOn(
 			HelpRequestService.prototype,
 			"deleteGuestHelpRequest",
-		);
+		).mockRejectedValue(new NotFoundError("HelpRequest", "99"));
 
 		const response = await app.request("/api/guest/tasks/99", {
 			method: "DELETE",
@@ -58,21 +59,15 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 		const body: any = await response.json();
 		expect(body.notFound).toBe(true);
 		expect(body.message).toBe("Task not found");
-		expect(getSpy).toHaveBeenCalledWith(99);
-		expect(deleteSpy).not.toHaveBeenCalled();
+		expect(deleteSpy).toHaveBeenCalledWith(validGuestSession, 99);
 	});
 
 	it("returns 403 when the guest session does not match the task owner", async () => {
-		spyOn(HelpRequestService.prototype, "getHelpRequestById").mockResolvedValue(
-			{
-				id: 1,
-				guestSessionId: "other-session",
-				status: "OPEN",
-			} as any,
-		);
 		const deleteSpy = spyOn(
 			HelpRequestService.prototype,
 			"deleteGuestHelpRequest",
+		).mockRejectedValue(
+			new ForbiddenError("You do not have permission to delete this task."),
 		);
 
 		const response = await app.request("/api/guest/tasks/1", {
@@ -83,24 +78,18 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 		expect(response.status).toBe(403);
 		const body: any = await response.json();
 		expect(body.isForbidden).toBe(true);
-		expect(body.isClientError).toBe(false);
 		expect(body.message).toBe(
 			"Forbidden: X-Guest-Session does not match task owner",
 		);
-		expect(deleteSpy).not.toHaveBeenCalled();
+		expect(deleteSpy).toHaveBeenCalledWith(validGuestSession, 1);
 	});
 
 	it("returns 409 when the task is not OPEN", async () => {
-		spyOn(HelpRequestService.prototype, "getHelpRequestById").mockResolvedValue(
-			{
-				id: 1,
-				guestSessionId: validGuestSession,
-				status: "MATCHED",
-			} as any,
-		);
 		const deleteSpy = spyOn(
 			HelpRequestService.prototype,
 			"deleteGuestHelpRequest",
+		).mockRejectedValue(
+			new ConflictError("Task cannot be deleted because it is not OPEN."),
 		);
 
 		const response = await app.request("/api/guest/tasks/1", {
@@ -114,18 +103,10 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 		expect(body.message).toBe(
 			"Conflict: Task cannot be deleted because it is not OPEN",
 		);
-		expect(deleteSpy).not.toHaveBeenCalled();
+		expect(deleteSpy).toHaveBeenCalledWith(validGuestSession, 1);
 	});
 
-	it("returns 204 and an empty body when the session matches and the task is OPEN", async () => {
-		const getSpy = spyOn(
-			HelpRequestService.prototype,
-			"getHelpRequestById",
-		).mockResolvedValue({
-			id: 1,
-			guestSessionId: validGuestSession,
-			status: "OPEN",
-		} as any);
+	it("returns 204 with empty body when the session matches and the task is OPEN", async () => {
 		const deleteSpy = spyOn(
 			HelpRequestService.prototype,
 			"deleteGuestHelpRequest",
@@ -138,11 +119,10 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 
 		expect(response.status).toBe(204);
 		expect(await response.text()).toBe("");
-		expect(getSpy).toHaveBeenCalledWith(1);
 		expect(deleteSpy).toHaveBeenCalledWith(validGuestSession, 1);
 	});
 
-	it("returns 400 when the task id is invalid", async () => {
+	it("returns 400 when the task id is invalid (non-numeric)", async () => {
 		const response = await app.request("/api/guest/tasks/not-a-number", {
 			method: "DELETE",
 			headers: { "X-Guest-Session": validGuestSession },
@@ -151,6 +131,29 @@ describe("GuestController - DELETE /api/guest/tasks/:id", () => {
 		expect(response.status).toBe(400);
 		const body: any = await response.json();
 		expect(body.isClientError).toBe(true);
-		expect(body.message).toBe("Task id must be a valid number");
+		expect(body.message).toBe("Task id must be a valid positive number");
+	});
+
+	it("returns 400 when the task id is negative or zero", async () => {
+		const response = await app.request("/api/guest/tasks/-1", {
+			method: "DELETE",
+			headers: { "X-Guest-Session": validGuestSession },
+		});
+
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expect(body.isClientError).toBe(true);
+	});
+
+	it("returns 400 when X-Guest-Session format is invalid (not UUID)", async () => {
+		const response = await app.request("/api/guest/tasks/1", {
+			method: "DELETE",
+			headers: { "X-Guest-Session": "invalid-session-format" },
+		});
+
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe("Invalid X-Guest-Session format; must be a UUID");
 	});
 });

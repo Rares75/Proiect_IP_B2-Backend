@@ -450,16 +450,19 @@ export class HelpRequestService {
 			throw new NotFoundError("HelpRequest", String(id));
 		}
 
+		// Verify ownership
 		if (task.guestSessionId !== guestSession) {
-			throw new ForbiddenError("Nu ai permisiunea de a sterge acest task.");
-		}
-
-		if (task.status !== "OPEN") {
-			throw new ConflictError(
-				"Task-ul nu poate fi sters deoarece nu mai este OPEN.",
+			throw new ForbiddenError(
+				"You do not have permission to delete this task.",
 			);
 		}
 
+		// Verify status is OPEN
+		if (task.status !== "OPEN") {
+			throw new ConflictError("Task cannot be deleted because it is not OPEN.");
+		}
+
+		// Delete task (cascade delete applies to related records)
 		await this.helpRequestRepo.delete(id);
 	}
 }
