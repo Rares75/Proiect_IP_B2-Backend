@@ -4,7 +4,7 @@ export const helpOfferInputSchema = z
 	.object({
 		message: z
 			.string()
-			.max(599, "Message must be at most 599 characters")
+			.max(500, "Message must be at most 500 characters")
 			.optional(),
 	})
 	.strict();

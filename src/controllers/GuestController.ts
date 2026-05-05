@@ -93,7 +93,7 @@ export class GuestController {
 					return sendApiResponse(c, null, {
 						kind: "clientError",
 						message:
-							"Format invalid pentru X-Guest-Session. Trebuie sÄƒ fie UUID.",
+							"Format invalid pentru X-Guest-Session. Trebuie să fie UUID.",
 					});
 				}
 
@@ -115,7 +115,7 @@ export class GuestController {
 					if (error.name === "RateLimitError") {
 						return sendApiResponse(c, null, {
 							statusCode: 429,
-							message: "Limita atinsÄƒ. PoÈ›i avea maxim 3 task-uri active.",
+							message: "Limita atinsă. Poți avea maxim 3 task-uri active.",
 						});
 					}
 

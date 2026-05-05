@@ -306,6 +306,7 @@ describe("queryValidationMiddleware", () => {
 			message: "Invalid request",
 			notFound: false,
 			isUnauthorized: false,
+			isForbidden: false,
 			isServerError: false,
 			isClientError: true,
 			app: {

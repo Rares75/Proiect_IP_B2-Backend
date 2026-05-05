@@ -11,13 +11,14 @@ import {
 import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
 import auth from "../../src/auth";
 import {
-	ConflictError,
-	ForbiddenError,
-	NotFoundError,
-} from "../../src/utils/Errors";
+	HelpOfferDuplicatePendingError,
+	HelpOfferForbiddenError,
+	HelpOfferService,
+	HelpOfferTaskNotFoundError,
+	HelpOfferTaskStatusConflictError,
+} from "../../src/services/HelpOfferService";
 
 describe("POST /api/tasks/:id/offers", () => {
 	let authSpy: any;
@@ -56,8 +57,8 @@ describe("POST /api/tasks/:id/offers", () => {
 
 		const createdAt = new Date("2026-04-28T10:00:00.000Z");
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
+			HelpOfferService.prototype,
+			"createOffer",
 		).mockResolvedValue({
 			id: 77,
 			helpRequestId: 1,
@@ -83,14 +84,14 @@ describe("POST /api/tasks/:id/offers", () => {
 			});
 
 			const body: any = await response.json();
-			expect(body).toMatchObject({
+			expect(body.data).toMatchObject({
 				id: 77,
 				helpRequestId: 1,
 				volunteerId: 15,
 				message: "Pot sa ajut",
 				status: "PENDING",
 			});
-			expect(body.createdAt).toBe(createdAt.toISOString());
+			expect(body.data.createdAt).toBe(createdAt.toISOString());
 		} finally {
 			serviceSpy.mockRestore();
 		}
@@ -103,10 +104,10 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
+			HelpOfferService.prototype,
+			"createOffer",
 		).mockRejectedValue(
-			new ForbiddenError("Only volunteers can create offers"),
+			new HelpOfferForbiddenError("Only volunteers can create offers"),
 		);
 
 		try {
@@ -132,9 +133,11 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		).mockRejectedValue(new ForbiddenError("Task owner cannot create offers"));
+			HelpOfferService.prototype,
+			"createOffer",
+		).mockRejectedValue(
+			new HelpOfferForbiddenError("Task owner cannot create offers"),
+		);
 
 		try {
 			const response = await app.request("/api/tasks/1/offers", {
@@ -159,9 +162,9 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		).mockRejectedValue(new NotFoundError("HelpRequest", "999"));
+			HelpOfferService.prototype,
+			"createOffer",
+		).mockRejectedValue(new HelpOfferTaskNotFoundError(999));
 
 		try {
 			const response = await app.request("/api/tasks/999/offers", {
@@ -186,9 +189,9 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		).mockRejectedValue(new ConflictError("HelpRequest is not OPEN"));
+			HelpOfferService.prototype,
+			"createOffer",
+		).mockRejectedValue(new HelpOfferTaskStatusConflictError("MATCHED"));
 
 		try {
 			const response = await app.request("/api/tasks/1/offers", {
@@ -213,11 +216,9 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		).mockRejectedValue(
-			new ConflictError("Volunteer already has a pending offer for this task"),
-		);
+			HelpOfferService.prototype,
+			"createOffer",
+		).mockRejectedValue(new HelpOfferDuplicatePendingError());
 
 		try {
 			const response = await app.request("/api/tasks/1/offers", {
@@ -242,8 +243,8 @@ describe("POST /api/tasks/:id/offers", () => {
 		});
 
 		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
+			HelpOfferService.prototype,
+			"createOffer",
 		).mockResolvedValue({
 			id: 88,
 			helpRequestId: 1,
@@ -275,10 +276,7 @@ describe("POST /api/tasks/:id/offers", () => {
 			session: { id: "session-123", userId: "user-123" } as any,
 		});
 
-		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		);
+		const serviceSpy = spyOn(HelpOfferService.prototype, "createOffer");
 
 		try {
 			const response = await app.request("/api/tasks/1/offers", {
@@ -303,10 +301,7 @@ describe("POST /api/tasks/:id/offers", () => {
 			session: { id: "session-123", userId: "user-123" } as any,
 		});
 
-		const serviceSpy = spyOn(
-			HelpRequestService.prototype,
-			"createOfferForTask",
-		);
+		const serviceSpy = spyOn(HelpOfferService.prototype, "createOffer");
 
 		try {
 			const response = await app.request("/api/tasks/1/offers", {
@@ -322,13 +317,9 @@ describe("POST /api/tasks/:id/offers", () => {
 			expect(serviceSpy).not.toHaveBeenCalled();
 
 			const body: any = await response.json();
-			expect(body).toEqual({
-				errors: [
-					{
-						field: "body",
-						message: 'Unrecognized key: "volunteerId"',
-					},
-				],
+			expect(body.data.errors).toContainEqual({
+				field: "body",
+				message: 'Unrecognized key: "volunteerId"',
 			});
 		} finally {
 			serviceSpy.mockRestore();

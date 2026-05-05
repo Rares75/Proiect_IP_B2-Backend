@@ -18,7 +18,7 @@ describe("HelpOfferService.createOffer", () => {
 				}),
 			} as any,
 			{
-				findPendingByHelpRequestAndVolunteer: async () => undefined,
+				findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
 				create: async (payload: any) => ({
 					id: 10,
 					...payload,
@@ -126,7 +126,7 @@ describe("HelpOfferService.createOffer", () => {
 				}),
 			} as any,
 			{
-				findPendingByHelpRequestAndVolunteer: async () => ({
+				findPendingByHelpRequestIdAndVolunteerId: async () => ({
 					id: 5,
 					helpRequestId: 1,
 					volunteerId: 7,
