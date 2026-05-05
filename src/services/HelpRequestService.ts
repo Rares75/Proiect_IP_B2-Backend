@@ -2,7 +2,13 @@ import {
 	HelpRequestRepository,
 	type CreateHelpRequestDTO,
 	type HelpRequest,
+	type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
+import {
+	HelpOfferRepository,
+	type HelpOffer,
+} from "../db/repositories/helpOffer.repository";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
@@ -12,9 +18,17 @@ import {
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { NotificationService } from "./NotificationService";
+import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
+import { resolveTaskDistanceFilter } from "./helpRequestDistance";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -25,15 +39,30 @@ const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
 	IN_PROGRESS: ["COMPLETED", "CANCELLED"],
 };
 
+export class HelpRequestOffersForbiddenError extends Error {
+	constructor() {
+		super("You don't have permission to see this task.");
+		this.name = "HelpRequestOffersForbiddenError";
+	}
+}
+
 @Service()
 export class HelpRequestService {
 	constructor(
 		@inject(HelpRequestRepository)
 		private readonly helpRequestRepo: HelpRequestRepository,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository,
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
-		private readonly moderationService: ModerationService,
+		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService = {
+			notifyEligibleVolunteersForNewRequest: async () => {},
+		} as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -64,15 +93,51 @@ export class HelpRequestService {
 		}
 
 		try {
-			return await this.helpRequestRepo.create({
+			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
+
+			try {
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
+					createdRequest,
+				);
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify eligible volunteers for new help request:",
+					notificationError,
+				);
+			}
+
+			return createdRequest;
 		} catch (error) {
 			console.error("--- RAW DB ERROR ---", error);
 			logger.exception(error);
 			throw new Error("Could not create help request");
 		}
+	}
+
+	async getHelpRequests(limit?: number, offset?: number) {
+		return this.helpRequestRepo.findMany(limit, offset);
+	}
+
+	async getHelpRequestForAuthorization(id: number) {
+		return this.helpRequestRepo.findById(id);
+	}
+
+	async getAssignmentAuthorization(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		if (
+			typeof this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId !==
+			"function"
+		) {
+			return undefined;
+		}
+
+		return this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId(
+			helpRequestId,
+		);
 	}
 
 	/**
@@ -101,8 +166,8 @@ export class HelpRequestService {
 			...helpRequest,
 			...(location !== undefined
 				? {
-						locationCity: location?.city ?? null,
-						locationAddressText: location?.addressText ?? null,
+						city: location?.city ?? null,
+						addressText: location?.addressText ?? null,
 						location: location?.location ?? null,
 					}
 				: {}),
@@ -142,12 +207,69 @@ export class HelpRequestService {
 		return updated;
 	}
 
+	async createOfferForTask(
+		helpRequestId: number,
+		userId: string,
+		input: HelpOfferInput,
+	): Promise<HelpOffer> {
+		const helpRequest = await this.helpRequestRepo.findById(helpRequestId);
+		if (!helpRequest) {
+			throw new NotFoundError("HelpRequest", String(helpRequestId));
+		}
+
+		if (helpRequest.status !== "OPEN") {
+			throw new ConflictError("HelpRequest is not OPEN");
+		}
+
+		const volunteer = await this.volunteerRepo.findByUserId(userId);
+		if (!volunteer) {
+			throw new ForbiddenError("Only volunteers can create offers");
+		}
+
+		if (helpRequest.requestedByUserId === userId) {
+			throw new ForbiddenError("Task owner cannot create offers");
+		}
+
+		const existingPendingOffer =
+			await this.helpOfferRepo.findPendingByHelpRequestIdAndVolunteerId(
+				helpRequestId,
+				volunteer.id,
+			);
+
+		if (existingPendingOffer) {
+			throw new ConflictError(
+				"Volunteer already has a pending offer for this task",
+			);
+		}
+
+		return this.helpOfferRepo.create({
+			helpRequestId,
+			volunteerId: volunteer.id,
+			message: input.message ?? null,
+			status: "PENDING",
+		});
+	}
+
 	//BE1-12
-	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+		userId?: string,
+	) {
+		const resolvedFilters = await resolveTaskDistanceFilter(
+			filters,
+			userId,
+			this.volunteerRepo,
+		);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
-			filters,
+			sortBy,
+			order,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);
@@ -167,6 +289,152 @@ export class HelpRequestService {
 				pageSize: pageSize,
 				total: total,
 				totalPages: totalPages,
+			},
+		};
+	}
+
+	async getPaginatedOffersForTaskOwner(
+		taskId: number,
+		requesterUserId: string,
+		page: number,
+		pageSize: number,
+		status?: "PENDING" | "ACCEPTED" | "REJECTED",
+	) {
+		// verif existența task-ului și ownership-ul
+		const task = await this.helpRequestRepo.findById(taskId);
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(taskId));
+		}
+
+		if (task.requestedByUserId !== requesterUserId) {
+			//console.log(task.requestedByUserId + " " + requesterUserId);
+			throw new ForbiddenError("You don't have permission to see this task.");
+		}
+
+		// 2. ofertele
+		const { data, total } =
+			await this.helpOfferRepo.findPaginatedOffersByTaskId(
+				taskId,
+				page,
+				pageSize,
+				status,
+			);
+
+		// răspunsul cerut
+		const formattedOffers = data.map((offer) => {
+			//datele vizibile garantat
+			const volunteerInfo: any = {
+				username: offer.username,
+				trustScore: offer.trustScore,
+				averageRating:
+					offer.averageRating !== null ? Number(offer.averageRating) : null,
+			};
+
+			if (offer.hiddenIdentity === false) {
+				volunteerInfo.name = offer.name;
+			}
+
+			return {
+				id: offer.id,
+				volunteerId: offer.volunteerId,
+				message: offer.message,
+				status: offer.status,
+				createdAt: offer.createdAt,
+				volunteer: volunteerInfo,
+			};
+		});
+
+		const totalPages = Math.ceil(total / pageSize);
+
+		return {
+			data: formattedOffers,
+			meta: {
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
+			},
+		};
+	}
+	//BE1-31
+	async createGuestHelpRequest(
+		sessionId: string,
+		data: Partial<CreateHelpRequestDTO>,
+	) {
+		// 1. Verificam limita de 3 task-uri active pe sesiune
+		const activeCount =
+			await this.helpRequestRepo.countActiveByGuestSession(sessionId);
+		if (activeCount >= 3) {
+			const error: any = new Error("Too many active requests");
+			error.name = "RateLimitError"; // Nume specific pentru a-l prinde in controller cu 429
+			throw error;
+		}
+
+		// 2. Construim datele finale, forțând regulile de business pentru Guest
+		const guestData: CreateHelpRequestDTO = {
+			...(data as any),
+			guestSessionId: sessionId,
+			requestedByUserId: null, // Guestul nu are cont
+			urgency: "CRITICAL", // Fortat conform cerintelor
+			anonymousMode: true, // Fortat conform cerintelor
+			status: "OPEN",
+		};
+
+		// 3. Scanare pentru moderarea continutului
+		const titleResult = this.moderationService.scanContent(guestData.title);
+		const descResult = this.moderationService.scanContent(
+			guestData.description || "",
+		);
+
+		let finalResult = ModerationLevel.CLEAN;
+		if (
+			titleResult.level === ModerationLevel.BLOCKED ||
+			descResult.level === ModerationLevel.BLOCKED
+		) {
+			finalResult = ModerationLevel.BLOCKED;
+		}
+
+		if (finalResult === ModerationLevel.BLOCKED) {
+			throw new ModerationError(
+				titleResult.reason || descResult.reason || "Inappropriate content.",
+			);
+		}
+
+		try {
+			return await this.helpRequestRepo.create(guestData);
+		} catch (error) {
+			console.error("--- RAW DB ERROR ---", error);
+			logger.exception(error as Error);
+			throw new Error("Could not create guest help request");
+		}
+	}
+
+	async getGuestHelpRequests(
+		sessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const { data, total } =
+			await this.helpRequestRepo.findPaginatedByGuestSession(
+				sessionId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const formattedData = data.map((task) => {
+			const { requestedByUserId, guestSessionId, ...rest } = task;
+			return rest;
+		});
+
+		return {
+			data: formattedData,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages: Math.ceil(total / pageSize),
 			},
 		};
 	}

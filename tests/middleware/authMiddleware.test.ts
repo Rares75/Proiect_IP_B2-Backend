@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import auth from "../../src/auth";
 import { authMiddlware } from "../../src/middlware/authMiddleware";
+import { expectApiEnvelope } from "../controllers/apiResponseAssertions";
 
 describe("authMiddleware", () => {
 	const originalGetSession = auth.api.getSession;
@@ -26,7 +27,17 @@ describe("authMiddleware", () => {
 		);
 
 		expect(response?.status).toBe(401);
-		expect(await response?.json()).toEqual({ error: "Unauthorized" });
+		const body: any = await response?.json();
+		expectApiEnvelope(body, 401);
+		expect(body).toMatchObject({
+			data: null,
+			message: "Unauthorized",
+			notFound: false,
+			isUnauthorized: true,
+			isServerError: false,
+			isClientError: false,
+			statusCode: 401,
+		});
 		expect(nextCalled).toBe(false);
 	});
 

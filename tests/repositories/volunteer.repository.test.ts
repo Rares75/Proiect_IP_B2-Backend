@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { db } from "../../src/db";
-import { container } from "../../src/di";
+import { container } from "../../src/di/container";
 import { volunteers } from "../../src/db/profile";
 import { UserRepository } from "../../src/db/repositories/user.repository";
 import { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";

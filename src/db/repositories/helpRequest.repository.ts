@@ -1,19 +1,47 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+	inArray,
+} from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { helpRequests, requestDetails, requestLocations } from "../requests";
+import { volunteers } from "../profile";
+import {
+	helpRequests,
+	requestDetails,
+	requestLocations,
+	taskAssignments,
+} from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
+	calculateSkillMachScore,
+	buildDistanceFilter,
+	buildDistanceLocationPresenceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
+	buildCityFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
+export type HelpRequestAssignmentAuthorization = {
+	requestedByUserId: string;
+	handledByVolunteerId: number;
+	volunteerUserId: string;
+};
 
-export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert;
+// Extindem tipul de baza cu campurile optionale de locatie, pentru ca repository-ul sa le astepte
+export type CreateHelpRequestDTO = typeof helpRequests.$inferInsert & {
+	location?: { x: number; y: number };
+	city?: string;
+	addressText?: string;
+};
 
 export type UpdateHelpRequestDTO = Partial<CreateHelpRequestDTO>;
 
@@ -23,11 +51,31 @@ export class HelpRequestRepository
 		IRepository<HelpRequest, CreateHelpRequestDTO, UpdateHelpRequestDTO, number>
 {
 	async create(data: CreateHelpRequestDTO): Promise<HelpRequest> {
-		const [newHelpRequest] = await db
-			.insert(helpRequests)
-			.values(data)
-			.returning();
-		return newHelpRequest;
+		// Folosim o TRANZACTIE pentru a respecta cerinta de Rollback
+		return await db.transaction(async (tx) => {
+			// 1. Separam datele de locatie de restul datelor pentru task
+			const { location, city, addressText, ...taskData } = data as any;
+
+			// 2. Inseram datele principale in tabelul help_requests
+			const [newHelpRequest] = await tx
+				.insert(helpRequests)
+				.values(taskData)
+				.returning();
+
+			// 3. Daca am primit locatie, o salvam in tabelul ei separat (request_locations)
+			if (location) {
+				await tx.insert(requestLocations).values({
+					helpRequestId: newHelpRequest.id,
+					location: location,
+					city: city,
+					addressText: addressText,
+				});
+			}
+
+			// Daca totul a mers bine, tranzactia se inchide automat (Commit)
+			// Daca pica pasul 3, tranzactia anuleaza automat pasul 2 (Rollback)
+			return newHelpRequest;
+		});
 	}
 
 	async findById(id: number): Promise<HelpRequest | undefined> {
@@ -125,6 +173,26 @@ export class HelpRequestRepository
 		return updated;
 	}
 
+	async findAssignmentAuthorizationByHelpRequestId(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		const [found] = await db
+			.select({
+				requestedByUserId: taskAssignments.requestedByUserId,
+				handledByVolunteerId: taskAssignments.handledByVolunteerId,
+				volunteerUserId: volunteers.userId,
+			})
+			.from(taskAssignments)
+			.innerJoin(
+				volunteers,
+				eq(taskAssignments.handledByVolunteerId, volunteers.id),
+			)
+			.where(eq(taskAssignments.helpRequestId, helpRequestId))
+			.limit(1);
+
+		return found;
+	}
+
 	//BE1-12 + BE1-13
 	async findPaginatedWithDetails(
 		page: number,
@@ -138,39 +206,84 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceLocationPresenceFilter = filters
+			? buildDistanceLocationPresenceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
+
+		//skills
+		const requestedSkills = filters?.skills;
+		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [
+			statusFilter,
+			languageFilter,
+			cityFilter,
+			distanceLocationPresenceFilter,
+			distanceFilter,
+		].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
+
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
-		const orderBy =
-			sortBy === "urgency"
+
+		//basic sorting by urgency level
+		const orderBy = distanceOrderBy
+			? [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
-		const rows = await db
+		const baseRowsQuery = db
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere)
-			.orderBy(...orderBy)
-			.limit(pageSize)
-			.offset(offset);
+			.orderBy(...orderBy);
 
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
-			...helpRequest,
-			requestDetails,
-		}));
+		if (shouldSortBySkillScore) {
+			const allRows = await baseRowsQuery;
+			const scoredRows = this.buildRowsWithSkillScore(allRows, requestedSkills)
+				.sort((a, b) => b.skillScore - a.skillScore)
+				.slice(offset, offset + pageSize)
+				.map(({ skillScore, ...row }) => row);
+
+			return {
+				data: scoredRows,
+				total: allRows.length,
+			};
+		}
+
+		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
 
 		const countQuery = db
 			.select({ value: drizzleCount() })
@@ -179,11 +292,103 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere);
 
 		const [{ value }] = await countQuery;
 		const total = value;
 
 		return { data, total };
+	}
+
+	private buildRowsWithSkillScore(
+		rows: Array<{
+			helpRequest: HelpRequest;
+			requestDetails: typeof requestDetails.$inferSelect | null;
+			requestLocation: typeof requestLocations.$inferSelect | null;
+		}>,
+		requestedSkills: string[] | undefined,
+	) {
+		return rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
+			...helpRequest,
+			requestDetails,
+			city: requestLocation?.city ?? null,
+			addressText: requestLocation?.addressText ?? null,
+			location: requestLocation?.location ?? null,
+			skillScore: calculateSkillMachScore(
+				requestedSkills,
+				helpRequest?.skillsNeeded,
+			),
+		}));
+	}
+	// BE1-31
+	async countActiveByGuestSession(guestSessionId: string): Promise<number> {
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(
+				and(
+					eq(helpRequests.guestSessionId, guestSessionId),
+					// Active inseamna OPEN, MATCHED sau IN_PROGRESS
+					inArray(helpRequests.status, ["OPEN", "MATCHED", "IN_PROGRESS"]),
+				),
+			);
+		return value;
+	}
+
+	// BE1-32
+	async findPaginatedByGuestSession(
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const offset = (page - 1) * pageSize;
+
+		const conditions = [
+			eq(helpRequests.guestSessionId, guestSessionId),
+			...(status ? [eq(helpRequests.status, status)] : []),
+		];
+		const where = and(...conditions);
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(where)
+			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
+
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(where);
+
+		return { data, total: value };
 	}
 }

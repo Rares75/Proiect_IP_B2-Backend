@@ -7,12 +7,16 @@ on:
   pull_request:
     branches:
       - main
+      - develop
   workflow_dispatch:
 
 jobs:
   test:
     name: Run Tests and Build
     runs-on: ubuntu-latest
+
+    #Workflow timeout after 5 minutes
+    timeout-minutes: 5
 
     # A local Test Database for CI Testing
     services:

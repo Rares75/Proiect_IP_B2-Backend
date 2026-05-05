@@ -1,11 +1,15 @@
 import {
+	parseDistanceFilter,
 	parseLanguageFilter,
 	parseStatusFilter,
+	parseCityFilter,
+	parseSkillFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
 type TaskSortBy = "createdAt" | "urgency";
 type SortOrder = "ASC" | "DESC";
+type TaskQueryValue = string | string[] | undefined;
 
 type ValidTasksQuery = {
 	page: number;
@@ -22,11 +26,20 @@ type ValidOffersQuery = {
 	status?: OfferStatus;
 };
 
-export const validateTasksQuery = (
-	query: Record<string, string | undefined>,
-) => {
-	const page = query.page ? Number(query.page) : 1;
-	const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+const getSingleQueryValue = (value: TaskQueryValue) =>
+	Array.isArray(value) ? value[0] : value;
+
+export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
+	const pageRaw = getSingleQueryValue(query.page);
+	const pageSizeRaw = getSingleQueryValue(query.pageSize);
+	const sortByRaw = getSingleQueryValue(query.sortBy);
+	const orderRaw = getSingleQueryValue(query.order);
+	const statusRaw = getSingleQueryValue(query.status);
+	const languageRaw = getSingleQueryValue(query.language);
+	const cityRaw = getSingleQueryValue(query.city);
+
+	const page = pageRaw ? Number(pageRaw) : 1;
+	const pageSize = pageSizeRaw ? Number(pageSizeRaw) : 10;
 
 	if (!Number.isInteger(page) || page < 1) {
 		return { error: "Eroare: 'page' trebuie sa fie minim 1." };
@@ -35,8 +48,8 @@ export const validateTasksQuery = (
 		return { error: "Eroare: 'pageSize' trebuie sa fie intre 1 si 100." };
 	}
 
-	const sortBy = query.sortBy ?? "createdAt";
-	const order = query.order?.toUpperCase() ?? "DESC";
+	const sortBy = sortByRaw ?? "createdAt";
+	const order = orderRaw?.toUpperCase() ?? "DESC";
 
 	const validSortFields: TaskSortBy[] = ["createdAt", "urgency"];
 	const validOrders: SortOrder[] = ["ASC", "DESC"];
@@ -52,23 +65,37 @@ export const validateTasksQuery = (
 		};
 	}
 
-	////////////Filters
-
 	const filters: TaskFilterParams = {};
 
-	//status filter
-	const statusValidation = parseStatusFilter(query.status);
+	const statusValidation = parseStatusFilter(statusRaw);
 	if (statusValidation.error || !statusValidation.validData) {
 		return { error: statusValidation.error };
 	}
 	Object.assign(filters, statusValidation.validData);
 
-	//language filter
-	const languageValidation = parseLanguageFilter(query.language);
+	const languageValidation = parseLanguageFilter(languageRaw);
 	if (languageValidation.error) {
 		return { error: languageValidation.error };
 	}
 	Object.assign(filters, languageValidation.validData);
+
+	const skillValidation = parseSkillFilter(query.skill);
+	if (skillValidation.error) {
+		return { error: skillValidation.error };
+	}
+	Object.assign(filters, skillValidation.validData);
+
+	const cityValidation = parseCityFilter(cityRaw);
+	if (cityValidation.error) {
+		return { error: cityValidation.error };
+	}
+	Object.assign(filters, cityValidation.validData);
+
+	const distanceValidation = parseDistanceFilter(query);
+	if (distanceValidation.error || !distanceValidation.validData) {
+		return { error: distanceValidation.error };
+	}
+	Object.assign(filters, distanceValidation.validData);
 
 	return {
 		validData: {
@@ -76,7 +103,6 @@ export const validateTasksQuery = (
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
 			order: order as SortOrder,
-			//ca sa nu trebuiasca de fiecare data sa modificam acelasi loc si sa apara conflicte la fiecare merge
 			filters,
 		} satisfies ValidTasksQuery,
 	};

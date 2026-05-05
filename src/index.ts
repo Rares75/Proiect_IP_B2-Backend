@@ -12,6 +12,7 @@ await loadDiModules(
 	join(import.meta.dir, "mailers"),
 );
 await loadControllers(join(import.meta.dir, "controllers"));
+
 parseEnv();
 
 const server = Bun.serve({

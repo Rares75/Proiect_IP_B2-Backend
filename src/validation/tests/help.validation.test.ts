@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
-
-import type { ValidationErrorResponse } from "../types/validation.types";
 import {
 	createValidationMiddleware,
 	helpRequestInputSchema,
@@ -16,6 +14,10 @@ type HelpSuccessPayload = {
 	status: string;
 	anonymousMode: boolean;
 	category: string;
+	location: {
+		x: number;
+		y: number;
+	};
 };
 
 type RequestDetailsSuccessPayload = {
@@ -30,7 +32,8 @@ const validHelpRequestPayload: HelpSuccessPayload = {
 	urgency: "HIGH",
 	status: "OPEN",
 	anonymousMode: false,
-	category: "Transport",
+	category: "FACE_TO_FACE",
+	location: { x: 47.15, y: 27.58 },
 };
 
 const validRequestDetailsPayload: RequestDetailsSuccessPayload = {
@@ -74,11 +77,13 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload).toEqual({
+
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+		expect(payload.data).toEqual({
 			errors: [
 				{
 					field: "body",
@@ -86,8 +91,6 @@ describe("Help route validation integration", () => {
 				},
 			],
 		});
-		expect(payload.stack).toBeUndefined();
-		expect(payload.message).toBeUndefined();
 	});
 
 	it("returns 400 and collects all missing required helpRequest fields", async () => {
@@ -107,11 +110,14 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toEqual([
+		expect(payload.statusCode).toBe(400);
+		expect(payload.isClientError).toBe(true);
+
+		// Erorile se află acum în data.errors
+		expect(payload.data.errors).toEqual([
 			{
 				field: "title",
 				message: "Title is required",
@@ -135,6 +141,10 @@ describe("Help route validation integration", () => {
 			{
 				field: "category",
 				message: "Category is required",
+			},
+			{
+				field: "location",
+				message: "Invalid input: expected object, received undefined",
 			},
 		]);
 	});
@@ -180,11 +190,12 @@ describe("Help route validation integration", () => {
 			},
 		);
 
-		const payload = (await response.json()) as ValidationErrorResponse &
-			Record<string, unknown>;
+		const payload = (await response.json()) as Record<string, any>;
 
 		expect(response.status).toBe(400);
-		expect(payload.errors).toEqual([
+		expect(payload.statusCode).toBe(400);
+
+		expect(payload.data.errors).toEqual([
 			{
 				field: "notes",
 				message: "Notes is required",
