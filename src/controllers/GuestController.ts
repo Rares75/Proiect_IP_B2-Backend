@@ -339,14 +339,22 @@ export class GuestController {
 					},
 				},
 			}),
-			zValidator("param", z.object({ id: z.string() }), (result, c) => {
-				if (!result.success) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: "Task id must be a valid number",
-					});
-				}
-			}),
+			zValidator(
+				"param",
+				z.object({
+					id: z
+						.string()
+						.regex(/^\d+$/, { message: "Task id must be a valid number" }),
+				}),
+				(result, c) => {
+					if (!result.success) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Task id must be a valid number",
+						});
+					}
+				},
+			),
 			async (c) => {
 				const guestSession = c.req.header("X-Guest-Session");
 
