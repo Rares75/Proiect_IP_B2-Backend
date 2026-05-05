@@ -71,14 +71,12 @@ const auth = betterAuth({
 		crossSubDomainCookies: { enabled: true },
 		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
 		trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
-		cookiePrefix: "my-app",
-		useSecureCookies: false,
+		useSecureCookies: Bun.env.NODE_ENV === "production",
 		cookies: {
 			session_token: {
-				name: "session_token",
 				attributes: {
 					httpOnly: true,
-					secure: false,
+					secure: Bun.env.NODE_ENV === "production",
 					sameSite: "lax",
 					maxAge: 60 * 60 * 24 * 7,
 					path: "/",
