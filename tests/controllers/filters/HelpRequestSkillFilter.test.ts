@@ -231,7 +231,6 @@ describe("GET /api/tasks - filtrare si sortare dupa skill", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(200);
-		console.log(body);
 		expect(body.data.data).toHaveLength(5);
 		expect(body.data.data[0].id).toBe(1);
 		expect(body.data.data[0].city).toBe("Bucharest");

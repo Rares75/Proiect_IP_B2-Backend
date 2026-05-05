@@ -62,7 +62,7 @@ export class HelpRequestService {
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},
-		} as NotificationService,
+		} as unknown as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -437,5 +437,29 @@ export class HelpRequestService {
 				totalPages: Math.ceil(total / pageSize),
 			},
 		};
+	}
+
+	async deleteGuestHelpRequest(
+		guestSession: string,
+		id: number,
+	): Promise<void> {
+		//find the task
+		const task = await this.helpRequestRepo.findById(id);
+
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(id));
+		}
+
+		if (task.guestSessionId !== guestSession) {
+			throw new ForbiddenError("Nu ai permisiunea de a sterge acest task.");
+		}
+
+		if (task.status !== "OPEN") {
+			throw new ConflictError(
+				"Task-ul nu poate fi sters deoarece nu mai este OPEN.",
+			);
+		}
+
+		await this.helpRequestRepo.delete(id);
 	}
 }

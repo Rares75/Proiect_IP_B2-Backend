@@ -2,10 +2,10 @@
 import { describe, expect, it, beforeAll } from "bun:test";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import app from "../../src/app";
-import { loadControllers } from "../../src/utils/controller";
-import { db } from "../../src/db";
-import { helpRequests } from "../../src/db/requests";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { db } from "../../../src/db";
+import { helpRequests } from "../../../src/db/requests";
 import { eq } from "drizzle-orm";
 
 describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
