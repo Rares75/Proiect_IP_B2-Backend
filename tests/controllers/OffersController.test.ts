@@ -65,11 +65,11 @@ describe("GET /offers", () => {
 
 		// Inject both OfferService and VolunteerRepository
 		const controller = new OfferController(
-			{} as any,  // OfferService (not used in GET /offers)
+			{} as any, // OfferService (not used in GET /offers)
 			{
 				findByUserId,
 				findOffersByVolunteer,
-			} as any,  // VolunteerRepository
+			} as any, // VolunteerRepository
 		);
 
 		app = new Hono();
@@ -169,7 +169,7 @@ describe("GET /offers", () => {
 				title: "Ajutor pentru drum la spital",
 				urgency: "HIGH",
 				status: "OPEN",
-			city: "Iasi",
+				city: "Iasi",
 				description: "Este nevoie de transport dimineata",
 			},
 		});
