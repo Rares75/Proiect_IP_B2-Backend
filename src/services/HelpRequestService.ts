@@ -62,7 +62,7 @@ export class HelpRequestService {
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},
-		} as NotificationService,
+		} as unknown as NotificationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -437,5 +437,32 @@ export class HelpRequestService {
 				totalPages: Math.ceil(total / pageSize),
 			},
 		};
+	}
+
+	async deleteGuestHelpRequest(
+		guestSession: string,
+		id: number,
+	): Promise<void> {
+		//find the task
+		const task = await this.helpRequestRepo.findById(id);
+
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(id));
+		}
+
+		// Verify ownership
+		if (task.guestSessionId !== guestSession) {
+			throw new ForbiddenError(
+				"You do not have permission to delete this task.",
+			);
+		}
+
+		// Verify status is OPEN
+		if (task.status !== "OPEN") {
+			throw new ConflictError("Task cannot be deleted because it is not OPEN.");
+		}
+
+		// Delete task (cascade delete applies to related records)
+		await this.helpRequestRepo.delete(id);
 	}
 }

@@ -1,15 +1,15 @@
 /// <reference types="bun-types" />
 import { describe, expect, it, beforeAll, spyOn, afterEach } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
 
 import {
 	expectClientErrorApiResponse,
 	expectSuccessApiResponse,
 	expectApiEnvelope,
-} from "./apiResponseAssertions";
+} from "../apiResponseAssertions";
 
 describe("GET /api/guest/tasks", () => {
 	let serviceSpy: ReturnType<typeof spyOn> | undefined;
