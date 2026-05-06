@@ -147,7 +147,10 @@ export class OfferService {
 		}
 
 		return db.transaction(async (tx) => {
-			const accepted = await this.offerRepo.acceptOffer(context as AcceptableOfferNotificationContext, tx);
+			const accepted = await this.offerRepo.acceptOffer(
+				context as AcceptableOfferNotificationContext,
+				tx,
+			);
 
 			await this.notificationService.notifyVolunteerOfferAccepted(
 				{
@@ -222,7 +225,9 @@ export class OfferService {
 		}
 
 		if (offer.volunteerUserId !== userId) {
-			throw new ForbiddenError("Only the volunteer who created the offer can withdraw it");
+			throw new ForbiddenError(
+				"Only the volunteer who created the offer can withdraw it",
+			);
 		}
 
 		if (offer.status !== "PENDING") {

@@ -165,7 +165,7 @@ export class OfferRepository {
 
 		return { offer, taskAssignment };
 	}
-	
+
 	//BE1-26
 	async findOfferWithVolunteerUserId(offerId: number) {
 		const [result] = await db
