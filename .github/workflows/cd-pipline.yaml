@@ -24,7 +24,7 @@ jobs:
     steps:
       #Moving the workflow on the VM
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       #Bun setup
       - name: Setup Bun
