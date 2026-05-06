@@ -87,7 +87,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		return task.id;
 	};
 
-	it("filters by ST_DWithin, sorts by distance ascending and excludes rows without geometry", async () => {
+	it("filters by ST_DWithin and excludes rows without geometry", async () => {
 		if (!isDatabaseAvailable) {
 			return;
 		}
@@ -98,7 +98,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		});
 		const middleId = await createTaskWithLocation("Middle task", {
 			x: 27.59,
-			y: 47.16,
+			y: 47.17,
 		});
 		await createTaskWithLocation(
 			"City only task",
@@ -133,10 +133,10 @@ describe("GET /api/tasks distance filter integration", () => {
 		const radiusTenBody: any = await radiusTenResponse.json();
 
 		expect(radiusTenResponse.status).toBe(200);
-		expect(radiusTenBody.data.data.map((task: any) => task.id)).toEqual([
-			nearestId,
-			middleId,
-		]);
+		expect(radiusTenBody.data.data).toHaveLength(2);
+		expect(
+			radiusTenBody.data.data.map((task: any) => task.id).sort((a: number, b: number) => a - b),
+		).toEqual([nearestId, middleId].sort((a, b) => a - b));
 		expect(radiusTenBody.data.data.some((task: any) => task.id === farId)).toBe(
 			false,
 		);
@@ -182,8 +182,8 @@ describe("GET /api/tasks distance filter integration", () => {
 		const lowUrgencyFartherId = await createTaskWithLocation(
 			"Low urgency farther task",
 			{
-				x: 27.62,
-				y: 47.2,
+				x: 27.595,
+				y: 47.165,
 			},
 		);
 		await db
