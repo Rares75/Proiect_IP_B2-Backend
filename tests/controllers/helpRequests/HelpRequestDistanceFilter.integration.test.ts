@@ -135,7 +135,9 @@ describe("GET /api/tasks distance filter integration", () => {
 		expect(radiusTenResponse.status).toBe(200);
 		expect(radiusTenBody.data.data).toHaveLength(2);
 		expect(
-			radiusTenBody.data.data.map((task: any) => task.id).sort((a: number, b: number) => a - b),
+			radiusTenBody.data.data
+				.map((task: any) => task.id)
+				.sort((a: number, b: number) => a - b),
 		).toEqual([nearestId, middleId].sort((a, b) => a - b));
 		expect(radiusTenBody.data.data.some((task: any) => task.id === farId)).toBe(
 			false,
