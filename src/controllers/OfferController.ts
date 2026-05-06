@@ -107,5 +107,69 @@ export class OfferController {
 				throw error;
 			}
 		},
+	)
+
+	//BE1-26
+	.delete(
+		"/offers/:id",
+		authMiddleware,
+		describeRoute({
+			summary: "Withdraw an offer",
+			description: "Allows a volunteer to withdraw their PENDING offer. Performs a hard delete.",
+			tags: ["Offers"],
+			responses: {
+				204: { description: "Offer deleted successfully" },
+				400: { description: "Invalid id" },
+				401: { description: "Unauthorized" },
+				403: { description: "Forbidden" },
+				404: { description: "Offer not found" },
+				409: { description: "Offer is not PENDING" },
+			},
+		}),
+		async (c) => {
+			const offerId = parsePositiveId(c.req.param("id"));
+			if (!offerId) {
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "'id' must be a positive integer",
+				});
+			}
+
+			try {
+				const session = c.get("session");
+				if (!session?.userId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				await this.offerService.deleteOffer(offerId, session.userId);
+
+				// Status 204 "No Content" înseamnă succes, dar fără body JSON
+				return c.body(null, 204);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: error.message,
+					});
+				}
+
+				if (error instanceof ForbiddenError) {
+					return sendApiResponse(c, null, {
+						statusCode: 403,
+						message: error.message,
+					});
+				}
+
+				// Mapăm ValidationError pe 409 Conflict (cum cere checklist-ul)
+				if (error instanceof ValidationError) {
+					return sendApiResponse(c, null, {
+						statusCode: 409,
+						message: error.message,
+					});
+				}
+
+				throw error;
+			}
+		},
 	);
 }

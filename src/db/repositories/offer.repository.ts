@@ -165,4 +165,24 @@ export class OfferRepository {
 
 		return { offer, taskAssignment };
 	}
+	
+	//BE1-26
+	async findOfferWithVolunteerUserId(offerId: number) {
+		const [result] = await db
+			.select({
+				id: helpOffers.id,
+				status: helpOffers.status,
+				volunteerUserId: volunteers.userId,
+			})
+			.from(helpOffers)
+			.innerJoin(volunteers, eq(helpOffers.volunteerId, volunteers.id))
+			.where(eq(helpOffers.id, offerId))
+			.limit(1);
+
+		return result;
+	}
+
+	async delete(offerId: number): Promise<void> {
+		await db.delete(helpOffers).where(eq(helpOffers.id, offerId));
+	}
 }

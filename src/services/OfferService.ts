@@ -147,7 +147,7 @@ export class OfferService {
 		}
 
 		return db.transaction(async (tx) => {
-			const accepted = await this.offerRepo.acceptOffer(context, tx);
+			const accepted = await this.offerRepo.acceptOffer(context as AcceptableOfferNotificationContext, tx);
 
 			await this.notificationService.notifyVolunteerOfferAccepted(
 				{
@@ -211,5 +211,24 @@ export class OfferService {
 
 			return accepted;
 		});
+	}
+
+	//BE1-26
+	async deleteOffer(offerId: number, userId: string): Promise<void> {
+		const offer = await this.offerRepo.findOfferWithVolunteerUserId(offerId);
+
+		if (!offer) {
+			throw new NotFoundError("Offer", String(offerId));
+		}
+
+		if (offer.volunteerUserId !== userId) {
+			throw new ForbiddenError("Only the volunteer who created the offer can withdraw it");
+		}
+
+		if (offer.status !== "PENDING") {
+			throw new ValidationError("Only PENDING offers can be withdrawn");
+		}
+
+		await this.offerRepo.delete(offerId);
 	}
 }
