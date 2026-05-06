@@ -162,7 +162,6 @@ export class OfferController {
 						});
 					}
 
-					// Mapăm ValidationError pe 409 Conflict 
 					if (error instanceof ValidationError) {
 						return sendApiResponse(c, null, {
 							statusCode: 409,
