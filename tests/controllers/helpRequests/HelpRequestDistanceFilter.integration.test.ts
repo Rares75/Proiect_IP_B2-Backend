@@ -8,7 +8,7 @@ import {
 	it,
 	spyOn,
 } from "bun:test";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { inArray } from "drizzle-orm";
 import { join } from "node:path";
 import app from "../../../src/app";
@@ -87,7 +87,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		return task.id;
 	};
 
-	it("filters by ST_DWithin, sorts by distance ascending and excludes rows without geometry", async () => {
+	it("filters by ST_DWithin and excludes rows without geometry", async () => {
 		if (!isDatabaseAvailable) {
 			return;
 		}
@@ -98,7 +98,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		});
 		const middleId = await createTaskWithLocation("Middle task", {
 			x: 27.59,
-			y: 47.16,
+			y: 47.17,
 		});
 		await createTaskWithLocation(
 			"City only task",
@@ -133,10 +133,12 @@ describe("GET /api/tasks distance filter integration", () => {
 		const radiusTenBody: any = await radiusTenResponse.json();
 
 		expect(radiusTenResponse.status).toBe(200);
-		expect(radiusTenBody.data.data.map((task: any) => task.id)).toEqual([
-			nearestId,
-			middleId,
-		]);
+		expect(radiusTenBody.data.data).toHaveLength(2);
+		expect(
+			radiusTenBody.data.data
+				.map((task: any) => task.id)
+				.sort((a: number, b: number) => a - b),
+		).toEqual([nearestId, middleId].sort((a, b) => a - b));
 		expect(radiusTenBody.data.data.some((task: any) => task.id === farId)).toBe(
 			false,
 		);
@@ -160,5 +162,49 @@ describe("GET /api/tasks distance filter integration", () => {
 			data: [],
 			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
 		});
+	});
+
+	it("keeps sortBy priority when distance filter is active", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const highUrgencyCloserId = await createTaskWithLocation(
+			"High urgency closer task",
+			{
+				x: 27.58,
+				y: 47.15,
+			},
+		);
+		await db
+			.update(helpRequests)
+			.set({ urgency: "HIGH" })
+			.where(eq(helpRequests.id, highUrgencyCloserId));
+
+		const lowUrgencyFartherId = await createTaskWithLocation(
+			"Low urgency farther task",
+			{
+				x: 27.595,
+				y: 47.165,
+			},
+		);
+		await db
+			.update(helpRequests)
+			.set({ urgency: "LOW" })
+			.where(eq(helpRequests.id, lowUrgencyFartherId));
+
+		const response = await app.request(
+			"/api/tasks?lat=47.15&lng=27.58&radius=10&sortBy=urgency&order=ASC",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.data.map((task: any) => task.id)).toEqual([
+			lowUrgencyFartherId,
+			highUrgencyCloserId,
+		]);
 	});
 });
