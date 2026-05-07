@@ -1,16 +1,16 @@
 /// <reference types="bun-types" />
 import { describe, expect, it, beforeAll, spyOn, afterEach } from "bun:test";
 import { join } from "node:path";
-import app from "../../src/app";
-import { loadControllers } from "../../src/utils/controller";
-import { HelpRequestService } from "../../src/services/HelpRequestService";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
 
 // Importam corect functiile voastre de asertiuni
 import {
 	expectClientErrorApiResponse,
 	expectSuccessApiResponse,
 	expectApiEnvelope,
-} from "./apiResponseAssertions";
+} from "../apiResponseAssertions";
 
 describe("POST /api/guest/tasks", () => {
 	let serviceSpy: ReturnType<typeof spyOn> | undefined;

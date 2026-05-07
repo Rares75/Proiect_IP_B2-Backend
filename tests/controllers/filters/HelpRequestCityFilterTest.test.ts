@@ -8,8 +8,8 @@ import {
 	test,
 } from "bun:test";
 import { Hono } from "hono";
-import auth from "../../src/auth";
-import { HelpOfferService } from "../../src/services/HelpOfferService";
+import auth from "../../../src/auth";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 
 // 1. Mock the Controller decorator
 const Controller = () => (_target: unknown) => {};
@@ -19,7 +19,7 @@ mock.module("../../src/utils/controller", () => ({
 
 // 2. Dynamically import the controller AFTER the decorator mock is set
 const { HelpRequestController } = await import(
-	"../../src/controllers/HelpRequestController"
+	"../../../src/controllers/HelpRequestController"
 );
 
 describe("GET /tasks validation - City Filter", () => {
