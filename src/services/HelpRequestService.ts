@@ -507,45 +507,41 @@ export class HelpRequestService {
 			);
 		}
 
-		// Gather pending offers BEFORE making DB changes so we can notify volunteers
-		let pendingOffers = [] as Array<{
-			id: number;
-			volunteerId: number;
-			volunteerUserId: string;
-		}>;
-		try {
-			pendingOffers = await this.helpOfferRepo.findPendingByHelpRequestId(id);
-		} catch (err) {
-			// if we cannot read pending offers, log and continue; deletion should still be attempted
-			console.error("Failed to read pending offers before deletion:", err);
-		}
+		// Transaction: update offers to REJECTED and delete task (atomic).
+		// We also create notifications inside the same transaction to guarantee
+		// that notifications are created for every affected volunteer or the whole
+		// operation is rolled back. The authoritative list of affected volunteers is
+		// provided by the repository into the callback to avoid race conditions.
+		const result = await this.helpRequestRepo.deleteWithOfferRejection(
+			id,
+			async (tx, pendingOffers) => {
+				if (pendingOffers && pendingOffers.length > 0) {
+					// ensure all pending offers have a volunteerUserId; if not, fail the transaction
+					if (pendingOffers.some((p) => !p.volunteerUserId)) {
+						throw new Error("Missing volunteer user id for pending offers");
+					}
 
-		// Transaction: update offers to REJECTED and delete task (atomic)
-		await this.helpRequestRepo.deleteWithOfferRejection(id);
+					const notifications = pendingOffers.map((offer) => ({
+						userId: offer.volunteerUserId as string,
+						type: "TASK_UPDATED" as const,
+						text: `The task "${task.title}" has been cancelled and all offers have been rejected.`,
+						relatedRequestId: id,
+						relatedAssignmentId: null,
+						createdAt: new Date(),
+					}));
 
-		// Notify volunteers with pending offers (use the snapshot we took before deletion)
-		try {
-			if (pendingOffers && pendingOffers.length > 0) {
-				const notifications = pendingOffers.map((offer) => ({
-					userId: offer.volunteerUserId,
-					type: "TASK_UPDATED" as const,
-					text: `The task "${task.title}" has been cancelled and all offers have been rejected.`,
-					relatedRequestId: id,
-					relatedAssignmentId: null,
-					createdAt: new Date(),
-				}));
+					// create notifications inside the same tx using the notification service
+					await this.notificationService.notifyVolunteersPendingOffersCancelled(
+						notifications,
+						tx,
+					);
+				}
+			},
+		);
 
-				// Send bulk notifications
-				await this.notificationService.notifyVolunteersPendingOffersCancelled(
-					notifications,
-				);
-			}
-		} catch (notificationError) {
-			console.error(
-				"Failed to send notifications for task deletion:",
-				notificationError,
-			);
-			// Continue despite notification failures
+		// If delete did not remove any row, surface NotFound to caller
+		if (!result.deleted) {
+			throw new NotFoundError("HelpRequest", String(id));
 		}
 	}
 }

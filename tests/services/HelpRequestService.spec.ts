@@ -60,13 +60,21 @@ describe("HelpRequestService - deleteHelpRequestByOwner", () => {
 
 		// spy on deleteWithOfferRejection and notification call
 		let deleted = false;
-		mockHelpRequestRepo.deleteWithOfferRejection = async (id: number) => {
+		mockHelpRequestRepo.deleteWithOfferRejection = async (
+			id: number,
+			cb?: (tx: any, pendingOffers: any[]) => Promise<void>,
+		) => {
 			if (id === taskId) deleted = true;
+			const pending = [{ id: 1, volunteerId: 1, volunteerUserId: "vol-1" }];
+			// invoke callback to simulate in-transaction notification creation
+			if (cb) await cb({}, pending);
+			return { deleted: true, pendingOffers: pending };
 		};
 
 		let notificationsSent = 0;
 		mockNotificationService.notifyVolunteersPendingOffersCancelled = async (
 			notifs: any,
+			_client?: any,
 		) => {
 			notificationsSent = notifs.length;
 		};

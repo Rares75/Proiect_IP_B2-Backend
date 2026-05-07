@@ -24,7 +24,10 @@ describe("DELETE /tasks/:id - integration-like", () => {
 				const v = store.get(id);
 				return v ? { ...v } : undefined;
 			},
-			deleteWithOfferRejection: async (id: number) => {
+			deleteWithOfferRejection: async (
+				id: number,
+				cb?: (tx: any, pendingOffers: any[]) => Promise<void>,
+			) => {
 				// atomically reject pending offers and remove task
 				offers = offers.map((o) =>
 					o.helpRequestId === id && o.status === "PENDING"
@@ -32,6 +35,15 @@ describe("DELETE /tasks/:id - integration-like", () => {
 						: o,
 				);
 				store.delete(id);
+				const pending = offers
+					.filter((o) => o.helpRequestId === id)
+					.map((o) => ({
+						id: o.id,
+						volunteerId: o.volunteerId,
+						volunteerUserId: o.volunteerUserId,
+					}));
+				if (cb) await cb({}, pending);
+				return { deleted: true, pendingOffers: pending };
 			},
 		};
 
@@ -47,7 +59,10 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const detailsRepo = {} as any;
 
 		const notificationService = {
-			notifyVolunteersPendingOffersCancelled: async (notifs: any[]) => {
+			notifyVolunteersPendingOffersCancelled: async (
+				notifs: any[],
+				_client?: any,
+			) => {
 				notificationsCreated.push(...notifs);
 			},
 		} as any;

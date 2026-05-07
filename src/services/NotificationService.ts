@@ -54,12 +54,14 @@ export class NotificationService {
 			relatedAssignmentId: null;
 			createdAt: Date;
 		}>,
+		client?: any,
 	): Promise<void> {
 		if (notifications.length === 0) {
 			return;
 		}
 
-		// Create bulk notifications in the database
+		// Create bulk notifications in the database. Accept an optional DB client to
+		// allow running inside an existing transaction for atomicity.
 		await this.notificationRepo.createMany(
 			notifications.map((notif) => ({
 				userId: notif.userId,
@@ -69,6 +71,7 @@ export class NotificationService {
 				relatedAssignmentId: notif.relatedAssignmentId,
 				createdAt: notif.createdAt,
 			})),
+			client,
 		);
 	}
 }
