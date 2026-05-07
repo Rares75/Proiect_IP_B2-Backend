@@ -198,6 +198,7 @@ export class HelpRequestRepository
 		page: number,
 		pageSize: number,
 		sortBy: "createdAt" | "urgency" = "createdAt",
+		hasExplicitSortBy: boolean = false,
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
 	) {
@@ -238,7 +239,9 @@ export class HelpRequestRepository
 
 		//basic sorting by urgency level
 		const orderBy = distanceOrderBy
-			? [primarySort, asc(distanceOrderBy), desc(helpRequests.id)]
+			? hasExplicitSortBy
+				? [primarySort, asc(distanceOrderBy), desc(helpRequests.id)]
+				: [asc(distanceOrderBy), primarySort, desc(helpRequests.id)]
 			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];

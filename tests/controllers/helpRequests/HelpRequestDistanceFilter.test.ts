@@ -66,6 +66,7 @@ describe("GET /api/tasks distance filter", () => {
 				1,
 				10,
 				"createdAt",
+				false,
 				"DESC",
 				{
 					distance: {

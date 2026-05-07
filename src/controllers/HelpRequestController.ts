@@ -4,17 +4,14 @@ import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
-import { offerStatusEnum, requestStatusEnum } from "../db/enums";
+import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
-import {
-	InvalidStatusTransitionError,
-	NotFoundError,
-	ForbiddenError,
-} from "../utils/Errors";
+import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
+	helpOfferInputSchema,
 	helpRequestCreateInputSchema,
 	queryValidationMiddleware,
 } from "../validation";
@@ -30,7 +27,6 @@ import {
 	HelpOfferTaskNotFoundError,
 	HelpOfferTaskStatusConflictError,
 } from "../services/HelpOfferService";
-import { helpOfferCreateInputSchema } from "../validation";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -92,14 +88,12 @@ const successDetailsSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-type OfferStatus = (typeof offerStatusEnum.enumValues)[number];
 type HelpRequestResponse = Awaited<
 	ReturnType<HelpRequestService["getHelpRequestById"]>
 >;
 type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
-const VALID_OFFER_STATUSES = new Set<OfferStatus>(offerStatusEnum.enumValues);
 
 const requireSession = async (c: any) => {
 	const existingSession = c.get("session");
@@ -140,7 +134,7 @@ const sanitizeAnonymousTask = (
 	return safeTask;
 };
 
-enum OfferStatus {
+enum OfferFilterStatus {
 	PENDING = "PENDING",
 	ACCEPTED = "ACCEPTED",
 	REJECTED = "REJECTED",
@@ -287,12 +281,13 @@ export class HelpRequestController {
 					}
 
 					//Extragem parametrii
-					const { page, pageSize, sortBy, order, filters } =
+					const { page, pageSize, sortBy, hasExplicitSortBy, order, filters } =
 						validation.validData;
 					const result = await this.helpRequestService.getPaginatedTasks(
 						page,
 						pageSize,
 						sortBy,
+						hasExplicitSortBy,
 						order,
 						filters,
 						c.get("user")?.id,
@@ -521,6 +516,7 @@ export class HelpRequestController {
 					) {
 						//return c.json({ message: "Forbidden" }, 403);
 						return sendApiResponse(c, null, {
+							kind: "clientError",
 							statusCode: 403,
 							message:
 								"You do not have permission to change the status of this help request.",
@@ -637,14 +633,14 @@ export class HelpRequestController {
 					const statusRaw = query.status;
 
 					if (statusRaw) {
-						const isValidStatus = Object.values(OfferStatus).includes(
-							statusRaw as OfferStatus,
+						const isValidStatus = Object.values(OfferFilterStatus).includes(
+							statusRaw as OfferFilterStatus,
 						);
 
 						if (!isValidStatus) {
 							return sendApiResponse(c, null, {
 								kind: "clientError",
-								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
+								message: `invalid status; accepted: ${Object.values(OfferFilterStatus).join(", ")}`,
 							});
 						}
 					}
@@ -690,7 +686,7 @@ export class HelpRequestController {
 		// Constraints enforced for POST /tasks/:id/offers:
 		// - authenticated session required
 		// - task id must be a positive integer
-		// - request body must match helpOfferCreateInputSchema
+		// - request body must match helpOfferInputSchema
 		// - service layer verifies OPEN task status, volunteer ownership rules,
 		//   and duplicate pending offers
 		.post(
@@ -754,7 +750,7 @@ export class HelpRequestController {
 				}
 
 				const body = await c.req.json().catch(() => null);
-				const parsedBody = helpOfferCreateInputSchema.safeParse(body);
+				const parsedBody = helpOfferInputSchema.safeParse(body);
 				if (!parsedBody.success) {
 					return sendApiResponse(
 						c,

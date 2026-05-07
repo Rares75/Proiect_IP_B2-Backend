@@ -15,6 +15,7 @@ type ValidTasksQuery = {
 	page: number;
 	pageSize: number;
 	sortBy: TaskSortBy;
+	hasExplicitSortBy: boolean;
 	order: SortOrder;
 	filters: TaskFilterParams;
 };
@@ -33,6 +34,7 @@ export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
 
 	const page = pageRaw ? Number(pageRaw) : 1;
 	const pageSize = pageSizeRaw ? Number(pageSizeRaw) : 10;
+	const hasExplicitSortBy = sortByRaw !== undefined;
 
 	if (!Number.isInteger(page) || page < 1) {
 		return { error: "Eroare: 'page' trebuie sa fie minim 1." };
@@ -95,6 +97,7 @@ export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
 			page,
 			pageSize,
 			sortBy: sortBy as TaskSortBy,
+			hasExplicitSortBy,
 			order: order as SortOrder,
 			filters,
 		} satisfies ValidTasksQuery,
