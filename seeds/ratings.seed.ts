@@ -14,7 +14,8 @@ export const ratingsSeed: EntitySeed = {
 					);
 					const volunteerUserId =
 						volunteer?.userId ?? pick(context.users, index).id;
-					const requesterId = assignment.requestedByUserId;
+					const requesterId =
+						assignment.requestedByUserId ?? pick(context.users, index + 1).id;
 
 					return [
 						{
