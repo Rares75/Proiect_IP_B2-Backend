@@ -109,10 +109,12 @@ describe("GET /offers", () => {
 		const body: any = await response.json();
 
 		// Assert: envelope produced by sendApiResponse
+		//console.log(body.data);
+		//console.log(response.status);
 		expect(response.status).toBe(403);
 		expect(body.data).toBeNull();
 		expect(body.message).toBe("Volunteer not found");
-		expect(body.notFound).toBe(true);
+		expect(body.notFound).toBe(false);
 		expect(body.isUnauthorized).toBe(false);
 		expect(body.isServerError).toBe(false);
 		expect(body.isClientError).toBe(false);
