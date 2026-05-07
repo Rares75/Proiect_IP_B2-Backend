@@ -465,4 +465,87 @@ export class HelpRequestService {
 		// Delete task (cascade delete applies to related records)
 		await this.helpRequestRepo.delete(id);
 	}
+
+	/**
+	 * Delete a help request by its owner (authenticated user)
+	 * - Only allows deletion if status is OPEN or CANCELLED
+	 * - Rejects all PENDING offers before deletion
+	 * - Notifies all volunteers with pending offers
+	 *
+	 * @param id - The ID of the help request to delete
+	 * @param userId - The ID of the user attempting the deletion
+	 * @throws {NotFoundError} If the task does not exist
+	 * @throws {ForbiddenError} If the user is not the task owner
+	 * @throws {ConflictError} If the task status is not OPEN or CANCELLED
+	 */
+	async deleteHelpRequestByOwner(id: number, userId: string): Promise<void> {
+		// Fetch the task to verify existence and permissions
+		const task = await this.helpRequestRepo.findById(id);
+
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(id));
+		}
+
+		// Verify ownership: only the task owner can delete
+		if (task.requestedByUserId !== userId) {
+			throw new ForbiddenError(
+				"You do not have permission to delete this task.",
+			);
+		}
+
+		// Check status: only OPEN or CANCELLED tasks can be deleted
+		// Blocking statuses: MATCHED, IN_PROGRESS, COMPLETED, REJECTED
+		const blockingStatuses = [
+			"MATCHED",
+			"IN_PROGRESS",
+			"COMPLETED",
+			"REJECTED",
+		];
+		if (blockingStatuses.includes(task.status)) {
+			throw new ConflictError(
+				`Task cannot be deleted because it is in ${task.status} status. Only OPEN or CANCELLED tasks can be deleted.`,
+			);
+		}
+
+		// Gather pending offers BEFORE making DB changes so we can notify volunteers
+		let pendingOffers = [] as Array<{
+			id: number;
+			volunteerId: number;
+			volunteerUserId: string;
+		}>;
+		try {
+			pendingOffers = await this.helpOfferRepo.findPendingByHelpRequestId(id);
+		} catch (err) {
+			// if we cannot read pending offers, log and continue; deletion should still be attempted
+			console.error("Failed to read pending offers before deletion:", err);
+		}
+
+		// Transaction: update offers to REJECTED and delete task (atomic)
+		await this.helpRequestRepo.deleteWithOfferRejection(id);
+
+		// Notify volunteers with pending offers (use the snapshot we took before deletion)
+		try {
+			if (pendingOffers && pendingOffers.length > 0) {
+				const notifications = pendingOffers.map((offer) => ({
+					userId: offer.volunteerUserId,
+					type: "TASK_UPDATED" as const,
+					text: `The task "${task.title}" has been cancelled and all offers have been rejected.`,
+					relatedRequestId: id,
+					relatedAssignmentId: null,
+					createdAt: new Date(),
+				}));
+
+				// Send bulk notifications
+				await this.notificationService.notifyVolunteersPendingOffersCancelled(
+					notifications,
+				);
+			}
+		} catch (notificationError) {
+			console.error(
+				"Failed to send notifications for task deletion:",
+				notificationError,
+			);
+			// Continue despite notification failures
+		}
+	}
 }

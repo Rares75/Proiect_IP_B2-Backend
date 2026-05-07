@@ -14,6 +14,7 @@ import {
 	requestDetails,
 	requestLocations,
 	taskAssignments,
+	helpOffers,
 } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
@@ -144,6 +145,28 @@ export class HelpRequestRepository
 			.where(eq(helpRequests.id, id))
 			.returning({ id: helpRequests.id });
 		return result.length > 0;
+	}
+
+	/**
+	 * Delete a help request and reject all pending offers in a single transaction
+	 * Ensures data consistency: if any step fails, the entire operation rolls back
+	 */
+	async deleteWithOfferRejection(id: number): Promise<void> {
+		await db.transaction(async (tx) => {
+			// Update all PENDING offers to REJECTED
+			await tx
+				.update(helpOffers)
+				.set({ status: "REJECTED" })
+				.where(
+					and(
+						eq(helpOffers.helpRequestId, id),
+						eq(helpOffers.status, "PENDING"),
+					),
+				);
+
+			// Delete the help request (cascade delete applies to request_locations and request_details)
+			await tx.delete(helpRequests).where(eq(helpRequests.id, id));
+		});
 	}
 
 	async exists(id: number): Promise<boolean> {
