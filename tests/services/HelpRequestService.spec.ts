@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { HelpRequestService } from "../../src/services/HelpRequestService";
-import {
-	NotFoundError,
-	ForbiddenError,
-} from "../../src/utils/Errors";
+import { NotFoundError, ForbiddenError } from "../../src/utils/Errors";
 
 describe("HelpRequestService - deleteHelpRequestByOwner", () => {
 	let service: HelpRequestService;
