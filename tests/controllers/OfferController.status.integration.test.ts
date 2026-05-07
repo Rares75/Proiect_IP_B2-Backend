@@ -55,7 +55,7 @@ describe("PATCH /api/offers/:id/status integration", () => {
 			const result = await db.execute(
 				sql`select to_regclass('public.user') as user_table`,
 			);
-			isDatabaseAvailable = Boolean(result.rows[0]?.user_table);
+			isDatabaseAvailable = Boolean((result as any)[0]?.user_table);
 		} catch {
 			isDatabaseAvailable = false;
 		}
