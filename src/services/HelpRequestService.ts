@@ -255,6 +255,7 @@ export class HelpRequestService {
 		page: number,
 		pageSize: number,
 		sortBy: "createdAt" | "urgency" = "createdAt",
+		hasExplicitSortBy: boolean = false,
 		order: "ASC" | "DESC" = "DESC",
 		filters?: TaskFilterParams,
 		userId?: string,
@@ -268,6 +269,7 @@ export class HelpRequestService {
 			page,
 			pageSize,
 			sortBy,
+			hasExplicitSortBy,
 			order,
 			resolvedFilters,
 		);

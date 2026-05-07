@@ -34,6 +34,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 			1,
 			10,
 			"createdAt",
+			false,
 			"DESC",
 			{
 				distance: {
@@ -48,6 +49,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 			1,
 			10,
 			"createdAt",
+			false,
 			"DESC",
 			{
 				distance: {
@@ -82,6 +84,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 				1,
 				10,
 				"createdAt",
+				false,
 				"DESC",
 				{
 					distance: {
@@ -114,6 +117,7 @@ describe("HelpRequestService.getPaginatedTasks distance defaults", () => {
 				1,
 				10,
 				"createdAt",
+				false,
 				"DESC",
 				{
 					distance: {

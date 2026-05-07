@@ -284,12 +284,13 @@ export class HelpRequestController {
 					}
 
 					//Extragem parametrii
-					const { page, pageSize, sortBy, order, filters } =
+					const { page, pageSize, sortBy, hasExplicitSortBy, order, filters } =
 						validation.validData;
 					const result = await this.helpRequestService.getPaginatedTasks(
 						page,
 						pageSize,
 						sortBy,
+						hasExplicitSortBy,
 						order,
 						filters,
 						c.get("user")?.id,
