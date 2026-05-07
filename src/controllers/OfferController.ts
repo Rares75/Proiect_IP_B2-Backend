@@ -207,7 +207,6 @@ export class OfferController {
 				const volunteer = await this.volunteerRepository.findByUserId(user.id);
 				if (!volunteer) {
 					return sendApiResponse(c, null, {
-						kind: "notFound",
 						message: "Volunteer not found",
 						statusCode: 403,
 					});
