@@ -371,8 +371,8 @@ export class HelpRequestService {
 		const guestData: CreateHelpRequestDTO = {
 			...(data as any),
 			title: data.title,
-            description: data.description ?? null,
-            audioUrl: data.audioUrl ?? null,
+			description: data.description ?? null,
+			audioUrl: data.audioUrl ?? null,
 			category: "MESSAGES_ONLY",
 			guestSessionId: sessionId,
 			requestedByUserId: null, // Guestul nu are cont
