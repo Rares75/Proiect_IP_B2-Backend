@@ -110,12 +110,8 @@
 					"name": "account_user_id_user_id_fk",
 					"tableFrom": "account",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -157,12 +153,8 @@
 					"name": "conversations_task_assignment_id_task_assignments_id_fk",
 					"tableFrom": "conversations",
 					"tableTo": "task_assignments",
-					"columnsFrom": [
-						"task_assignment_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["task_assignment_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -172,9 +164,7 @@
 				"conversations_task_assignment_id_unique": {
 					"name": "conversations_task_assignment_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"task_assignment_id"
-					]
+					"columns": ["task_assignment_id"]
 				}
 			},
 			"policies": {},
@@ -248,12 +238,8 @@
 					"name": "disable_notifications_user_id_user_id_fk",
 					"tableFrom": "disable_notifications",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -314,12 +300,8 @@
 					"name": "help_offers_volunteer_id_volunteers_id_fk",
 					"tableFrom": "help_offers",
 					"tableTo": "volunteers",
-					"columnsFrom": [
-						"volunteer_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["volunteer_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -327,12 +309,8 @@
 					"name": "help_offers_help_request_id_help_requests_id_fk",
 					"tableFrom": "help_offers",
 					"tableTo": "help_requests",
-					"columnsFrom": [
-						"help_request_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["help_request_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -429,12 +407,8 @@
 					"name": "help_requests_requested_by_user_id_user_id_fk",
 					"tableFrom": "help_requests",
 					"tableTo": "user",
-					"columnsFrom": [
-						"requested_by_user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["requested_by_user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "set null",
 					"onUpdate": "no action"
 				}
@@ -487,12 +461,8 @@
 					"name": "interaction_histories_user_id_user_id_fk",
 					"tableFrom": "interaction_histories",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -500,12 +470,8 @@
 					"name": "interaction_histories_task_assignment_id_task_assignments_id_fk",
 					"tableFrom": "interaction_histories",
 					"tableTo": "task_assignments",
-					"columnsFrom": [
-						"task_assignment_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["task_assignment_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -572,12 +538,8 @@
 					"name": "messages_conversation_id_conversations_id_fk",
 					"tableFrom": "messages",
 					"tableTo": "conversations",
-					"columnsFrom": [
-						"conversation_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["conversation_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -585,12 +547,8 @@
 					"name": "messages_sender_id_user_id_fk",
 					"tableFrom": "messages",
 					"tableTo": "user",
-					"columnsFrom": [
-						"sender_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["sender_id"],
+					"columnsTo": ["id"],
 					"onDelete": "no action",
 					"onUpdate": "no action"
 				}
@@ -662,12 +620,8 @@
 					"name": "notifications_user_id_user_id_fk",
 					"tableFrom": "notifications",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -675,12 +629,8 @@
 					"name": "notifications_related_request_id_help_requests_id_fk",
 					"tableFrom": "notifications",
 					"tableTo": "help_requests",
-					"columnsFrom": [
-						"related_request_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["related_request_id"],
+					"columnsTo": ["id"],
 					"onDelete": "set null",
 					"onUpdate": "no action"
 				},
@@ -688,12 +638,8 @@
 					"name": "notifications_related_assignment_id_task_assignments_id_fk",
 					"tableFrom": "notifications",
 					"tableTo": "task_assignments",
-					"columnsFrom": [
-						"related_assignment_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["related_assignment_id"],
+					"columnsTo": ["id"],
 					"onDelete": "set null",
 					"onUpdate": "no action"
 				}
@@ -758,12 +704,8 @@
 					"name": "ratings_task_assignment_id_task_assignments_id_fk",
 					"tableFrom": "ratings",
 					"tableTo": "task_assignments",
-					"columnsFrom": [
-						"task_assignment_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["task_assignment_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -771,12 +713,8 @@
 					"name": "ratings_written_by_user_id_user_id_fk",
 					"tableFrom": "ratings",
 					"tableTo": "user",
-					"columnsFrom": [
-						"written_by_user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["written_by_user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "no action",
 					"onUpdate": "no action"
 				},
@@ -784,12 +722,8 @@
 					"name": "ratings_received_by_user_id_user_id_fk",
 					"tableFrom": "ratings",
 					"tableTo": "user",
-					"columnsFrom": [
-						"received_by_user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["received_by_user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "no action",
 					"onUpdate": "no action"
 				}
@@ -851,12 +785,8 @@
 					"name": "request_details_help_request_id_help_requests_id_fk",
 					"tableFrom": "request_details",
 					"tableTo": "help_requests",
-					"columnsFrom": [
-						"help_request_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["help_request_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -866,9 +796,7 @@
 				"request_details_help_request_id_unique": {
 					"name": "request_details_help_request_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"help_request_id"
-					]
+					"columns": ["help_request_id"]
 				}
 			},
 			"policies": {},
@@ -939,12 +867,8 @@
 					"name": "request_locations_help_request_id_help_requests_id_fk",
 					"tableFrom": "request_locations",
 					"tableTo": "help_requests",
-					"columnsFrom": [
-						"help_request_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["help_request_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -954,9 +878,7 @@
 				"request_locations_help_request_id_unique": {
 					"name": "request_locations_help_request_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"help_request_id"
-					]
+					"columns": ["help_request_id"]
 				}
 			},
 			"policies": {},
@@ -1039,12 +961,8 @@
 					"name": "session_user_id_user_id_fk",
 					"tableFrom": "session",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1054,9 +972,7 @@
 				"session_token_unique": {
 					"name": "session_token_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"token"
-					]
+					"columns": ["token"]
 				}
 			},
 			"policies": {},
@@ -1131,12 +1047,8 @@
 					"name": "task_assignments_help_request_id_help_requests_id_fk",
 					"tableFrom": "task_assignments",
 					"tableTo": "help_requests",
-					"columnsFrom": [
-						"help_request_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["help_request_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
@@ -1144,12 +1056,8 @@
 					"name": "task_assignments_offer_id_help_offers_id_fk",
 					"tableFrom": "task_assignments",
 					"tableTo": "help_offers",
-					"columnsFrom": [
-						"offer_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["offer_id"],
+					"columnsTo": ["id"],
 					"onDelete": "set null",
 					"onUpdate": "no action"
 				},
@@ -1157,12 +1065,8 @@
 					"name": "task_assignments_requested_by_user_id_user_id_fk",
 					"tableFrom": "task_assignments",
 					"tableTo": "user",
-					"columnsFrom": [
-						"requested_by_user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["requested_by_user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "no action",
 					"onUpdate": "no action"
 				},
@@ -1170,12 +1074,8 @@
 					"name": "task_assignments_handled_by_volunteer_id_volunteers_id_fk",
 					"tableFrom": "task_assignments",
 					"tableTo": "volunteers",
-					"columnsFrom": [
-						"handled_by_volunteer_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["handled_by_volunteer_id"],
+					"columnsTo": ["id"],
 					"onDelete": "no action",
 					"onUpdate": "no action"
 				}
@@ -1185,9 +1085,7 @@
 				"task_assignments_help_request_id_unique": {
 					"name": "task_assignments_help_request_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"help_request_id"
-					]
+					"columns": ["help_request_id"]
 				}
 			},
 			"policies": {},
@@ -1260,12 +1158,8 @@
 					"name": "two_factor_user_id_user_id_fk",
 					"tableFrom": "two_factor",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1371,23 +1265,17 @@
 				"user_email_unique": {
 					"name": "user_email_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"email"
-					]
+					"columns": ["email"]
 				},
 				"user_username_unique": {
 					"name": "user_username_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"username"
-					]
+					"columns": ["username"]
 				},
 				"user_phone_number_unique": {
 					"name": "user_phone_number_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"phone_number"
-					]
+					"columns": ["phone_number"]
 				}
 			},
 			"policies": {},
@@ -1451,12 +1339,8 @@
 					"name": "user_accesses_user_id_user_id_fk",
 					"tableFrom": "user_accesses",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1466,9 +1350,7 @@
 				"user_accesses_user_id_unique": {
 					"name": "user_accesses_user_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id"
-					]
+					"columns": ["user_id"]
 				}
 			},
 			"policies": {},
@@ -1532,12 +1414,8 @@
 					"name": "user_profiles_user_id_user_id_fk",
 					"tableFrom": "user_profiles",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1547,9 +1425,7 @@
 				"user_profiles_user_id_unique": {
 					"name": "user_profiles_user_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id"
-					]
+					"columns": ["user_id"]
 				}
 			},
 			"policies": {},
@@ -1687,12 +1563,8 @@
 					"name": "volunteer_known_locations_volunteer_id_volunteers_id_fk",
 					"tableFrom": "volunteer_known_locations",
 					"tableTo": "volunteers",
-					"columnsFrom": [
-						"volunteer_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["volunteer_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1775,12 +1647,8 @@
 					"name": "volunteer_profiles_volunteer_id_volunteers_id_fk",
 					"tableFrom": "volunteer_profiles",
 					"tableTo": "volunteers",
-					"columnsFrom": [
-						"volunteer_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["volunteer_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1790,9 +1658,7 @@
 				"volunteer_profiles_volunteer_id_unique": {
 					"name": "volunteer_profiles_volunteer_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"volunteer_id"
-					]
+					"columns": ["volunteer_id"]
 				}
 			},
 			"policies": {},
@@ -1857,12 +1723,8 @@
 					"name": "volunteer_verifications_user_id_user_id_fk",
 					"tableFrom": "volunteer_verifications",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1872,9 +1734,7 @@
 				"volunteer_verifications_user_id_unique": {
 					"name": "volunteer_verifications_user_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id"
-					]
+					"columns": ["user_id"]
 				}
 			},
 			"policies": {},
@@ -1939,12 +1799,8 @@
 					"name": "volunteers_user_id_user_id_fk",
 					"tableFrom": "volunteers",
 					"tableTo": "user",
-					"columnsFrom": [
-						"user_id"
-					],
-					"columnsTo": [
-						"id"
-					],
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
@@ -1954,9 +1810,7 @@
 				"volunteers_user_id_unique": {
 					"name": "volunteers_user_id_unique",
 					"nullsNotDistinct": false,
-					"columns": [
-						"user_id"
-					]
+					"columns": ["user_id"]
 				}
 			},
 			"policies": {},
@@ -1968,45 +1822,27 @@
 		"public.account_status": {
 			"name": "account_status",
 			"schema": "public",
-			"values": [
-				"ACTIVE",
-				"LIMITED",
-				"BLOCKED"
-			]
+			"values": ["ACTIVE", "LIMITED", "BLOCKED"]
 		},
 		"public.assignment_status": {
 			"name": "assignment_status",
 			"schema": "public",
-			"values": [
-				"ASSIGNED",
-				"STARTED",
-				"COMPLETED",
-				"CANCELLED"
-			]
+			"values": ["ASSIGNED", "STARTED", "COMPLETED", "CANCELLED"]
 		},
 		"public.conversation_status": {
 			"name": "conversation_status",
 			"schema": "public",
-			"values": [
-				"OPEN",
-				"CLOSED"
-			]
+			"values": ["OPEN", "CLOSED"]
 		},
 		"public.help_request_category": {
 			"name": "help_request_category",
 			"schema": "public",
-			"values": [
-				"MESSAGES_ONLY",
-				"FACE_TO_FACE"
-			]
+			"values": ["MESSAGES_ONLY", "FACE_TO_FACE"]
 		},
 		"public.message_content_type": {
 			"name": "message_content_type",
 			"schema": "public",
-			"values": [
-				"TEXTCONTENT",
-				"AUDIOCONTENT"
-			]
+			"values": ["TEXTCONTENT", "AUDIOCONTENT"]
 		},
 		"public.notification_type": {
 			"name": "notification_type",
@@ -2023,11 +1859,7 @@
 		"public.offer_status": {
 			"name": "offer_status",
 			"schema": "public",
-			"values": [
-				"PENDING",
-				"ACCEPTED",
-				"REJECTED"
-			]
+			"values": ["PENDING", "ACCEPTED", "REJECTED"]
 		},
 		"public.request_status": {
 			"name": "request_status",
@@ -2044,21 +1876,12 @@
 		"public.urgency_level": {
 			"name": "urgency_level",
 			"schema": "public",
-			"values": [
-				"LOW",
-				"MEDIUM",
-				"HIGH",
-				"CRITICAL"
-			]
+			"values": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 		},
 		"public.verification_status": {
 			"name": "verification_status",
 			"schema": "public",
-			"values": [
-				"PENDING",
-				"VERIFIED",
-				"REJECTED"
-			]
+			"values": ["PENDING", "VERIFIED", "REJECTED"]
 		}
 	},
 	"schemas": {},
