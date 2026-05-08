@@ -186,10 +186,9 @@ export class HelpRequestController {
 							"Invalid input or moderation error (inappropriate content)",
 						content: {
 							"application/json": {
-								schema: resolver(z.union([
-									emptyApiResponseSchema, 
-									moderationResponseSchema
-								])), // support boths
+								schema: resolver(
+									z.union([emptyApiResponseSchema, moderationResponseSchema]),
+								), // support boths
 							},
 						},
 					},
