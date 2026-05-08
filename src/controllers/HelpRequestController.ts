@@ -218,6 +218,14 @@ export class HelpRequestController {
 					const result = await this.helpRequestService.createHelpRequest(
 						createData as CreateHelpRequestDTO,
 					);
+
+					if (result.moderationWarning) {
+						return sendApiResponse(c, result, { 
+							kind: "created" as const, 
+							message: `Task created with warning: ${result.moderationWarning}` 
+						});
+					}
+
 					return sendApiResponse(c, result, { kind: "created" as const });
 				} catch (error: any) {
 					// check if error comes from inappropriate request
