@@ -31,7 +31,7 @@ import {
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
 export type HelpRequestAssignmentAuthorization = {
-	requestedByUserId: string;
+	requestedByUserId: string | null;
 	handledByVolunteerId: number;
 	volunteerUserId: string;
 };
