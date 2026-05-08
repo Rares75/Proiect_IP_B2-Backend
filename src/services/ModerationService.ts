@@ -12,7 +12,7 @@ export enum ModerationLevel {
 
 export class ModerationError extends Error {
 	constructor(
-		public message: string,
+		message: string,
 		public level: ModerationLevel,
 		public reason: string,
 	) {
@@ -152,7 +152,8 @@ export class ModerationService {
 		}
 
 		// add \s* between letters to catch spaced-out words (e.g., "s c a m")
-		const processedTerms = terms.map((term) => term.split("").join("\\s*"));
+		// also catch digits in between
+		const processedTerms = terms.map((term) => term.split("").join("[\\s\\d]*"));
 
 		// combine with OR (|), wrap in word boundaries (\b), and make case-insensitive (i)
 		return new RegExp(`\\b(${processedTerms.join("|")})\\b`, "i");

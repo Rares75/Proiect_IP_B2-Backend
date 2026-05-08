@@ -34,7 +34,7 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
-		private readonly moderationService: ModerationService = new ModerationService(),
+		private readonly moderationService: ModerationService,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
@@ -57,23 +57,28 @@ export class HelpRequestService {
 					worstOffender.reason || "Violation of safety policies.",
 				);
 			}
+		}
 
-			// soft block
-			if (worstOffender.level === ModerationLevel.FLAGGED) {
+		try {
+			const createdTask = await this.helpRequestRepo.create({
+				...data,
+				status: "OPEN",
+			});
+
+			if (worstOffender?.level === ModerationLevel.FLAGGED) {
 				logger.info(
 					`[Moderation] Task created with warnings: ${worstOffender.reason}`,
 				);
 			}
-		}
 
-		try {
-			return await this.helpRequestRepo.create({
-				...data,
-				status: "OPEN",
-			});
+			return {
+			...createdTask,
+			...(worstOffender?.level === ModerationLevel.FLAGGED
+				? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
+				: {}),
+			};
 		} catch (error) {
-			console.error("--- RAW DB ERROR ---", error);
-			logger.exception(error);
+			logger.error(`[HelpRequestService] DB create failed: ${error instanceof Error ? error.message : String(error)}`);
 			throw new Error("Could not create help request");
 		}
 	}

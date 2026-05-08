@@ -80,7 +80,7 @@ const successDetailsSchema = z
 const moderationResponseSchema = z
 	.object({
 		data: z.object({
-			level: z.enum(["FLAGGED", "BLOCKED"]),
+			level: z.literal("BLOCKED"),
 			reason: z.string(),
 		}),
 		message: z.string(),
@@ -199,8 +199,9 @@ export class HelpRequestController {
 				},
 			}),
 			async (c) => {
+				let session: any = null;
 				try {
-					const session = await requireSession(c);
+					session = await requireSession(c);
 					if (session instanceof Response) {
 						return session;
 					}
@@ -218,10 +219,16 @@ export class HelpRequestController {
 						createData as CreateHelpRequestDTO,
 					);
 					//return c.json(result, 201);
-					return sendApiResponse(c, result, { kind: "created" });
+					const { moderationWarning, ...taskData } = result;
+					return sendApiResponse(c, taskData, {
+						kind: "created" as const,
+						...(moderationWarning ? { message: moderationWarning } : {}),
+						});
 				} catch (error: any) {
 					// check if error comes from inappropriate request
 					if (error instanceof ModerationError) {
+						const logMsg = `[MODERATION] User ${session?.userId || "anonymous"} rejected. Reason: ${error.reason}`;
+            			logger.warn(logMsg);
 						return sendApiResponse(
 							c,
 							{ level: error.level, reason: error.reason },
@@ -229,8 +236,8 @@ export class HelpRequestController {
 						);
 					}
 
-					console.error(error);
-					//return c.json({ error: "Internal server error" }, 500);
+					logger.error(`[HelpRequestController] Unhandled error: ${error instanceof Error ? error.message : String(error)}`);
+					// return c.json({ error: "Internal server error" }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
