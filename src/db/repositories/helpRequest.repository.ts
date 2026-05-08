@@ -324,7 +324,13 @@ export class HelpRequestRepository
 
 		//basic sorting by urgency level
 		const orderBy = distanceOrderBy
-			? [primarySort, asc(distanceOrderBy), desc(helpRequests.id)]
+			? sortBy === "urgency"
+				? [
+						desc(helpRequests.urgency),
+						asc(distanceOrderBy),
+						desc(helpRequests.id),
+					]
+				: [asc(distanceOrderBy), desc(helpRequests.id)]
 			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
