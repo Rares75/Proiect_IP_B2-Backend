@@ -4,7 +4,8 @@ import { repository } from "../../di/decorators/repository";
 import { helpOffers } from "../requests";
 import { ratings } from "../social";
 import { userProfiles, volunteers } from "../profile";
-import { user } from "../auth-schema"; // Ajustează calea dacă este necesar
+import { user } from "../auth-schema";
+import type { DatabaseClient } from "./databaseClient";
 
 export type HelpOffer = typeof helpOffers.$inferSelect;
 export type CreateHelpOfferDTO = typeof helpOffers.$inferInsert;
@@ -93,5 +94,50 @@ export class HelpOfferRepository {
 			.where(whereClause);
 
 		return { data: rows, total };
+	}
+
+	/**
+	 * Find all pending offers for a help request with volunteer user info
+	 */
+	async findPendingByHelpRequestId(
+		helpRequestId: number,
+	): Promise<
+		Array<{ id: number; volunteerId: number; volunteerUserId: string }>
+	> {
+		return db
+			.select({
+				id: helpOffers.id,
+				volunteerId: helpOffers.volunteerId,
+				volunteerUserId: volunteers.userId,
+			})
+			.from(helpOffers)
+			.innerJoin(volunteers, eq(helpOffers.volunteerId, volunteers.id))
+			.where(
+				and(
+					eq(helpOffers.helpRequestId, helpRequestId),
+					eq(helpOffers.status, "PENDING"),
+				),
+			);
+	}
+
+	/**
+	 * Update all pending offers for a help request to a new status (e.g., REJECTED)
+	 */
+	async updatePendingOffersByHelpRequestId(
+		helpRequestId: number,
+		newStatus: "REJECTED" | "ACCEPTED",
+		client: DatabaseClient = db,
+	): Promise<number> {
+		const result = await client
+			.update(helpOffers)
+			.set({ status: newStatus })
+			.where(
+				and(
+					eq(helpOffers.helpRequestId, helpRequestId),
+					eq(helpOffers.status, "PENDING"),
+				),
+			)
+			.returning({ id: helpOffers.id });
+		return result.length;
 	}
 }

@@ -69,8 +69,8 @@ export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
 export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 	.omit({
 		anonymousMode: true,
-		category: true,
 		userId: true,
+		category: true,
 	})
 	.extend({
 		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),

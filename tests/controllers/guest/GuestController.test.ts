@@ -92,6 +92,22 @@ describe("POST /api/guest/tasks", () => {
 		expect(body.isClientError).toBe(true);
 	});
 
+	it("3b. ar trebui sa returneze 400 (strict) daca body contine 'category'", async () => {
+		const response = await app.request("/api/guest/tasks", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": validUuid,
+			},
+			body: JSON.stringify({ ...validBody, category: "FACE_TO_FACE" }),
+		});
+
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expectApiEnvelope(body, 400);
+		expect(body.isClientError).toBe(true);
+	});
+
 	it("4. ar trebui sa returneze 400 (strict) daca body contine 'anonymousMode'", async () => {
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
@@ -180,6 +196,37 @@ describe("POST /api/guest/tasks", () => {
 		const body: any = await response.json();
 
 		// Folosim functia voastra oficiala de Success API Response!
+		expectSuccessApiResponse(body, mockCreatedTask, 201);
+	});
+
+	it("8. ar trebui sa accepte urgency LOW pentru guest", async () => {
+		const mockCreatedTask = {
+			id: 101,
+			title: validBody.title,
+			description: validBody.description,
+			guestSessionId: validUuid,
+			requestedByUserId: null,
+			urgency: "LOW",
+			anonymousMode: true,
+			status: "OPEN",
+		};
+
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"createGuestHelpRequest",
+		).mockResolvedValue(mockCreatedTask as any);
+
+		const response = await app.request("/api/guest/tasks", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": validUuid,
+			},
+			body: JSON.stringify({ ...validBody, urgency: "LOW" }),
+		});
+
+		expect(response.status).toBe(201);
+		const body: any = await response.json();
 		expectSuccessApiResponse(body, mockCreatedTask, 201);
 	});
 });

@@ -6,6 +6,7 @@ import { volunteers } from "../profile";
 import type { offerStatusEnum, requestStatusEnum } from "../enums";
 import type { DatabaseClient } from "./databaseClient";
 import { InvalidStatusTransitionError } from "../../utils/Errors";
+import { ConversationRepository } from "./conversation.repository";
 
 export type HelpOffer = typeof helpOffers.$inferSelect;
 export type CreateHelpOfferDTO = typeof helpOffers.$inferInsert;
@@ -33,6 +34,10 @@ export type AcceptedOfferResult = {
 
 @repository()
 export class OfferRepository {
+	constructor(
+		private readonly conversationRepo = new ConversationRepository(),
+	) {}
+
 	async create(data: CreateHelpOfferDTO): Promise<HelpOffer> {
 		const [offer] = await db.insert(helpOffers).values(data).returning();
 		return offer;
@@ -146,6 +151,8 @@ export class OfferRepository {
 				handledByVolunteerId: context.volunteerId,
 			})
 			.returning();
+
+		await this.conversationRepo.create(taskAssignment.id, client);
 
 		await client
 			.update(helpRequests)
