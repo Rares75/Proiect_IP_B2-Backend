@@ -228,7 +228,7 @@ describe("queryValidationMiddleware", () => {
 	it("lets valid GET query params reach the handler without modifying them", async () => {
 		const app = createQueryApp();
 		const url =
-			"http://localhost/tasks?page=2&pageSize=20&sortBy=urgency&order=ASC&status=OPEN&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
+			"http://localhost/tasks?page=2&pageSize=20&sortBy=urgency&order=ASC&status=OPEN&category=MESSAGES_ONLY&city=Bucharest&language=Romanian&skill=sofer&skill=traducator&lat=47&lng=25&radius=15";
 
 		const response = await app.request(url);
 
@@ -241,6 +241,7 @@ describe("queryValidationMiddleware", () => {
 				sortBy: "urgency",
 				order: "ASC",
 				status: "OPEN",
+				category: "MESSAGES_ONLY",
 				city: "Bucharest",
 				language: "Romanian",
 				skill: "sofer",

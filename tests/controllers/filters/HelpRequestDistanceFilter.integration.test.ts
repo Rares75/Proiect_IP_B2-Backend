@@ -8,7 +8,7 @@ import {
 	it,
 	spyOn,
 } from "bun:test";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { inArray } from "drizzle-orm";
 import { join } from "node:path";
 import app from "../../../src/app";
@@ -66,6 +66,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		title: string,
 		location?: { x: number; y: number },
 		city?: string,
+		urgency?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
 	) => {
 		const [task] = await db
 			.insert(helpRequests)
@@ -73,6 +74,7 @@ describe("GET /api/tasks distance filter integration", () => {
 				title,
 				description: `${title} description`,
 				category: "FACE_TO_FACE",
+				urgency,
 			})
 			.returning({ id: helpRequests.id });
 
@@ -134,11 +136,10 @@ describe("GET /api/tasks distance filter integration", () => {
 
 		expect(radiusTenResponse.status).toBe(200);
 		expect(radiusTenBody.data.data).toHaveLength(2);
-		expect(
-			radiusTenBody.data.data
-				.map((task: any) => task.id)
-				.sort((a: number, b: number) => a - b),
-		).toEqual([nearestId, middleId].sort((a, b) => a - b));
+		expect(radiusTenBody.data.data.map((task: any) => task.id)).toEqual([
+			nearestId,
+			middleId,
+		]);
 		expect(radiusTenBody.data.data.some((task: any) => task.id === farId)).toBe(
 			false,
 		);
@@ -169,32 +170,38 @@ describe("GET /api/tasks distance filter integration", () => {
 			return;
 		}
 
-		const highUrgencyCloserId = await createTaskWithLocation(
-			"High urgency closer task",
+		const criticalFartherId = await createTaskWithLocation(
+			"Critical farther task",
 			{
 				x: 27.58,
-				y: 47.15,
+				y: 47.15045,
 			},
+			undefined,
+			"CRITICAL",
 		);
-		await db
-			.update(helpRequests)
-			.set({ urgency: "HIGH" })
-			.where(eq(helpRequests.id, highUrgencyCloserId));
 
-		const lowUrgencyFartherId = await createTaskWithLocation(
-			"Low urgency farther task",
+		const criticalCloserId = await createTaskWithLocation(
+			"Critical closer task",
 			{
-				x: 27.595,
-				y: 47.165,
+				x: 27.58,
+				y: 47.15018,
 			},
+			undefined,
+			"CRITICAL",
 		);
-		await db
-			.update(helpRequests)
-			.set({ urgency: "LOW" })
-			.where(eq(helpRequests.id, lowUrgencyFartherId));
+
+		const highClosestId = await createTaskWithLocation(
+			"High closest task",
+			{
+				x: 27.58,
+				y: 47.150045,
+			},
+			undefined,
+			"HIGH",
+		);
 
 		const response = await app.request(
-			"/api/tasks?lat=47.15&lng=27.58&radius=10&sortBy=urgency&order=ASC",
+			"/api/tasks?lat=47.15&lng=27.58&radius=1&sortBy=urgency",
 			{
 				headers: { Authorization: "Bearer fake-test-token" },
 			},
@@ -203,8 +210,63 @@ describe("GET /api/tasks distance filter integration", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.data.data.map((task: any) => task.id)).toEqual([
-			lowUrgencyFartherId,
-			highUrgencyCloserId,
+			criticalCloserId,
+			criticalFartherId,
+			highClosestId,
 		]);
+	});
+
+	it("keeps combined urgency and distance ordering before pagination", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await createTaskWithLocation(
+			"High closest paginated task",
+			{
+				x: 27.58,
+				y: 47.150045,
+			},
+			undefined,
+			"HIGH",
+		);
+		const criticalFartherId = await createTaskWithLocation(
+			"Critical farther paginated task",
+			{
+				x: 27.58,
+				y: 47.15045,
+			},
+			undefined,
+			"CRITICAL",
+		);
+		const criticalCloserId = await createTaskWithLocation(
+			"Critical closer paginated task",
+			{
+				x: 27.58,
+				y: 47.15018,
+			},
+			undefined,
+			"CRITICAL",
+		);
+
+		const firstPageResponse = await app.request(
+			"/api/tasks?lat=47.15&lng=27.58&radius=1&sortBy=urgency&page=1&pageSize=2",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
+		const firstPageBody: any = await firstPageResponse.json();
+
+		expect(firstPageResponse.status).toBe(200);
+		expect(firstPageBody.data.data.map((task: any) => task.id)).toEqual([
+			criticalCloserId,
+			criticalFartherId,
+		]);
+		expect(firstPageBody.data.meta).toMatchObject({
+			page: 1,
+			pageSize: 2,
+			total: 3,
+			totalPages: 2,
+		});
 	});
 });

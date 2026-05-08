@@ -22,7 +22,6 @@ describe("INTEGRATION: POST /api/guest/tasks Flow", () => {
 	const validBody = {
 		title: "Test Integrare",
 		description: "Testam rate limit-ul in DB",
-		category: "FACE_TO_FACE",
 		status: "OPEN",
 		location: { x: 44.0, y: 26.0 },
 	};
