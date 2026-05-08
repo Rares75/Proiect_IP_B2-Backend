@@ -68,7 +68,6 @@ export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
 // 3. Schema pentru Guest (Baza + Omit + Refine)
 export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 	.omit({
-		urgency: true,
 		anonymousMode: true,
 		userId: true,
 		category: true,

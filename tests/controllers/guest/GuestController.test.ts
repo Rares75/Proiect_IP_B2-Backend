@@ -165,14 +165,15 @@ describe("POST /api/guest/tasks", () => {
 		expect(body.message).toContain("Limita atinsă");
 	});
 
-	it("7. ar trebui sa returneze 201 + task creat corect cu CRITICAL si anonymousMode = true", async () => {
+	it("7. ar trebui sa returneze 201 + task creat corect cu HIGH si anonymousMode = true", async () => {
 		const mockCreatedTask = {
 			id: 100,
 			title: validBody.title,
 			description: validBody.description,
 			guestSessionId: validUuid,
 			requestedByUserId: null,
-			urgency: "CRITICAL",
+			urgency: "HIGH",
+			category: "MESSAGES_ONLY",
 			anonymousMode: true,
 			status: "OPEN",
 		};
