@@ -40,8 +40,32 @@ describe("ModerationService", () => {
 		expect(result.level).toBe(ModerationLevel.BLOCKED);
 	});
 
+	it("should catch words that are both obfuscated and spaced out", () => {
+		const result = service.scanContent("$ c @ m");
+		expect(result.level).toBe(ModerationLevel.BLOCKED);
+	});
+
 	it("should not trigger false positives on substrings", () => {
 		const result = service.scanContent("cryptography");
 		expect(result.level).toBe(ModerationLevel.CLEAN);
 	});
+
+	// assumes "kill" is a blocked keyword with a reason that contains "violence"
+	it("should return the correct specific reason message for a category", () => {
+		const result = service.scanContent("i will kill you"); 
+		expect(result.level).toBe(ModerationLevel.BLOCKED);
+		expect(result.reason).toContain("violence");
+	});
+
+	it("should prioritize BLOCKED over FLAGGED if both are present", () => {
+		const result = service.scanContent("scam with crypto");
+		expect(result.level).toBe(ModerationLevel.BLOCKED);
+		expect(result.reason).toContain("scam"); 
+	});
+
+	it("should trigger based on custom patterns in categories", () => {
+		const result = service.scanContent("please click this suspicious link");
+		expect(result.level).toBe(ModerationLevel.FLAGGED);
+	});
+
 });

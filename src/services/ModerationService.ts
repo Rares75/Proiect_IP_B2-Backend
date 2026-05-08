@@ -11,10 +11,14 @@ export enum ModerationLevel {
 }
 
 export class ModerationError extends Error {
-	constructor(public message: string) {
+	constructor(
+		public message: string,
+		public level: ModerationLevel,
+		public reason: string
+	) {
 		super(message);
 		this.name = "ModerationError";
-		Object.setPrototypeOf(this, ModerationError.prototype);
+		Object.setPrototypeOf(this, ModerationError.prototype); // aparent bubuie js-ul daca nu fac asta
 	}
 }
 
@@ -23,29 +27,46 @@ interface ModerationResult {
 	reason?: string;
 }
 
+interface CompiledReasonRule {
+	id: string;
+	message: string;
+	blockedKeywordRegex: RegExp | null;
+	flaggedKeywordRegex: RegExp | null;
+	blockedPatterns: RegExp[];
+	flaggedPatterns: RegExp[];
+}
+
 @Service()
 export class ModerationService {
-	private blockedRegex: RegExp | null = null;
-	private flaggedRegex: RegExp | null = null;
+	private compiledRules: CompiledReasonRule[] = [];
 
 	constructor() {
-		// add optional regex spaces in the string
-		const makeSpacedPattern = (term: string) => term.split("").join("\\s*");
+		// pre-compile all rules
+		for (const reasonGroup of blacklistConfig.reasons) {
+			const blockedTerms = reasonGroup.keywords
+				.filter((k) => k.severity === ModerationLevel.BLOCKED)
+				.map((k) => k.term);
 
-		const blockedTerms = blacklistConfig.keywords
-			.filter((k) => k.severity === ModerationLevel.BLOCKED)
-			.map((k) => makeSpacedPattern(k.term));
+			const flaggedTerms = reasonGroup.keywords
+				.filter((k) => k.severity === ModerationLevel.FLAGGED)
+				.map((k) => k.term);
 
-		const flaggedTerms = blacklistConfig.keywords
-			.filter((k) => k.severity === ModerationLevel.FLAGGED)
-			.map((k) => makeSpacedPattern(k.term));
+			const blockedPatterns = reasonGroup.patterns
+				.filter((p) => p.severity === ModerationLevel.BLOCKED)
+				.map((p) => new RegExp(p.regex, "i"));
 
-		if (blockedTerms.length > 0) {
-			this.blockedRegex = new RegExp(`\\b(${blockedTerms.join("|")})\\b`, "i");
-		}
+			const flaggedPatterns = reasonGroup.patterns
+				.filter((p) => p.severity === ModerationLevel.FLAGGED)
+				.map((p) => new RegExp(p.regex, "i"));
 
-		if (flaggedTerms.length > 0) {
-			this.flaggedRegex = new RegExp(`\\b(${flaggedTerms.join("|")})\\b`, "i");
+			this.compiledRules.push({
+				id: reasonGroup.id,
+				message: reasonGroup.message,
+				blockedKeywordRegex: this.buildKeywordRegex(blockedTerms),
+				flaggedKeywordRegex: this.buildKeywordRegex(flaggedTerms),
+				blockedPatterns,
+				flaggedPatterns
+			});
 		}
 	}
 
@@ -80,64 +101,60 @@ export class ModerationService {
 	 * @returns result and flagged word (if applicable)
 	 */
 	public scanContent(text: string | null | undefined): ModerationResult {
-		if (!text || text.trim() === "") {
-			return { level: ModerationLevel.CLEAN };
-		}
+		if (!text || text.trim() === "") return { level: ModerationLevel.CLEAN };
 
 		const normalized = this.normalizeText(text);
 
-		// check blocked
-		if (this.blockedRegex?.test(normalized)) {
-			logger.warn(
-				`[Moderation Service] BLOCKED (Keyword). Snippet: "${normalized.substring(0, 50)}"`,
-			);
-			return {
-				level: ModerationLevel.BLOCKED,
-				reason: "Content violates safety policies.",
-			};
-		}
+		// check all blocked rules
+		for (const rule of this.compiledRules) {
+			// check keywords
+			if (rule.blockedKeywordRegex?.test(normalized)) {
+				logger.warn(`[Moderation] BLOCKED keyword in category: ${rule.id}`);
+				return { level: ModerationLevel.BLOCKED, reason: rule.message };
+			}
 
-		// check blocked patterns
-		for (const p of blacklistConfig.patterns.filter(
-			(p) => p.severity === ModerationLevel.BLOCKED,
-		)) {
-			if (new RegExp(p.regex, "i").test(normalized)) {
-				logger.warn(
-					`[Moderation Service] BLOCKED (Pattern). Snippet: "${normalized.substring(0, 50)}"`,
-				);
-				return {
-					level: ModerationLevel.BLOCKED,
-					reason: "Blacklisted pattern detected.",
-				};
+			// check patterns
+			for (const pattern of rule.blockedPatterns) {
+				if (pattern.test(normalized)) {
+					logger.warn(`[Moderation] BLOCKED pattern in category: ${rule.id}`);
+					return { level: ModerationLevel.BLOCKED, reason: rule.message };
+				}
 			}
 		}
 
-		// check flagged
-		if (this.flaggedRegex?.test(normalized)) {
-			logger.info(
-				`[Moderation Service] FLAGGED (Keyword). Snippet: "${normalized.substring(0, 50)}"`,
-			);
-			return {
-				level: ModerationLevel.FLAGGED,
-				reason: "Suspicious activity detected.",
-			};
-		}
+		// check all flagged rules
+		for (const rule of this.compiledRules) {
+			// check keywords
+			if (rule.flaggedKeywordRegex?.test(normalized)) {
+				logger.info(`[Moderation] FLAGGED keyword in category: ${rule.id}`);
+				return { level: ModerationLevel.FLAGGED, reason: rule.message };
+			}
 
-		// check flagged patterns
-		for (const p of blacklistConfig.patterns.filter(
-			(p) => p.severity === ModerationLevel.FLAGGED,
-		)) {
-			if (new RegExp(p.regex, "i").test(normalized)) {
-				logger.info(
-					`[Moderation Service] FLAGGED (Pattern). Snippet: "${normalized.substring(0, 50)}"`,
-				);
-				return {
-					level: ModerationLevel.FLAGGED,
-					reason: "Request flagged for review.",
-				};
+			// check patterns
+			for (const pattern of rule.flaggedPatterns) {
+				if (pattern.test(normalized)) {
+					logger.info(`[Moderation] FLAGGED pattern in category: ${rule.id}`);
+					return { level: ModerationLevel.FLAGGED, reason: rule.message };
+				}
 			}
 		}
 
 		return { level: ModerationLevel.CLEAN };
+	}
+
+	/**
+	 * Takes an array of raw keywords and compiles them into a single regex 
+	 * that catches spaced-out variations.
+	 */
+	private buildKeywordRegex(terms: string[]): RegExp | null {
+		if (!terms || terms.length === 0) {
+			return null;
+		}
+
+		// add \s* between letters to catch spaced-out words (e.g., "s c a m")
+		const processedTerms = terms.map(term => term.split("").join("\\s*"));
+
+		// combine with OR (|), wrap in word boundaries (\b), and make case-insensitive (i)
+		return new RegExp(`\\b(${processedTerms.join("|")})\\b`, "i");
 	}
 }

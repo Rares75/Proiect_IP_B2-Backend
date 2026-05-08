@@ -13,9 +13,9 @@ import {
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
+import type { TaskFilterParams } from "../filters";
 import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
-//import type { TaskFilterParams } from "../filters";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -41,27 +41,23 @@ export class HelpRequestService {
 		const titleResult = this.moderationService.scanContent(data.title);
 		const descResult = this.moderationService.scanContent(data.description);
 
-		let finalResult = ModerationLevel.CLEAN;
-		if (
-			titleResult.level === ModerationLevel.BLOCKED ||
-			descResult.level === ModerationLevel.BLOCKED
-		) {
-			finalResult = ModerationLevel.BLOCKED;
-		} else if (
-			titleResult.level === ModerationLevel.FLAGGED ||
-			descResult.level === ModerationLevel.FLAGGED
-		) {
-			finalResult = ModerationLevel.FLAGGED;
-		}
+		const results = [titleResult, descResult];
 
-		const reason = titleResult.reason || descResult.reason;
+		// BLOCKED takes priority (|| scurtcircuiteaza la prima valoare gasita aici)
+		const worstOffender = 
+			results.find(r => r.level === ModerationLevel.BLOCKED) || 
+			results.find(r => r.level === ModerationLevel.FLAGGED);
 
-		if (finalResult === ModerationLevel.BLOCKED) {
-			throw new ModerationError(reason ?? "Inappropriate content.");
-		}
+		if (worstOffender) {
+			const message = worstOffender.level === ModerationLevel.BLOCKED
+				? "Your request was blocked due to inappropriate content."
+				: "Your request was flagged due to suspicious content.";
 
-		if (finalResult === ModerationLevel.FLAGGED) {
-			// TODO: do something?
+			throw new ModerationError(
+				message,
+				worstOffender.level,
+				worstOffender.reason || "General policy violation." // ori motivul ori fallback string
+			);
 		}
 
 		try {
