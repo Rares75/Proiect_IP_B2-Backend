@@ -18,11 +18,12 @@ import {
 	helpRequests,
 	taskAssignments,
 } from "../../src/db/requests";
-import { notifications } from "../../src/db/social";
+import { conversations, notifications } from "../../src/db/social";
 import { volunteers } from "../../src/db/profile";
 import { OfferController } from "../../src/controllers/OfferController";
 import { OfferService } from "../../src/services/OfferService";
 import { OfferRepository } from "../../src/db/repositories/offer.repository";
+import { ConversationRepository } from "../../src/db/repositories/conversation.repository";
 import { HelpRequestRepository } from "../../src/db/repositories/helpRequest.repository";
 import { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";
 import { NotificationService } from "../../src/services/NotificationService";
@@ -175,7 +176,7 @@ describe("PATCH /api/offers/:id/status integration", () => {
 		};
 	};
 
-	it("accepts a pending offer and creates assignment + notification", async () => {
+	it("accepts a pending offer and creates assignment, conversation, and notification", async () => {
 		if (!isDatabaseAvailable) {
 			return;
 		}
@@ -212,6 +213,14 @@ describe("PATCH /api/offers/:id/status integration", () => {
 		expect(assignment.offerId).toBe(createdOfferIds[0]);
 		expect(assignment.handledByVolunteerId).toBe(volunteerOne.id);
 		expect(assignment.status).toBe("ASSIGNED");
+
+		const savedConversations = await db
+			.select()
+			.from(conversations)
+			.where(eq(conversations.taskAssignmentId, assignment.id));
+		expect(savedConversations).toHaveLength(1);
+		expect(savedConversations[0].status).toBe("OPEN");
+		expect(savedConversations[0].taskAssignmentId).toBe(assignment.id);
 
 		const rejectedOffer = await db
 			.select()
@@ -312,5 +321,146 @@ describe("PATCH /api/offers/:id/status integration", () => {
 			.from(helpRequests)
 			.where(eq(helpRequests.id, task.id));
 		expect(updatedTask.status).toBe("MATCHED");
+	});
+
+	it("creates an OPEN conversation for a guest requester task when an offer is accepted", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await insertUser(volunteerOneUserId, "vol1@test.com", "Volunteer One");
+
+		const [volunteerOne] = await db
+			.insert(volunteers)
+			.values({
+				userId: volunteerOneUserId,
+				availability: true,
+			})
+			.returning({ id: volunteers.id, userId: volunteers.userId });
+		createdVolunteerIds = [volunteerOne.id];
+
+		const [task] = await db
+			.insert(helpRequests)
+			.values({
+				requestedByUserId: null,
+				guestSessionId: "guest-session-accept-offer",
+				title: "Guest integration task",
+				description: "Guest needs help with transport",
+				status: "OPEN",
+				category: "FACE_TO_FACE",
+			})
+			.returning({ id: helpRequests.id, status: helpRequests.status });
+		createdTaskId = task.id;
+
+		const [offer] = await db
+			.insert(helpOffers)
+			.values({
+				helpRequestId: task.id,
+				volunteerId: volunteerOne.id,
+				message: "I can help a guest requester",
+				status: "PENDING",
+			})
+			.returning({
+				id: helpOffers.id,
+				status: helpOffers.status,
+				helpRequestId: helpOffers.helpRequestId,
+				volunteerId: helpOffers.volunteerId,
+			});
+		createdOfferIds = [offer.id];
+
+		const accepted = await db.transaction((tx) =>
+			new OfferRepository().acceptOffer(
+				{
+					offerId: offer.id,
+					helpRequestId: task.id,
+					volunteerId: volunteerOne.id,
+					status: offer.status,
+					taskStatus: task.status,
+					requestTitle: "Guest integration task",
+					requestedByUserId: null,
+					volunteerUserId: volunteerOne.userId,
+				},
+				tx,
+			),
+		);
+
+		const savedConversations = await db
+			.select()
+			.from(conversations)
+			.where(eq(conversations.taskAssignmentId, accepted.taskAssignment.id));
+		expect(savedConversations).toHaveLength(1);
+		expect(savedConversations[0].status).toBe("OPEN");
+		expect(savedConversations[0].taskAssignmentId).toBe(
+			accepted.taskAssignment.id,
+		);
+	});
+
+	it("rolls back task assignment creation when conversation creation fails", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const { task, volunteerOne } = await seedOwnerAndVolunteers();
+		const failingConversationRepo = {
+			create: async () => {
+				throw new Error("conversation insert failed");
+			},
+		};
+
+		await expect(
+			db.transaction((tx) =>
+				new OfferRepository(failingConversationRepo as any).acceptOffer(
+					{
+						offerId: createdOfferIds[0],
+						helpRequestId: task.id,
+						volunteerId: volunteerOne.id,
+						status: "PENDING",
+						taskStatus: "OPEN",
+						requestTitle: "Integration task",
+						requestedByUserId: ownerUserId,
+						volunteerUserId: volunteerOneUserId,
+					},
+					tx,
+				),
+			),
+		).rejects.toThrow("conversation insert failed");
+
+		const assignments = await db
+			.select()
+			.from(taskAssignments)
+			.where(eq(taskAssignments.helpRequestId, task.id));
+		expect(assignments).toHaveLength(0);
+	});
+
+	it("returns the existing conversation when duplicate creation is attempted", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const { task, volunteerOne } = await seedOwnerAndVolunteers();
+		const [assignment] = await db
+			.insert(taskAssignments)
+			.values({
+				helpRequestId: task.id,
+				offerId: createdOfferIds[0],
+				requestedByUserId: ownerUserId,
+				handledByVolunteerId: volunteerOne.id,
+			})
+			.returning({ id: taskAssignments.id });
+
+		const conversationRepo = new ConversationRepository();
+		const first = await conversationRepo.create(assignment.id);
+		const second = await conversationRepo.create(assignment.id);
+
+		expect(second).toEqual(first);
+
+		const savedConversations = await db
+			.select()
+			.from(conversations)
+			.where(eq(conversations.taskAssignmentId, assignment.id));
+		expect(savedConversations).toHaveLength(1);
+
+		const byHelpRequest = await conversationRepo.findByHelpRequestId(task.id);
+		expect(byHelpRequest?.id).toBe(first.id);
 	});
 });

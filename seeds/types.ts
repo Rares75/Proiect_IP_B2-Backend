@@ -24,7 +24,7 @@ export type SeedContext = {
 	taskAssignments: Array<{
 		id: number;
 		helpRequestId: number;
-		requestedByUserId: string;
+		requestedByUserId: string | null;
 		handledByVolunteerId: number;
 	}>;
 	conversations: Array<{ id: number; taskAssignmentId: number }>;

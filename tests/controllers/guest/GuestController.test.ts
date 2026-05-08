@@ -34,7 +34,6 @@ describe("POST /api/guest/tasks", () => {
 	const validBody = {
 		title: "Am nevoie de ajutor urgent",
 		description: "Sunt blocat pe strada X",
-		category: "FACE_TO_FACE",
 		status: "OPEN", // <-- ADĂUGAT: Obligatoriu pentru Zod
 		location: { x: 44.4268, y: 26.1025 },
 	};
@@ -77,14 +76,30 @@ describe("POST /api/guest/tasks", () => {
 		);
 	});
 
-	it("3. ar trebui sa returneze 400 (strict) daca body contine 'urgency'", async () => {
+	it("3. ar trebui sa returneze 400 daca body contine urgency CRITICAL", async () => {
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-Guest-Session": validUuid,
 			},
-			body: JSON.stringify({ ...validBody, urgency: "LOW" }),
+			body: JSON.stringify({ ...validBody, urgency: "CRITICAL" }),
+		});
+
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expectApiEnvelope(body, 400);
+		expect(body.isClientError).toBe(true);
+	});
+
+	it("3b. ar trebui sa returneze 400 (strict) daca body contine 'category'", async () => {
+		const response = await app.request("/api/guest/tasks", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": validUuid,
+			},
+			body: JSON.stringify({ ...validBody, category: "FACE_TO_FACE" }),
 		});
 
 		expect(response.status).toBe(400);
@@ -180,6 +195,37 @@ describe("POST /api/guest/tasks", () => {
 		const body: any = await response.json();
 
 		// Folosim functia voastra oficiala de Success API Response!
+		expectSuccessApiResponse(body, mockCreatedTask, 201);
+	});
+
+	it("8. ar trebui sa accepte urgency LOW pentru guest", async () => {
+		const mockCreatedTask = {
+			id: 101,
+			title: validBody.title,
+			description: validBody.description,
+			guestSessionId: validUuid,
+			requestedByUserId: null,
+			urgency: "LOW",
+			anonymousMode: true,
+			status: "OPEN",
+		};
+
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"createGuestHelpRequest",
+		).mockResolvedValue(mockCreatedTask as any);
+
+		const response = await app.request("/api/guest/tasks", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": validUuid,
+			},
+			body: JSON.stringify({ ...validBody, urgency: "LOW" }),
+		});
+
+		expect(response.status).toBe(201);
+		const body: any = await response.json();
 		expectSuccessApiResponse(body, mockCreatedTask, 201);
 	});
 });
