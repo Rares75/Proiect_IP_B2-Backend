@@ -14,4 +14,5 @@ export type TaskFilterParams = {
 	city?: string;
 	skills?: string[];
 	distance?: TaskDistanceFilterParams;
+	category?: "FACE_TO_FACE" | "MESSAGES_ONLY";
 };

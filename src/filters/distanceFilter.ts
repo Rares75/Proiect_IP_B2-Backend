@@ -4,9 +4,19 @@ import type { TaskDistanceFilterParams, TaskFilterParams } from "./types";
 
 const isFiniteNumber = (value: number) => Number.isFinite(value);
 
+const getSingleQueryValue = (value: string | string[] | undefined) =>
+	Array.isArray(value) ? value[0] : value;
+
 export const parseDistanceFilter = (
 	query: Record<string, string | string[] | undefined>,
 ) => {
+	const categoryRaw = getSingleQueryValue(query.category)?.toUpperCase();
+
+	// Bypass distance logic entirely if the category is MESSAGES_ONLY
+	if (categoryRaw === "MESSAGES_ONLY") {
+		return { validData: {} }; // Return empty distance filter data
+	}
+
 	const lat = Array.isArray(query.lat) ? query.lat[0] : query.lat;
 	const lng = Array.isArray(query.lng) ? query.lng[0] : query.lng;
 	const radius = Array.isArray(query.radius) ? query.radius[0] : query.radius;

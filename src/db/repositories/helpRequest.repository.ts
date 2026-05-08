@@ -27,6 +27,7 @@ import {
 	buildLanguageFilter,
 	buildStatusFilter,
 	buildCityFilter,
+	buildCategoryFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -294,6 +295,10 @@ export class HelpRequestRepository
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
 		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
 		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		//filtru pentru categorie
+		const categoryFilter = filters ? buildCategoryFilter(filters) : undefined;
+
+		// Distances will safely be undefined if bypassed in helpRequestDistance.ts
 		const distanceFilter = filters
 			? buildDistanceFilter(filters.distance)
 			: undefined;
@@ -311,6 +316,7 @@ export class HelpRequestRepository
 			statusFilter,
 			languageFilter,
 			cityFilter,
+			categoryFilter,
 			distanceLocationPresenceFilter,
 			distanceFilter,
 		].filter(Boolean);
