@@ -4,7 +4,7 @@ import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
 import auth from "../../src/auth";
-import { HelpRequestRepository } from "../../src/db/repositories/helpRequest.repository"; 
+import { HelpRequestRepository } from "../../src/db/repositories/helpRequest.repository";
 
 describe("POST /api/tasks - Moderation Logic", () => {
 	let authSpy: ReturnType<typeof spyOn> | undefined;
@@ -35,27 +35,29 @@ describe("POST /api/tasks - Moderation Logic", () => {
 
 	it("should return 400 with a specific reason when content is BLOCKED (Hard Block)", async () => {
 		authenticate();
-		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue({} as any);
+		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue(
+			{} as any,
+		);
 
 		// 'scam' in blocklist ca "BLOCKED"
 		const payload = {
-            title: "This is a scam", 
-            description: "Please fall for it",
-            urgency: "LOW",
-            anonymousMode: false,
-            status: "OPEN",
-            category: "FACE_TO_FACE",
-            location: {
-                x: 0.5,
-                y: 0.5,
-            }
-        };
+			title: "This is a scam",
+			description: "Please fall for it",
+			urgency: "LOW",
+			anonymousMode: false,
+			status: "OPEN",
+			category: "FACE_TO_FACE",
+			location: {
+				x: 0.5,
+				y: 0.5,
+			},
+		};
 
 		const response = await app.request("/api/tasks", {
 			method: "POST",
-			headers: { 
+			headers: {
 				"Content-Type": "application/json",
-				"Authorization": "Bearer fake-token" 
+				Authorization: "Bearer fake-token",
 			},
 			body: JSON.stringify(payload),
 		});
@@ -69,9 +71,11 @@ describe("POST /api/tasks - Moderation Logic", () => {
 
 		// verificam structura
 		expect(body.data.level).toBe("BLOCKED");
-		expect(body.data.reason).toBeDefined(); 
-		expect(body.message).toBe("Content violates policies regarding financial scams.");
-		
+		expect(body.data.reason).toBeDefined();
+		expect(body.message).toBe(
+			"Content violates policies regarding financial scams.",
+		);
+
 		expect(dbSpy).not.toHaveBeenCalled();
 	});
 
@@ -79,28 +83,34 @@ describe("POST /api/tasks - Moderation Logic", () => {
 		authenticate();
 
 		// mock db sa simulam un save
-		const mockTask = { id: 1, title: "Let's talk about crypto", status: "OPEN" };
-		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue(mockTask as any);
+		const mockTask = {
+			id: 1,
+			title: "Let's talk about crypto",
+			status: "OPEN",
+		};
+		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue(
+			mockTask as any,
+		);
 
 		// "crypto" in blacklist ca "FLAGGED"
 		const payload = {
-            title: "Let's talk about crypto",
-            description: "Just a regular task",
-            urgency: "LOW",
-            anonymousMode: false,
-            status: "OPEN",
-            category: "FACE_TO_FACE",
-            location: {
-                x: 0.5,
-                y: 0.5,
-            }
-        };
+			title: "Let's talk about crypto",
+			description: "Just a regular task",
+			urgency: "LOW",
+			anonymousMode: false,
+			status: "OPEN",
+			category: "FACE_TO_FACE",
+			location: {
+				x: 0.5,
+				y: 0.5,
+			},
+		};
 
 		const response = await app.request("/api/tasks", {
 			method: "POST",
-			headers: { 
+			headers: {
 				"Content-Type": "application/json",
-				"Authorization": "Bearer fake-token" 
+				Authorization: "Bearer fake-token",
 			},
 			body: JSON.stringify(payload),
 		});
@@ -108,7 +118,7 @@ describe("POST /api/tasks - Moderation Logic", () => {
 		const body: any = await response.json();
 
 		expect(response.status).toBe(201);
-		
+
 		expect(body.message).toContain("warning");
 		expect(body.message).toContain("financial scams");
 
@@ -118,35 +128,41 @@ describe("POST /api/tasks - Moderation Logic", () => {
 	it("should return 201 cleanly when content is CLEAN", async () => {
 		authenticate();
 
-		const mockTask = { id: 2, title: "I need help with groceries", status: "OPEN" };
-		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue(mockTask as any);
+		const mockTask = {
+			id: 2,
+			title: "I need help with groceries",
+			status: "OPEN",
+		};
+		dbSpy = spyOn(HelpRequestRepository.prototype, "create").mockResolvedValue(
+			mockTask as any,
+		);
 
 		const payload = {
-            title: "I need help with groceries",
-            description: "Can someone pick up some milk?",
-            urgency: "MEDIUM",
-            anonymousMode: false,
-            // Add the missing required fields:
-            status: "OPEN",
-            category: "FACE_TO_FACE",
-            location: {
-                x: 0.5,
-                y: 0.5,
-            }
-        };
+			title: "I need help with groceries",
+			description: "Can someone pick up some milk?",
+			urgency: "MEDIUM",
+			anonymousMode: false,
+			// Add the missing required fields:
+			status: "OPEN",
+			category: "FACE_TO_FACE",
+			location: {
+				x: 0.5,
+				y: 0.5,
+			},
+		};
 
 		const response = await app.request("/api/tasks", {
 			method: "POST",
-			headers: { 
+			headers: {
 				"Content-Type": "application/json",
-				"Authorization": "Bearer fake-token" 
+				Authorization: "Bearer fake-token",
 			},
 			body: JSON.stringify(payload),
 		});
 
 		const body: any = await response.json();
 
-        console.log("DEBUG ERRORS:", JSON.stringify(body.data.errors, null, 2));
+		console.log("DEBUG ERRORS:", JSON.stringify(body.data.errors, null, 2));
 
 		expect(response.status).toBe(201);
 		expect(body.message).not.toContain("warning");

@@ -220,9 +220,9 @@ export class HelpRequestController {
 					);
 
 					if (result.moderationWarning) {
-						return sendApiResponse(c, result, { 
-							kind: "created" as const, 
-							message: `Task created with warning: ${result.moderationWarning}` 
+						return sendApiResponse(c, result, {
+							kind: "created" as const,
+							message: `Task created with warning: ${result.moderationWarning}`,
 						});
 					}
 
