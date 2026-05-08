@@ -14,7 +14,7 @@ import {
 const validGuestTask = {
 	title: "Need help",
 	description: "I need help by message",
-	status: "OPEN",
+	//status: "OPEN",
 	location: { x: 44.42, y: 26.1 },
 };
 

@@ -29,6 +29,7 @@ export const helpRequests = pgTable("help_requests", {
 	guestSessionId: varchar("guest_session_id", { length: 128 }),
 	title: varchar("title", { length: 255 }).notNull(),
 	description: text("description"),
+	audioUrl: text("audio_url"),
 	urgency: urgencyLevelEnum("urgency").notNull().default("MEDIUM"),
 	skillsNeeded: jsonb("skills").$type<string[]>().notNull().default([]),
 	status: requestStatusEnum("status").notNull().default("OPEN"),

@@ -357,10 +357,7 @@ export class HelpRequestService {
 		};
 	}
 	//BE1-31
-	async createGuestHelpRequest(
-		sessionId: string,
-		data: Partial<CreateHelpRequestDTO>,
-	) {
+	async createGuestHelpRequest(sessionId: string, data: any) {
 		// 1. Verificam limita de 3 task-uri active pe sesiune
 		const activeCount =
 			await this.helpRequestRepo.countActiveByGuestSession(sessionId);
@@ -373,12 +370,19 @@ export class HelpRequestService {
 		// 2. Construim datele finale, forțând regulile de business pentru Guest
 		const guestData: CreateHelpRequestDTO = {
 			...(data as any),
+			title: data.title,
+			description: data.description ?? null,
+			audioUrl: data.audioUrl ?? null,
 			category: "MESSAGES_ONLY",
 			guestSessionId: sessionId,
 			requestedByUserId: null, // Guestul nu are cont
 			urgency: data.urgency ?? "HIGH",
 			anonymousMode: true, // Fortat conform cerintelor
 			status: "OPEN",
+			city: data.city,
+			addressText: data.addressText,
+			location: data.location,
+			skillsNeeded: data.skillsNeeded,
 		};
 
 		// 3. Scanare pentru moderarea continutului
@@ -402,7 +406,22 @@ export class HelpRequestService {
 		}
 
 		try {
-			return await this.helpRequestRepo.create(guestData);
+			// 1. Salvăm cererea principală în help_requests
+			const createdRequest = await this.helpRequestRepo.create(guestData);
+
+			// 2. Salvăm detaliile suplimentare în tabelul request_details
+			// Verificăm dacă avem efectiv date de salvat în acest tabel
+			if (data.notes || data.languageNeeded || data.safetyNotes) {
+				await this.helpRequestDetailsRepo.create({
+					helpRequestId: createdRequest.id, // Legăm detaliile de ID-ul task-ului tocmai creat
+					notes: data.notes ?? null,
+					languageNeeded: data.languageNeeded ?? null,
+					safetyNotes: data.safetyNotes ?? null,
+				});
+			}
+
+			// Returnăm obiectul creat
+			return createdRequest;
 		} catch (error) {
 			console.error("--- RAW DB ERROR ---", error);
 			logger.exception(error as Error);
