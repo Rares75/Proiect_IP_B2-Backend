@@ -94,9 +94,7 @@ export const taskAssignments = pgTable("task_assignments", {
 	offerId: integer("offer_id").references(() => helpOffers.id, {
 		onDelete: "set null",
 	}),
-	requestedByUserId: text("requested_by_user_id")
-		.notNull()
-		.references(() => user.id),
+	requestedByUserId: text("requested_by_user_id").references(() => user.id),
 	handledByVolunteerId: integer("handled_by_volunteer_id")
 		.notNull()
 		.references(() => volunteers.id),

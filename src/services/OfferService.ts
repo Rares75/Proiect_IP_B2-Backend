@@ -110,13 +110,77 @@ export class OfferService {
 			throw new InvalidStatusTransitionError(context.status, status);
 		}
 
-		if (!context.requestedByUserId) {
-			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
-			);
+		if (context.requestedByUserId !== userId) {
+			throw new ForbiddenError("Only the task owner can accept this offer");
 		}
 
-		if (context.requestedByUserId !== userId) {
+		if (status === "REJECTED") {
+			return db.transaction(async (tx) => {
+				const taskOpen = await this.offerRepo.ensureTaskOpenForOfferTransition(
+					context.helpRequestId,
+					tx,
+					"OPEN",
+				);
+
+				if (!taskOpen) {
+					throw new InvalidStatusTransitionError(context.taskStatus, status);
+				}
+
+				const rejected = await this.offerRepo.updatePendingOfferStatus(
+					context.offerId,
+					"REJECTED",
+					tx,
+				);
+
+				if (!rejected) {
+					throw new InvalidStatusTransitionError(context.status, status);
+				}
+
+				return rejected;
+			});
+		}
+
+		return db.transaction(async (tx) => {
+			const accepted = await this.offerRepo.acceptOffer(context, tx);
+
+			await this.notificationService.notifyVolunteerOfferAccepted(
+				{
+					helpRequestId: context.helpRequestId,
+					taskAssignmentId: accepted.taskAssignment.id,
+					title: context.requestTitle,
+					volunteerUserId: context.volunteerUserId,
+				},
+				tx,
+			);
+
+			return accepted.offer;
+		});
+	}
+
+	async updateGuestOfferStatus(
+		offerId: number,
+		guestSessionId: string,
+		status: "ACCEPTED" | "REJECTED" | "PENDING",
+	): Promise<HelpOffer> {
+		const context = await this.offerRepo.findNotificationContextById(offerId);
+
+		if (!context) {
+			throw new NotFoundError("Offer", String(offerId));
+		}
+
+		if (context.taskStatus !== "OPEN") {
+			throw new InvalidStatusTransitionError(context.taskStatus, status);
+		}
+
+		if (context.status !== "PENDING") {
+			throw new InvalidStatusTransitionError(context.status, status);
+		}
+
+		if (status !== "ACCEPTED" && status !== "REJECTED") {
+			throw new InvalidStatusTransitionError(context.status, status);
+		}
+
+		if (context.guestSessionId !== guestSessionId) {
 			throw new ForbiddenError("Only the task owner can accept this offer");
 		}
 
@@ -181,20 +245,11 @@ export class OfferService {
 			throw new InvalidStatusTransitionError(context.status, "ACCEPTED");
 		}
 
-		if (!context.requestedByUserId) {
-			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
-			);
-		}
-
 		if (context.requestedByUserId !== userId) {
 			throw new ForbiddenError("Only the task owner can accept this offer");
 		}
 
-		const acceptableContext: AcceptableOfferNotificationContext = {
-			...context,
-			requestedByUserId: context.requestedByUserId,
-		};
+		const acceptableContext: AcceptableOfferNotificationContext = context;
 
 		return db.transaction(async (tx) => {
 			const accepted = await this.offerRepo.acceptOffer(acceptableContext, tx);

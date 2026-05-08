@@ -68,9 +68,12 @@ export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
 // 3. Schema pentru Guest (Baza + Omit + Refine)
 export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 	.omit({
-		urgency: true,
 		anonymousMode: true,
+		category: true,
 		userId: true,
+	})
+	.extend({
+		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
 	})
 	.strict()
 	.refine((data) => data.description || data.audioUrl, {

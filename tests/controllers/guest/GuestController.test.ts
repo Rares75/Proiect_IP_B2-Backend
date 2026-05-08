@@ -34,7 +34,6 @@ describe("POST /api/guest/tasks", () => {
 	const validBody = {
 		title: "Am nevoie de ajutor urgent",
 		description: "Sunt blocat pe strada X",
-		category: "FACE_TO_FACE",
 		status: "OPEN", // <-- ADĂUGAT: Obligatoriu pentru Zod
 		location: { x: 44.4268, y: 26.1025 },
 	};
@@ -77,14 +76,14 @@ describe("POST /api/guest/tasks", () => {
 		);
 	});
 
-	it("3. ar trebui sa returneze 400 (strict) daca body contine 'urgency'", async () => {
+	it("3. ar trebui sa returneze 400 daca body contine urgency CRITICAL", async () => {
 		const response = await app.request("/api/guest/tasks", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-Guest-Session": validUuid,
 			},
-			body: JSON.stringify({ ...validBody, urgency: "LOW" }),
+			body: JSON.stringify({ ...validBody, urgency: "CRITICAL" }),
 		});
 
 		expect(response.status).toBe(400);
@@ -150,14 +149,15 @@ describe("POST /api/guest/tasks", () => {
 		expect(body.message).toContain("Limita atinsă");
 	});
 
-	it("7. ar trebui sa returneze 201 + task creat corect cu CRITICAL si anonymousMode = true", async () => {
+	it("7. ar trebui sa returneze 201 + task creat corect cu HIGH si anonymousMode = true", async () => {
 		const mockCreatedTask = {
 			id: 100,
 			title: validBody.title,
 			description: validBody.description,
 			guestSessionId: validUuid,
 			requestedByUserId: null,
-			urgency: "CRITICAL",
+			urgency: "HIGH",
+			category: "MESSAGES_ONLY",
 			anonymousMode: true,
 			status: "OPEN",
 		};
