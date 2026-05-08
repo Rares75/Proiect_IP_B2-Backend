@@ -78,6 +78,20 @@
 			"when": 1778101200000,
 			"tag": "0010_nullable_assignment_requester",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1778177912241,
+			"tag": "0011_aspiring_the_watchers",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1778178563792,
+			"tag": "0012_parched_brood",
+			"breakpoints": true
 		}
 	]
 }
