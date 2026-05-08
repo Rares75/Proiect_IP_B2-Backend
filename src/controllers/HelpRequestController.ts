@@ -218,17 +218,12 @@ export class HelpRequestController {
 					const result = await this.helpRequestService.createHelpRequest(
 						createData as CreateHelpRequestDTO,
 					);
-					//return c.json(result, 201);
-					const { moderationWarning, ...taskData } = result;
-					return sendApiResponse(c, taskData, {
-						kind: "created" as const,
-						...(moderationWarning ? { message: moderationWarning } : {}),
-						});
+					return sendApiResponse(c, result, { kind: "created" as const });
 				} catch (error: any) {
 					// check if error comes from inappropriate request
 					if (error instanceof ModerationError) {
 						const logMsg = `[MODERATION] User ${session?.userId || "anonymous"} rejected. Reason: ${error.reason}`;
-            			logger.warn(logMsg);
+						logger.warn(logMsg);
 						return sendApiResponse(
 							c,
 							{ level: error.level, reason: error.reason },
@@ -236,7 +231,9 @@ export class HelpRequestController {
 						);
 					}
 
-					logger.error(`[HelpRequestController] Unhandled error: ${error instanceof Error ? error.message : String(error)}`);
+					logger.error(
+						`[HelpRequestController] Unhandled error: ${error instanceof Error ? error.message : String(error)}`,
+					);
 					// return c.json({ error: "Internal server error" }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}

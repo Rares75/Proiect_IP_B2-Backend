@@ -72,13 +72,15 @@ export class HelpRequestService {
 			}
 
 			return {
-			...createdTask,
-			...(worstOffender?.level === ModerationLevel.FLAGGED
-				? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
-				: {}),
+				...createdTask,
+				...(worstOffender?.level === ModerationLevel.FLAGGED
+					? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
+					: {}),
 			};
 		} catch (error) {
-			logger.error(`[HelpRequestService] DB create failed: ${error instanceof Error ? error.message : String(error)}`);
+			logger.error(
+				`[HelpRequestService] DB create failed: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			throw new Error("Could not create help request");
 		}
 	}

@@ -153,7 +153,9 @@ export class ModerationService {
 
 		// add \s* between letters to catch spaced-out words (e.g., "s c a m")
 		// also catch digits in between
-		const processedTerms = terms.map((term) => term.split("").join("[\\s\\d]*"));
+		const processedTerms = terms.map((term) =>
+			term.split("").join("[\\s\\d]*"),
+		);
 
 		// combine with OR (|), wrap in word boundaries (\b), and make case-insensitive (i)
 		return new RegExp(`\\b(${processedTerms.join("|")})\\b`, "i");
