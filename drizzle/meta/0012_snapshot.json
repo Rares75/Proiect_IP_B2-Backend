@@ -1,6 +1,6 @@
 {
-	"id": "b0f39c83-397f-414d-9867-67a4f64240e1",
-	"prevId": "3842f93b-2ea4-441b-957f-ca889fbdb7f8",
+	"id": "3356c232-31a5-4fb6-8424-8b4d7f606e26",
+	"prevId": "b0f39c83-397f-414d-9867-67a4f64240e1",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -538,11 +538,25 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"type": {
+					"name": "type",
+					"type": "message_content_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'TEXTCONTENT'"
+				},
 				"content": {
 					"name": "content",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": true
+					"notNull": false
+				},
+				"audio_url": {
+					"name": "audio_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"sent_at": {
 					"name": "sent_at",
@@ -1984,6 +1998,14 @@
 			"values": [
 				"MESSAGES_ONLY",
 				"FACE_TO_FACE"
+			]
+		},
+		"public.message_content_type": {
+			"name": "message_content_type",
+			"schema": "public",
+			"values": [
+				"TEXTCONTENT",
+				"AUDIOCONTENT"
 			]
 		},
 		"public.notification_type": {
