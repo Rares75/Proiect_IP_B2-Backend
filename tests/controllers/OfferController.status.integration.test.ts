@@ -277,6 +277,45 @@ describe("PATCH /api/offers/:id/status integration", () => {
 		expect(response.status).toBe(409);
 	});
 
+	it("returns a clear 409 message when rejecting an already rejected offer", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await seedOwnerAndVolunteers();
+
+		const firstResponse = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "REJECTED" }),
+			},
+		);
+		expect(firstResponse.status).toBe(200);
+
+		const secondResponse = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "REJECTED" }),
+			},
+		);
+		const body: any = await secondResponse.json();
+
+		expect(secondResponse.status).toBe(409);
+		expect(body.message).toBe(
+			"Offer is already REJECTED and cannot be updated again",
+		);
+	});
+
 	it("handles two concurrent accept requests so only one wins", async () => {
 		if (!isDatabaseAvailable) {
 			return;
