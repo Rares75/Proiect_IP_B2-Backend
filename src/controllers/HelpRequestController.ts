@@ -7,6 +7,7 @@ import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
+import auth from "../auth";
 import {
 	ConflictError,
 	ForbiddenError,
@@ -30,6 +31,7 @@ import {
 	HelpOfferTaskNotFoundError,
 	HelpOfferTaskStatusConflictError,
 } from "../services/HelpOfferService";
+import { MessageService } from "../services/MessageService";
 import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
 
 // Zod Schemas for Swagger documentation
@@ -113,6 +115,43 @@ const requireSession = async (c: any) => {
 	return c.get("session");
 };
 
+const getOptionalSession = async (c: any) => {
+	const existingSession = c.get("session");
+	if (existingSession) {
+		return existingSession;
+	}
+
+	const sessionData = await auth.api.getSession({ headers: c.req.raw.headers });
+	if (!sessionData?.user || !sessionData?.session) {
+		return null;
+	}
+
+	c.set("session", sessionData.session);
+	c.set("user", sessionData.user);
+
+	return sessionData.session;
+};
+
+const parseMessagesPagination = (query: {
+	page?: string;
+	pageSize?: string;
+}) => {
+	const page = query.page === undefined ? 1 : Number(query.page);
+	const pageSize = query.pageSize === undefined ? 20 : Number(query.pageSize);
+
+	if (
+		!Number.isInteger(page) ||
+		page < 1 ||
+		!Number.isInteger(pageSize) ||
+		pageSize < 1 ||
+		pageSize > 100
+	) {
+		return null;
+	}
+
+	return { page, pageSize };
+};
+
 const removeClientOwnerFields = (
 	body: CreateHelpRequestDTO & { userId?: unknown },
 ): Omit<CreateHelpRequestDTO, "requestedByUserId"> => {
@@ -151,6 +190,8 @@ export class HelpRequestController {
 		private readonly helpRequestService: HelpRequestService,
 		@inject(HelpOfferService)
 		private readonly helpOfferService: HelpOfferService,
+		@inject(MessageService)
+		private readonly messageService: MessageService,
 	) {}
 
 	controller = new Hono<AppEnv>()
@@ -310,6 +351,99 @@ export class HelpRequestController {
 
 					console.error("Eroare la GET /tasks paginat si sortat:", error);
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+
+		.get(
+			"/:id/messages",
+			describeRoute({
+				summary: "Get task conversation messages",
+				description:
+					"Retrieves paginated messages for the conversation associated with a task. Accepts either an authenticated owner/assigned volunteer or a matching X-Guest-Session header.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved conversation messages",
+					},
+					400: {
+						description: "Invalid task ID or pagination parameters",
+					},
+					401: {
+						description:
+							"Unauthorized - neither an auth session nor X-Guest-Session was provided",
+					},
+					403: {
+						description:
+							"Forbidden - auth user or guest session does not match the task",
+					},
+					404: {
+						description: "Conversation not found",
+					},
+					500: {
+						description: "Internal server error",
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					const helpRequestId = Number(c.req.param("id"));
+					if (
+						!Number.isInteger(helpRequestId) ||
+						helpRequestId <= 0 ||
+						helpRequestId > Number.MAX_SAFE_INTEGER
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Invalid id",
+						});
+					}
+
+					const pagination = parseMessagesPagination({
+						page: c.req.query("page"),
+						pageSize: c.req.query("pageSize"),
+					});
+					if (!pagination) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message:
+								"Invalid pagination parameters. page must be >= 1 and pageSize must be between 1 and 100.",
+						});
+					}
+
+					const session = await getOptionalSession(c);
+					const guestSessionId = c.req.header("X-Guest-Session");
+
+					if (!session?.userId && !guestSessionId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					const access = session?.userId
+						? ({ kind: "auth", userId: session.userId } as const)
+						: ({
+								kind: "guest",
+								guestSessionId: guestSessionId as string,
+							} as const);
+
+					const result = await this.messageService.getMessagesForTask(
+						helpRequestId,
+						access,
+						pagination.page,
+						pagination.pageSize,
+					);
+
+					if (result.status === 200) {
+						//return c.json(result.body, 200);
+						return sendApiResponse(c, result.body, { kind: "success" });
+					}
+
+					return sendApiResponse(c, null, {
+						statusCode: result.status,
+						message: result.message,
+					});
+				} catch (error) {
+					console.error("Could not retrieve task messages:", error);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
