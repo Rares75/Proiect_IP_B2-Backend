@@ -7,6 +7,7 @@ import {
 	inArray,
 } from "drizzle-orm";
 import { db } from "../";
+import type { DatabaseClient } from "./databaseClient";
 import { repository } from "../../di/decorators/repository";
 import { volunteers } from "../profile";
 import {
@@ -14,6 +15,7 @@ import {
 	requestDetails,
 	requestLocations,
 	taskAssignments,
+	helpOffers,
 } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
@@ -34,6 +36,12 @@ export type HelpRequestAssignmentAuthorization = {
 	requestedByUserId: string | null;
 	handledByVolunteerId: number;
 	volunteerUserId: string;
+};
+
+type PendingOfferForDeletion = {
+	id: number;
+	volunteerId: number;
+	volunteerUserId: string | null;
 };
 
 // Extindem tipul de baza cu campurile optionale de locatie, pentru ca repository-ul sa le astepte
@@ -144,6 +152,84 @@ export class HelpRequestRepository
 			.where(eq(helpRequests.id, id))
 			.returning({ id: helpRequests.id });
 		return result.length > 0;
+	}
+
+	/**
+	 * Delete a help request and reject all pending offers in a single transaction.
+	 * Returns details about the operation so the caller can verify effects.
+	 *
+	 * @param id HelpRequest id
+	 * @param inTransactionCallback Optional callback executed inside the same DB transaction.
+	 *        The callback receives the transaction client and can perform additional
+	 *        operations (for example inserting notifications) to guarantee atomicity.
+	 */
+	async deleteWithOfferRejection(
+		id: number,
+		inTransactionCallback?: (
+			tx: DatabaseClient,
+			pendingOffers: PendingOfferForDeletion[],
+		) => Promise<void>,
+	): Promise<{
+		deleted: boolean;
+		pendingOffers: PendingOfferForDeletion[];
+	}> {
+		return await db.transaction(async (tx) => {
+			// 1. read pending offers (we need volunteerUserId for notifications)
+			const pendingRows = await tx
+				.select({ id: helpOffers.id, volunteerId: helpOffers.volunteerId })
+				.from(helpOffers)
+				.where(
+					and(
+						eq(helpOffers.helpRequestId, id),
+						eq(helpOffers.status, "PENDING"),
+					),
+				);
+
+			// if there are volunteers, fetch their userIds
+			const pendingOffers: PendingOfferForDeletion[] = [];
+			if (pendingRows.length > 0) {
+				// join with volunteers to get userId
+				const volunteerIds = pendingRows.map((r: any) => r.volunteerId);
+				const volunteersRows = await tx
+					.select({ id: volunteers.id, userId: volunteers.userId })
+					.from(volunteers)
+					.where(inArray(volunteers.id, volunteerIds));
+
+				for (const r of pendingRows) {
+					const vol = volunteersRows.find((v: any) => v.id === r.volunteerId);
+					pendingOffers.push({
+						id: r.id,
+						volunteerId: r.volunteerId,
+						volunteerUserId: vol?.userId ?? null,
+					});
+				}
+			}
+
+			// 2. Update all PENDING offers to REJECTED
+			await tx
+				.update(helpOffers)
+				.set({ status: "REJECTED" })
+				.where(
+					and(
+						eq(helpOffers.helpRequestId, id),
+						eq(helpOffers.status, "PENDING"),
+					),
+				);
+
+			// 3. Delete the help request (cascade delete applies to request_locations and request_details)
+			const deleteResult = await tx
+				.delete(helpRequests)
+				.where(eq(helpRequests.id, id))
+				.returning({ id: helpRequests.id });
+			const deleted = deleteResult.length > 0;
+
+			// 4. allow caller to run additional operations inside the same transaction (eg. create notifications)
+			if (inTransactionCallback) {
+				await inTransactionCallback(tx, pendingOffers);
+			}
+
+			return { deleted, pendingOffers };
+		});
 	}
 
 	async exists(id: number): Promise<boolean> {

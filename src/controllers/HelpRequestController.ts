@@ -8,6 +8,7 @@ import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
 import {
+	ConflictError,
 	ForbiddenError,
 	InvalidStatusTransitionError,
 	NotFoundError,
@@ -548,6 +549,121 @@ export class HelpRequestController {
 					}
 
 					throw error;
+				}
+			},
+		)
+
+		.delete(
+			"/:id",
+			authMiddleware,
+			describeRoute({
+				summary: "Delete a task",
+				description:
+					"Deletes a task owned by the authenticated user. Only tasks with OPEN or CANCELLED status can be deleted. All pending offers are automatically rejected, and volunteers are notified.",
+				tags: ["Tasks"],
+				responses: {
+					204: {
+						description: "Task successfully deleted",
+					},
+					400: {
+						description: "Invalid task ID provided",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the task owner",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					409: {
+						description:
+							"Conflict - Task cannot be deleted due to invalid status (MATCHED, IN_PROGRESS, COMPLETED, or REJECTED)",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					// Get the authenticated session from middleware
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					// Extract and validate the task ID
+					const taskIdParam = c.req.param("id");
+					const taskId = Number(taskIdParam);
+
+					if (
+						!Number.isInteger(taskId) ||
+						taskId <= 0 ||
+						taskId > Number.MAX_SAFE_INTEGER
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message:
+								"Error: The ID provided is invalid. It must be a positive integer.",
+						});
+					}
+
+					// Attempt to delete the task
+					await this.helpRequestService.deleteHelpRequestByOwner(
+						taskId,
+						session.userId,
+					);
+
+					// Return 204 No Content on successful deletion
+					//return c.body(null, 204);
+					return sendApiResponse(c, null, { statusCode: 204 });
+				} catch (error) {
+					// Handle ownership error
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					// Handle task not found error
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					// Handle invalid status error (conflict)
+					if (error instanceof ConflictError) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					console.error("Error deleting task:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
