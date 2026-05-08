@@ -183,7 +183,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		const criticalCloserId = await createTaskWithLocation(
 			"Critical closer task",
 			{
-				x: 27.595,
+				x: 27.58,
 				y: 47.15018,
 			},
 			undefined,
