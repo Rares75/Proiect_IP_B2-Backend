@@ -44,19 +44,20 @@ export class HelpRequestService {
 		const results = [titleResult, descResult];
 
 		// BLOCKED takes priority (|| scurtcircuiteaza la prima valoare gasita aici)
-		const worstOffender = 
-			results.find(r => r.level === ModerationLevel.BLOCKED) || 
-			results.find(r => r.level === ModerationLevel.FLAGGED);
+		const worstOffender =
+			results.find((r) => r.level === ModerationLevel.BLOCKED) ||
+			results.find((r) => r.level === ModerationLevel.FLAGGED);
 
 		if (worstOffender) {
-			const message = worstOffender.level === ModerationLevel.BLOCKED
-				? "Your request was blocked due to inappropriate content."
-				: "Your request was flagged due to suspicious content.";
+			const message =
+				worstOffender.level === ModerationLevel.BLOCKED
+					? "Your request was blocked due to inappropriate content."
+					: "Your request was flagged due to suspicious content.";
 
 			throw new ModerationError(
 				message,
 				worstOffender.level,
-				worstOffender.reason || "General policy violation." // ori motivul ori fallback string
+				worstOffender.reason || "General policy violation.", // ori motivul ori fallback string
 			);
 		}
 

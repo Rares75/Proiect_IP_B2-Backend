@@ -14,7 +14,7 @@ export class ModerationError extends Error {
 	constructor(
 		public message: string,
 		public level: ModerationLevel,
-		public reason: string
+		public reason: string,
 	) {
 		super(message);
 		this.name = "ModerationError";
@@ -65,7 +65,7 @@ export class ModerationService {
 				blockedKeywordRegex: this.buildKeywordRegex(blockedTerms),
 				flaggedKeywordRegex: this.buildKeywordRegex(flaggedTerms),
 				blockedPatterns,
-				flaggedPatterns
+				flaggedPatterns,
 			});
 		}
 	}
@@ -143,7 +143,7 @@ export class ModerationService {
 	}
 
 	/**
-	 * Takes an array of raw keywords and compiles them into a single regex 
+	 * Takes an array of raw keywords and compiles them into a single regex
 	 * that catches spaced-out variations.
 	 */
 	private buildKeywordRegex(terms: string[]): RegExp | null {
@@ -152,7 +152,7 @@ export class ModerationService {
 		}
 
 		// add \s* between letters to catch spaced-out words (e.g., "s c a m")
-		const processedTerms = terms.map(term => term.split("").join("\\s*"));
+		const processedTerms = terms.map((term) => term.split("").join("\\s*"));
 
 		// combine with OR (|), wrap in word boundaries (\b), and make case-insensitive (i)
 		return new RegExp(`\\b(${processedTerms.join("|")})\\b`, "i");
