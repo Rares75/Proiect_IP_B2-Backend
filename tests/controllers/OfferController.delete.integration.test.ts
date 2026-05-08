@@ -46,7 +46,7 @@ describe("DELETE /api/offers/:id integration", () => {
 			new VolunteerRepository(),
 		);
 		app = new Hono().basePath("/api");
-		app.route("/", offerController.controller);
+		app.route("/offers", offerController.controller);
 
 		try {
 			const result = await db.execute(
