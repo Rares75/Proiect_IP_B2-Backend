@@ -34,7 +34,7 @@ describe("POST /api/guest/tasks", () => {
 	const validBody = {
 		title: "Am nevoie de ajutor urgent",
 		description: "Sunt blocat pe strada X",
-		status: "OPEN", // <-- ADĂUGAT: Obligatoriu pentru Zod
+		//status: "OPEN", // <-- ADĂUGAT: Obligatoriu pentru Zod
 		location: { x: 44.4268, y: 26.1025 },
 	};
 
