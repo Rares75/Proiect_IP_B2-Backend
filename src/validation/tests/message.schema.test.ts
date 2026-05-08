@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { messageInputSchema, messagesQuerySchema, wsMessageSchema } from "../schemas/message.schema";
+import { messageInputSchema } from "../schemas/message.schema";
 
 describe("Message Schemas", () => {
 	describe("messageInputSchema", () => {
