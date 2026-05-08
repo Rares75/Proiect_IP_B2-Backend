@@ -66,6 +66,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		title: string,
 		location?: { x: number; y: number },
 		city?: string,
+		urgency?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
 	) => {
 		const [task] = await db
 			.insert(helpRequests)
@@ -73,6 +74,7 @@ describe("GET /api/tasks distance filter integration", () => {
 				title,
 				description: `${title} description`,
 				category: "FACE_TO_FACE",
+				urgency,
 			})
 			.returning({ id: helpRequests.id });
 
@@ -87,7 +89,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		return task.id;
 	};
 
-	it("filters by ST_DWithin, sorts by distance ascending and excludes rows without geometry", async () => {
+	it("filters by ST_DWithin and excludes rows without geometry", async () => {
 		if (!isDatabaseAvailable) {
 			return;
 		}
@@ -98,7 +100,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		});
 		const middleId = await createTaskWithLocation("Middle task", {
 			x: 27.59,
-			y: 47.16,
+			y: 47.17,
 		});
 		await createTaskWithLocation(
 			"City only task",
@@ -133,6 +135,7 @@ describe("GET /api/tasks distance filter integration", () => {
 		const radiusTenBody: any = await radiusTenResponse.json();
 
 		expect(radiusTenResponse.status).toBe(200);
+		expect(radiusTenBody.data.data).toHaveLength(2);
 		expect(radiusTenBody.data.data.map((task: any) => task.id)).toEqual([
 			nearestId,
 			middleId,
@@ -159,6 +162,111 @@ describe("GET /api/tasks distance filter integration", () => {
 		expectSuccessApiResponse(body, {
 			data: [],
 			meta: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+		});
+	});
+
+	it("keeps sortBy priority when distance filter is active", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const criticalFartherId = await createTaskWithLocation(
+			"Critical farther task",
+			{
+				x: 27.58,
+				y: 47.15045,
+			},
+			undefined,
+			"CRITICAL",
+		);
+
+		const criticalCloserId = await createTaskWithLocation(
+			"Critical closer task",
+			{
+				x: 27.58,
+				y: 47.15018,
+			},
+			undefined,
+			"CRITICAL",
+		);
+
+		const highClosestId = await createTaskWithLocation(
+			"High closest task",
+			{
+				x: 27.58,
+				y: 47.150045,
+			},
+			undefined,
+			"HIGH",
+		);
+
+		const response = await app.request(
+			"/api/tasks?lat=47.15&lng=27.58&radius=1&sortBy=urgency",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.data.map((task: any) => task.id)).toEqual([
+			criticalCloserId,
+			criticalFartherId,
+			highClosestId,
+		]);
+	});
+
+	it("keeps combined urgency and distance ordering before pagination", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await createTaskWithLocation(
+			"High closest paginated task",
+			{
+				x: 27.58,
+				y: 47.150045,
+			},
+			undefined,
+			"HIGH",
+		);
+		const criticalFartherId = await createTaskWithLocation(
+			"Critical farther paginated task",
+			{
+				x: 27.58,
+				y: 47.15045,
+			},
+			undefined,
+			"CRITICAL",
+		);
+		const criticalCloserId = await createTaskWithLocation(
+			"Critical closer paginated task",
+			{
+				x: 27.58,
+				y: 47.15018,
+			},
+			undefined,
+			"CRITICAL",
+		);
+
+		const firstPageResponse = await app.request(
+			"/api/tasks?lat=47.15&lng=27.58&radius=1&sortBy=urgency&page=1&pageSize=2",
+			{
+				headers: { Authorization: "Bearer fake-test-token" },
+			},
+		);
+		const firstPageBody: any = await firstPageResponse.json();
+
+		expect(firstPageResponse.status).toBe(200);
+		expect(firstPageBody.data.data.map((task: any) => task.id)).toEqual([
+			criticalCloserId,
+			criticalFartherId,
+		]);
+		expect(firstPageBody.data.meta).toMatchObject({
+			page: 1,
+			pageSize: 2,
+			total: 3,
+			totalPages: 2,
 		});
 	});
 });

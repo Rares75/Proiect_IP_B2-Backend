@@ -465,4 +465,83 @@ export class HelpRequestService {
 		// Delete task (cascade delete applies to related records)
 		await this.helpRequestRepo.delete(id);
 	}
+
+	/**
+	 * Delete a help request by its owner (authenticated user)
+	 * - Only allows deletion if status is OPEN or CANCELLED
+	 * - Rejects all PENDING offers before deletion
+	 * - Notifies all volunteers with pending offers
+	 *
+	 * @param id - The ID of the help request to delete
+	 * @param userId - The ID of the user attempting the deletion
+	 * @throws {NotFoundError} If the task does not exist
+	 * @throws {ForbiddenError} If the user is not the task owner
+	 * @throws {ConflictError} If the task status is not OPEN or CANCELLED
+	 */
+	async deleteHelpRequestByOwner(id: number, userId: string): Promise<void> {
+		// Fetch the task to verify existence and permissions
+		const task = await this.helpRequestRepo.findById(id);
+
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(id));
+		}
+
+		// Verify ownership: only the task owner can delete
+		if (task.requestedByUserId !== userId) {
+			throw new ForbiddenError(
+				"You do not have permission to delete this task.",
+			);
+		}
+
+		// Check status: only OPEN or CANCELLED tasks can be deleted
+		// Blocking statuses: MATCHED, IN_PROGRESS, COMPLETED, REJECTED
+		const blockingStatuses = [
+			"MATCHED",
+			"IN_PROGRESS",
+			"COMPLETED",
+			"REJECTED",
+		];
+		if (blockingStatuses.includes(task.status)) {
+			throw new ConflictError(
+				`Task cannot be deleted because it is in ${task.status} status. Only OPEN or CANCELLED tasks can be deleted.`,
+			);
+		}
+
+		// Transaction: update offers to REJECTED and delete task (atomic).
+		// We also create notifications inside the same transaction to guarantee
+		// that notifications are created for every affected volunteer or the whole
+		// operation is rolled back. The authoritative list of affected volunteers is
+		// provided by the repository into the callback to avoid race conditions.
+		const result = await this.helpRequestRepo.deleteWithOfferRejection(
+			id,
+			async (tx, pendingOffers) => {
+				if (pendingOffers && pendingOffers.length > 0) {
+					// ensure all pending offers have a volunteerUserId; if not, fail the transaction
+					if (pendingOffers.some((p) => !p.volunteerUserId)) {
+						throw new Error("Missing volunteer user id for pending offers");
+					}
+
+					const notifications = pendingOffers.map((offer) => ({
+						userId: offer.volunteerUserId as string,
+						type: "TASK_UPDATED" as const,
+						text: `The task "${task.title}" has been cancelled and all offers have been rejected.`,
+						relatedRequestId: id,
+						relatedAssignmentId: null,
+						createdAt: new Date(),
+					}));
+
+					// create notifications inside the same tx using the notification service
+					await this.notificationService.notifyVolunteersPendingOffersCancelled(
+						notifications,
+						tx,
+					);
+				}
+			},
+		);
+
+		// If delete did not remove any row, surface NotFound to caller
+		if (!result.deleted) {
+			throw new NotFoundError("HelpRequest", String(id));
+		}
+	}
 }

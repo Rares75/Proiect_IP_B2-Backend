@@ -71,6 +71,10 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 		urgency: true,
 		anonymousMode: true,
 		userId: true,
+		category: true,
+	})
+	.extend({
+		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
 	})
 	.strict()
 	.refine((data) => data.description || data.audioUrl, {
