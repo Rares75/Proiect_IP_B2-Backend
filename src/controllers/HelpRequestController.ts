@@ -185,7 +185,9 @@ export class HelpRequestController {
 						description:
 							"Invalid input or moderation error (inappropriate content)",
 						content: {
-							"application/json": { schema: resolver(moderationResponseSchema) },
+							"application/json": {
+								schema: resolver(moderationResponseSchema),
+							},
 						},
 					},
 					500: {
@@ -221,9 +223,9 @@ export class HelpRequestController {
 					// check if error comes from inappropriate request
 					if (error instanceof ModerationError) {
 						return sendApiResponse(
-							c, 
+							c,
 							{ level: error.level, reason: error.reason },
-							{ message: error.message, kind: "clientError" }
+							{ message: error.message, kind: "clientError" },
 						);
 					}
 

@@ -54,13 +54,15 @@ export class HelpRequestService {
 				throw new ModerationError(
 					worstOffender.reason || "Content blocked.",
 					ModerationLevel.BLOCKED,
-					worstOffender.reason || "Violation of safety policies."
+					worstOffender.reason || "Violation of safety policies.",
 				);
 			}
 
 			// soft block
 			if (worstOffender.level === ModerationLevel.FLAGGED) {
-				logger.info(`[Moderation] Task created with warnings: ${worstOffender.reason}`);
+				logger.info(
+					`[Moderation] Task created with warnings: ${worstOffender.reason}`,
+				);
 			}
 		}
 

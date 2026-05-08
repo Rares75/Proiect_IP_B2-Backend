@@ -67,4 +67,16 @@ describe("ModerationService", () => {
 		const result = service.scanContent("please click this suspicious link");
 		expect(result.level).toBe(ModerationLevel.FLAGGED);
 	});
+
+	it("should handle extremely long strings (stress test)", () => {
+        const longString = "clean ".repeat(1000) + "scam";
+        const result = service.scanContent(longString);
+        expect(result.level).toBe(ModerationLevel.BLOCKED);
+    });
+
+    it("should handle mixed invisible characters and newlines", () => {
+        const sneakyInput = "s\n\tc\r  a\u200Bm"; // scam with newlines, tabs, and zero-width spaces
+        const result = service.scanContent(sneakyInput);
+        expect(result.level).toBe(ModerationLevel.BLOCKED);
+    });
 });
