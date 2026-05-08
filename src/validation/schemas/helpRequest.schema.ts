@@ -15,16 +15,22 @@ const baseHelpRequestInputSchema = z
 				error: "Title is required",
 			})
 			.trim()
-			.min(1, "Title is required"),
+			.min(1, "Title is required")
+			.describe("Titlul scurt al cererii de ajutor"), 
 		description: z
 			.string({
 				error: "Description is required",
 			})
 			.trim()
 			.min(1, "Description is required")
-			.optional(), // <-- Am pus optional aici!
+			.optional() // <-- Am pus optional aici!
+			.describe("Descrierea detaliată în format text"),
 
-		audioUrl: z.string().url({ message: "Must be a valid URL" }).optional(),
+		audioUrl: z
+			.string()
+			.url({ message: "Must be a valid URL" })
+			.optional()
+			.describe("URL-ul către înregistrarea audio (dacă descrierea nu este text)"),
 
 		urgency: z.enum(urgencyLevelEnum.enumValues, {
 			error: "Urgency is required",
@@ -47,7 +53,8 @@ const baseHelpRequestInputSchema = z
 				x: z.number(),
 				y: z.number(),
 			})
-			.strict(),
+			.strict()
+			.describe("Coordonatele geografice ale locației"),
 	})
 	.strict();
 
@@ -75,10 +82,10 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 		status: true,
 	})
 	.extend({
-		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
-		notes: z.string().optional(),
-		languageNeeded: z.string().optional(),
-		safetyNotes: z.string().optional(),
+		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional().describe("Urgența percepută de guest"),
+		notes: z.string().optional().describe("Note suplimentare pentru procesarea cererii"),
+		languageNeeded: z.string().optional().describe("Limba în care guest-ul are nevoie de ajutor (ex: 'Română', 'Ucraineană')"),
+		safetyNotes: z.string().optional().describe("Avertismente de siguranță (ex: 'Câine în curte', 'Zonă greu accesibilă')"),
 	})
 	.strict()
 	.refine((data) => data.description || data.audioUrl, {
