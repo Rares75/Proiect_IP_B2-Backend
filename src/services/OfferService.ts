@@ -99,15 +99,33 @@ export class OfferService {
 		}
 
 		if (context.taskStatus !== "OPEN") {
-			throw new InvalidStatusTransitionError(context.taskStatus, status);
+			throw new ValidationError(
+				`Offer status can be updated only while the task is OPEN. Current task status is ${context.taskStatus}`,
+			);
+		}
+
+		if (context.status === "REJECTED") {
+			throw new ValidationError(
+				"Offer is already REJECTED and cannot be updated again",
+			);
+		}
+
+		if (context.status === "ACCEPTED") {
+			throw new ValidationError(
+				"Offer is already ACCEPTED and cannot be updated again",
+			);
 		}
 
 		if (context.status !== "PENDING") {
-			throw new InvalidStatusTransitionError(context.status, status);
+			throw new ValidationError(
+				`Only PENDING offers can be updated. Current offer status is ${context.status}`,
+			);
 		}
 
 		if (status !== "ACCEPTED" && status !== "REJECTED") {
-			throw new InvalidStatusTransitionError(context.status, status);
+			throw new ValidationError(
+				"Offer status can only transition from PENDING to ACCEPTED or REJECTED",
+			);
 		}
 
 		if (!context.requestedByUserId) {
