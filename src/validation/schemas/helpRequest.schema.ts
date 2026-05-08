@@ -77,8 +77,8 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 	.extend({
 		urgency: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
 		notes: z.string().optional(),
-        languageNeeded: z.string().optional(),
-        safetyNotes: z.string().optional(),
+		languageNeeded: z.string().optional(),
+		safetyNotes: z.string().optional(),
 	})
 	.strict()
 	.refine((data) => data.description || data.audioUrl, {
