@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import auth from "../auth";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
 import { authMiddleware } from "../middlware/authMiddleware";
@@ -278,7 +279,6 @@ export class OfferController {
 					409: { description: "Invalid status transition" },
 				},
 			}),
-			authMiddleware,
 			async (c) => {
 				const offerId = parsePositiveId(c.req.param("id"));
 				if (!offerId) {
@@ -298,15 +298,28 @@ export class OfferController {
 				}
 
 				try {
-					const session = c.get("session");
-					if (!session?.userId) {
+					const sessionData = await auth.api.getSession({
+						headers: c.req.raw.headers,
+					});
+					const guestSessionId = c.req.header("X-Guest-Session");
+
+					if (sessionData?.session?.userId) {
+						const result = await this.offerService.updateOfferStatus(
+							offerId,
+							sessionData.session.userId,
+							parsedBody.data.status,
+						);
+
+						return sendApiResponse(c, result, { kind: "success" });
+					}
+
+					if (!guestSessionId) {
 						return sendApiResponse(c, null, { kind: "unauthorized" });
 					}
 
-					// Update offer status for the authenticated task owner
-					const result = await this.offerService.updateOfferStatus(
+					const result = await this.offerService.updateGuestOfferStatus(
 						offerId,
-						session.userId,
+						guestSessionId,
 						parsedBody.data.status,
 					);
 
@@ -330,6 +343,68 @@ export class OfferController {
 						error instanceof ValidationError ||
 						error instanceof InvalidStatusTransitionError
 					) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					throw error;
+				}
+			},
+		)
+		//BE1-26
+		.delete(
+			"/:id",
+			describeRoute({
+				summary: "Withdraw an offer",
+				description:
+					"Allows a volunteer to withdraw their PENDING offer. Performs a hard delete.",
+				tags: ["Offers"],
+				responses: {
+					204: { description: "Offer deleted successfully" },
+					400: { description: "Invalid id" },
+					401: { description: "Unauthorized" },
+					403: { description: "Forbidden" },
+					404: { description: "Offer not found" },
+					409: { description: "Offer is not PENDING" },
+				},
+			}),
+			authMiddleware,
+			async (c) => {
+				const offerId = parsePositiveId(c.req.param("id"));
+				if (!offerId) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "'id' must be a positive integer",
+					});
+				}
+
+				try {
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					await this.offerService.deleteOffer(offerId, session.userId);
+
+					return c.body(null, 204);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					if (error instanceof ValidationError) {
 						return sendApiResponse(c, null, {
 							statusCode: 409,
 							message: error.message,

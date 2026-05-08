@@ -287,6 +287,45 @@ describe("PATCH /api/offers/:id/status integration", () => {
 		expect(response.status).toBe(409);
 	});
 
+	it("returns a clear 409 message when rejecting an already rejected offer", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await seedOwnerAndVolunteers();
+
+		const firstResponse = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "REJECTED" }),
+			},
+		);
+		expect(firstResponse.status).toBe(200);
+
+		const secondResponse = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "REJECTED" }),
+			},
+		);
+		const body: any = await secondResponse.json();
+
+		expect(secondResponse.status).toBe(409);
+		expect(body.message).toBe(
+			"Offer is already REJECTED and cannot be updated again",
+		);
+	});
+
 	it("handles two concurrent accept requests so only one wins", async () => {
 		if (!isDatabaseAvailable) {
 			return;
@@ -462,5 +501,260 @@ describe("PATCH /api/offers/:id/status integration", () => {
 
 		const byHelpRequest = await conversationRepo.findByHelpRequestId(task.id);
 		expect(byHelpRequest?.id).toBe(first.id);
+	});
+
+	it("returns 400 when offer id is not a positive integer", async () => {
+		const response = await app.request("/api/offers/not-a-number/status", {
+			method: "PATCH",
+			headers: {
+				Authorization: "Bearer fake-test-token",
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ status: "ACCEPTED" }),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toContain("positive integer");
+	});
+
+	it("returns 400 when request body is missing status", async () => {
+		const response = await app.request("/api/offers/1/status", {
+			method: "PATCH",
+			headers: {
+				Authorization: "Bearer fake-test-token",
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({}),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body.isClientError).toBe(true);
+		expect(body.message).toBe("Request body must contain a valid status");
+	});
+
+	it("returns 401 when neither auth session nor guest session is present", async () => {
+		authSpy?.mockResolvedValue(null as any);
+
+		const response = await app.request("/api/offers/1/status", {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ status: "ACCEPTED" }),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(401);
+		expect(body.isUnauthorized).toBe(true);
+	});
+
+	it("returns 404 when the offer does not exist", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const response = await app.request("/api/offers/999999/status", {
+			method: "PATCH",
+			headers: {
+				Authorization: "Bearer fake-test-token",
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ status: "ACCEPTED" }),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(404);
+		expect(body.notFound).toBe(true);
+	});
+
+	it("returns 403 when an authenticated user is not the task owner", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await seedOwnerAndVolunteers();
+		authSpy?.mockResolvedValue({
+			user: { id: "offer-intruder-user", email: "intruder@test.com" } as any,
+			session: {
+				id: "session-intruder",
+				userId: "offer-intruder-user",
+			} as any,
+		});
+
+		const response = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "ACCEPTED" }),
+			},
+		);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(body.message).toContain("Only the task owner");
+	});
+
+	it("returns 409 when an already rejected offer is accepted", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		await seedOwnerAndVolunteers();
+		await db
+			.update(helpOffers)
+			.set({ status: "REJECTED" })
+			.where(eq(helpOffers.id, createdOfferIds[0]));
+
+		const response = await app.request(
+			`/api/offers/${createdOfferIds[0]}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: "Bearer fake-test-token",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ status: "ACCEPTED" }),
+			},
+		);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(409);
+		expect(body.message).toContain("REJECTED");
+	});
+
+	it("accepts a guest-owned task offer through the endpoint", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		const guestSessionId = "guest-session-endpoint-accept";
+		authSpy?.mockResolvedValue(null as any);
+		await insertUser(volunteerOneUserId, "vol1@test.com", "Volunteer One");
+
+		const [volunteerOne] = await db
+			.insert(volunteers)
+			.values({
+				userId: volunteerOneUserId,
+				availability: true,
+			})
+			.returning({ id: volunteers.id });
+		createdVolunteerIds = [volunteerOne.id];
+
+		const [task] = await db
+			.insert(helpRequests)
+			.values({
+				requestedByUserId: null,
+				guestSessionId,
+				title: "Guest endpoint task",
+				description: "Guest owner accepts through HTTP",
+				status: "OPEN",
+				category: "FACE_TO_FACE",
+			})
+			.returning({ id: helpRequests.id });
+		createdTaskId = task.id;
+
+		const [offer] = await db
+			.insert(helpOffers)
+			.values({
+				helpRequestId: task.id,
+				volunteerId: volunteerOne.id,
+				message: "I can help through endpoint",
+				status: "PENDING",
+			})
+			.returning({ id: helpOffers.id });
+		createdOfferIds = [offer.id];
+
+		const response = await app.request(`/api/offers/${offer.id}/status`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": guestSessionId,
+			},
+			body: JSON.stringify({ status: "ACCEPTED" }),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.status).toBe("ACCEPTED");
+
+		const [assignment] = await db
+			.select()
+			.from(taskAssignments)
+			.where(eq(taskAssignments.helpRequestId, task.id));
+		expect(assignment.requestedByUserId).toBeNull();
+
+		const savedConversations = await db
+			.select()
+			.from(conversations)
+			.where(eq(conversations.taskAssignmentId, assignment.id));
+		expect(savedConversations).toHaveLength(1);
+	});
+
+	it("returns 403 when guest session does not own the task", async () => {
+		if (!isDatabaseAvailable) {
+			return;
+		}
+
+		authSpy?.mockResolvedValue(null as any);
+		await insertUser(volunteerOneUserId, "vol1@test.com", "Volunteer One");
+
+		const [volunteerOne] = await db
+			.insert(volunteers)
+			.values({
+				userId: volunteerOneUserId,
+				availability: true,
+			})
+			.returning({ id: volunteers.id });
+		createdVolunteerIds = [volunteerOne.id];
+
+		const [task] = await db
+			.insert(helpRequests)
+			.values({
+				requestedByUserId: null,
+				guestSessionId: "guest-session-owner",
+				title: "Guest forbidden task",
+				description: "Guest owner must match",
+				status: "OPEN",
+				category: "FACE_TO_FACE",
+			})
+			.returning({ id: helpRequests.id });
+		createdTaskId = task.id;
+
+		const [offer] = await db
+			.insert(helpOffers)
+			.values({
+				helpRequestId: task.id,
+				volunteerId: volunteerOne.id,
+				message: "I can help the guest",
+				status: "PENDING",
+			})
+			.returning({ id: helpOffers.id });
+		createdOfferIds = [offer.id];
+
+		const response = await app.request(`/api/offers/${offer.id}/status`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Guest-Session": "guest-session-other",
+			},
+			body: JSON.stringify({ status: "ACCEPTED" }),
+		});
+		const body: any = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(body.message).toContain("Only the task owner");
+
+		const [unchangedOffer] = await db
+			.select()
+			.from(helpOffers)
+			.where(eq(helpOffers.id, offer.id));
+		expect(unchangedOffer.status).toBe("PENDING");
 	});
 });

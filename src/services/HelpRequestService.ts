@@ -369,19 +369,20 @@ export class HelpRequestService {
 
 		// 2. Construim datele finale, forțând regulile de business pentru Guest
 		const guestData: CreateHelpRequestDTO = {
+			...(data as any),
 			title: data.title,
-			description: data.description ?? null,
-			audioUrl: data.audioUrl ?? null,
+            description: data.description ?? null,
+            audioUrl: data.audioUrl ?? null,
+			category: "MESSAGES_ONLY",
 			guestSessionId: sessionId,
 			requestedByUserId: null, // Guestul nu are cont
-			urgency: "CRITICAL", // Fortat conform cerintelor
+			urgency: data.urgency ?? "HIGH",
 			anonymousMode: true, // Fortat conform cerintelor
 			status: "OPEN",
 			city: data.city,
 			addressText: data.addressText,
 			location: data.location,
 			skillsNeeded: data.skillsNeeded,
-			...data,
 		};
 
 		// 3. Scanare pentru moderarea continutului

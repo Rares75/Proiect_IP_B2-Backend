@@ -99,20 +99,32 @@ export class OfferService {
 		}
 
 		if (context.taskStatus !== "OPEN") {
-			throw new InvalidStatusTransitionError(context.taskStatus, status);
+			throw new ValidationError(
+				`Offer status can be updated only while the task is OPEN. Current task status is ${context.taskStatus}`,
+			);
+		}
+
+		if (context.status === "REJECTED") {
+			throw new ValidationError(
+				"Offer is already REJECTED and cannot be updated again",
+			);
+		}
+
+		if (context.status === "ACCEPTED") {
+			throw new ValidationError(
+				"Offer is already ACCEPTED and cannot be updated again",
+			);
 		}
 
 		if (context.status !== "PENDING") {
-			throw new InvalidStatusTransitionError(context.status, status);
+			throw new ValidationError(
+				`Only PENDING offers can be updated. Current offer status is ${context.status}`,
+			);
 		}
 
 		if (status !== "ACCEPTED" && status !== "REJECTED") {
-			throw new InvalidStatusTransitionError(context.status, status);
-		}
-
-		if (!context.requestedByUserId) {
 			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
+				"Offer status can only transition from PENDING to ACCEPTED or REJECTED",
 			);
 		}
 
@@ -163,6 +175,79 @@ export class OfferService {
 		});
 	}
 
+	async updateGuestOfferStatus(
+		offerId: number,
+		guestSessionId: string,
+		status: "ACCEPTED" | "REJECTED" | "PENDING",
+	): Promise<HelpOffer> {
+		const context = await this.offerRepo.findNotificationContextById(offerId);
+
+		if (!context) {
+			throw new NotFoundError("Offer", String(offerId));
+		}
+
+		if (context.taskStatus !== "OPEN") {
+			throw new InvalidStatusTransitionError(context.taskStatus, status);
+		}
+
+		if (context.status !== "PENDING") {
+			throw new InvalidStatusTransitionError(context.status, status);
+		}
+
+		if (status !== "ACCEPTED" && status !== "REJECTED") {
+			throw new InvalidStatusTransitionError(context.status, status);
+		}
+
+		if (context.guestSessionId !== guestSessionId) {
+			throw new ForbiddenError("Only the task owner can accept this offer");
+		}
+
+		if (status === "REJECTED") {
+			return db.transaction(async (tx) => {
+				const taskOpen = await this.offerRepo.ensureTaskOpenForOfferTransition(
+					context.helpRequestId,
+					tx,
+					"OPEN",
+				);
+
+				if (!taskOpen) {
+					throw new InvalidStatusTransitionError(context.taskStatus, status);
+				}
+
+				const rejected = await this.offerRepo.updatePendingOfferStatus(
+					context.offerId,
+					"REJECTED",
+					tx,
+				);
+
+				if (!rejected) {
+					throw new InvalidStatusTransitionError(context.status, status);
+				}
+
+				return rejected;
+			});
+		}
+
+		return db.transaction(async (tx) => {
+			const accepted = await this.offerRepo.acceptOffer(
+				context as AcceptableOfferNotificationContext,
+				tx,
+			);
+
+			await this.notificationService.notifyVolunteerOfferAccepted(
+				{
+					helpRequestId: context.helpRequestId,
+					taskAssignmentId: accepted.taskAssignment.id,
+					title: context.requestTitle,
+					volunteerUserId: context.volunteerUserId,
+				},
+				tx,
+			);
+
+			return accepted.offer;
+		});
+	}
+
 	async acceptOffer(
 		offerId: number,
 		userId: string,
@@ -181,20 +266,11 @@ export class OfferService {
 			throw new InvalidStatusTransitionError(context.status, "ACCEPTED");
 		}
 
-		if (!context.requestedByUserId) {
-			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
-			);
-		}
-
 		if (context.requestedByUserId !== userId) {
 			throw new ForbiddenError("Only the task owner can accept this offer");
 		}
 
-		const acceptableContext: AcceptableOfferNotificationContext = {
-			...context,
-			requestedByUserId: context.requestedByUserId,
-		};
+		const acceptableContext: AcceptableOfferNotificationContext = context;
 
 		return db.transaction(async (tx) => {
 			const accepted = await this.offerRepo.acceptOffer(acceptableContext, tx);
@@ -211,5 +287,26 @@ export class OfferService {
 
 			return accepted;
 		});
+	}
+
+	//BE1-26
+	async deleteOffer(offerId: number, userId: string): Promise<void> {
+		const offer = await this.offerRepo.findOfferWithVolunteerUserId(offerId);
+
+		if (!offer) {
+			throw new NotFoundError("Offer", String(offerId));
+		}
+
+		if (offer.volunteerUserId !== userId) {
+			throw new ForbiddenError(
+				"Only the volunteer who created the offer can withdraw it",
+			);
+		}
+
+		if (offer.status !== "PENDING") {
+			throw new ValidationError("Only PENDING offers can be withdrawn");
+		}
+
+		await this.offerRepo.delete(offerId);
 	}
 }

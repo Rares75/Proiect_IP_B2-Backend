@@ -1,16 +1,37 @@
 import { z } from "zod";
+import { messageContentTypeEnum } from "../../db/enums";
 import { optionalCoercedNumber } from "./queryParams.schema";
 
-export const messageInputSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("TEXTCONTENT"),
-		content: z.string().min(1),
-	}),
-	z.object({
-		type: z.literal("AUDIOCONTENT"),
-		audioUrl: z.string().url(),
-	}),
+export const textMessageInputSchema = z
+	.object({
+		type: z
+			.literal(messageContentTypeEnum.enumValues[0])
+			.default("TEXTCONTENT"),
+		content: z.string({ error: "Content is required" }).trim().min(1, {
+			message: "Content is required",
+		}),
+		audioUrl: z.string().url({ message: "Audio URL must be valid" }).optional(),
+	})
+	.strict();
+
+export const audioMessageInputSchema = z
+	.object({
+		type: z.literal(messageContentTypeEnum.enumValues[1]),
+		content: z.string().trim().optional().nullable(),
+		audioUrl: z
+			.string({ error: "Audio URL is required" })
+			.trim()
+			.min(1, { message: "Audio URL is required" })
+			.url({ message: "Audio URL must be valid" }),
+	})
+	.strict();
+
+export const messageInputSchema = z.union([
+	textMessageInputSchema,
+	audioMessageInputSchema,
 ]);
+
+export type MessageInput = z.infer<typeof messageInputSchema>;
 
 export const messagesQuerySchema = z.object({
 	page: optionalCoercedNumber("Page must be a number")
