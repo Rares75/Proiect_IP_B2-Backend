@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { helpRequestCategoryEnum } from "../../db/enums";
 
 const allowedSortFields = ["createdAt", "urgency"] as const;
 const allowedOrderValues = ["ASC", "DESC"] as const;
@@ -11,7 +12,7 @@ const allowedRequestStatuses = [
 	"REJECTED",
 ] as const;
 
-const optionalCoercedNumber = (message: string) =>
+export const optionalCoercedNumber = (message: string) =>
 	z.preprocess((value) => {
 		if (typeof value !== "string") {
 			return value;
@@ -61,6 +62,7 @@ export const queryParamsSchema = z.object({
 			message: "Status must be a valid request status",
 		})
 		.optional(),
+	category: z.enum(helpRequestCategoryEnum.enumValues).optional(),
 	city: z.string().trim().min(1, "City must not be empty").optional(),
 	language: z
 		.string()
