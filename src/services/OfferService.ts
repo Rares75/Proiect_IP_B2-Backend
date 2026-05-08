@@ -21,6 +21,10 @@ type CreateOfferInput = {
 	message?: string | null;
 };
 
+type OfferActor =
+	| { kind: "user"; userId: string }
+	| { kind: "guest"; guestSessionId: string };
+
 @Service()
 export class OfferService {
 	constructor(
@@ -92,6 +96,30 @@ export class OfferService {
 		userId: string,
 		status: "ACCEPTED" | "REJECTED" | "PENDING",
 	): Promise<HelpOffer> {
+		return this.updateOfferStatusForActor(
+			offerId,
+			{ kind: "user", userId },
+			status,
+		);
+	}
+
+	async updateGuestOfferStatus(
+		offerId: number,
+		guestSessionId: string,
+		status: "ACCEPTED" | "REJECTED" | "PENDING",
+	): Promise<HelpOffer> {
+		return this.updateOfferStatusForActor(
+			offerId,
+			{ kind: "guest", guestSessionId },
+			status,
+		);
+	}
+
+	private async updateOfferStatusForActor(
+		offerId: number,
+		actor: OfferActor,
+		status: "ACCEPTED" | "REJECTED" | "PENDING",
+	): Promise<HelpOffer> {
 		const context = await this.offerRepo.findNotificationContextById(offerId);
 
 		if (!context) {
@@ -110,14 +138,14 @@ export class OfferService {
 			throw new InvalidStatusTransitionError(context.status, status);
 		}
 
-		if (!context.requestedByUserId) {
-			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
-			);
-		}
-
-		if (context.requestedByUserId !== userId) {
-			throw new ForbiddenError("Only the task owner can accept this offer");
+		if (actor.kind === "user") {
+			if (context.requestedByUserId !== actor.userId) {
+				throw new ForbiddenError("Only the task owner can accept this offer");
+			}
+		} else {
+			if (context.guestSessionId !== actor.guestSessionId) {
+				throw new ForbiddenError("Only the task owner can accept this offer");
+			}
 		}
 
 		if (status === "REJECTED") {
@@ -167,6 +195,20 @@ export class OfferService {
 		offerId: number,
 		userId: string,
 	): Promise<AcceptedOfferResult> {
+		return this.acceptOfferForActor(offerId, { kind: "user", userId });
+	}
+
+	async acceptGuestOffer(
+		offerId: number,
+		guestSessionId: string,
+	): Promise<AcceptedOfferResult> {
+		return this.acceptOfferForActor(offerId, { kind: "guest", guestSessionId });
+	}
+
+	private async acceptOfferForActor(
+		offerId: number,
+		actor: OfferActor,
+	): Promise<AcceptedOfferResult> {
 		const context = await this.offerRepo.findNotificationContextById(offerId);
 
 		if (!context) {
@@ -181,14 +223,14 @@ export class OfferService {
 			throw new InvalidStatusTransitionError(context.status, "ACCEPTED");
 		}
 
-		if (!context.requestedByUserId) {
-			throw new ValidationError(
-				"Offer cannot be accepted without a task owner",
-			);
-		}
-
-		if (context.requestedByUserId !== userId) {
-			throw new ForbiddenError("Only the task owner can accept this offer");
+		if (actor.kind === "user") {
+			if (context.requestedByUserId !== actor.userId) {
+				throw new ForbiddenError("Only the task owner can accept this offer");
+			}
+		} else {
+			if (context.guestSessionId !== actor.guestSessionId) {
+				throw new ForbiddenError("Only the task owner can accept this offer");
+			}
 		}
 
 		const acceptableContext: AcceptableOfferNotificationContext = {

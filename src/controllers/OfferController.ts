@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
 import { authMiddleware } from "../middlware/authMiddleware";
+import auth from "../auth";
 import { describeRoute, resolver } from "hono-openapi";
 import { Controller } from "../utils/controller";
 import {
@@ -278,7 +279,6 @@ export class OfferController {
 					409: { description: "Invalid status transition" },
 				},
 			}),
-			authMiddleware,
 			async (c) => {
 				const offerId = parsePositiveId(c.req.param("id"));
 				if (!offerId) {
@@ -298,17 +298,28 @@ export class OfferController {
 				}
 
 				try {
-					const session = c.get("session");
-					if (!session?.userId) {
+					const sessionData = await auth.api.getSession({
+						headers: c.req.raw.headers,
+					});
+
+					const guestSession = c.req.header("X-Guest-Session");
+					const result = sessionData?.session?.userId
+						? await this.offerService.updateOfferStatus(
+								offerId,
+								sessionData.session.userId,
+								parsedBody.data.status,
+							)
+						: guestSession
+							? await this.offerService.updateGuestOfferStatus(
+									offerId,
+									guestSession,
+									parsedBody.data.status,
+								)
+							: null;
+
+					if (!result) {
 						return sendApiResponse(c, null, { kind: "unauthorized" });
 					}
-
-					// Update offer status for the authenticated task owner
-					const result = await this.offerService.updateOfferStatus(
-						offerId,
-						session.userId,
-						parsedBody.data.status,
-					);
 
 					return sendApiResponse(c, result, { kind: "success" });
 				} catch (error) {

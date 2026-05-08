@@ -21,6 +21,7 @@ export type OfferNotificationContext = {
 	taskStatus: (typeof requestStatusEnum.enumValues)[number];
 	requestTitle: string;
 	requestedByUserId: string | null;
+	guestSessionId?: string | null;
 	volunteerUserId: string;
 };
 
@@ -74,6 +75,7 @@ export class OfferRepository {
 				taskStatus: helpRequests.status,
 				requestTitle: helpRequests.title,
 				requestedByUserId: helpRequests.requestedByUserId,
+				guestSessionId: helpRequests.guestSessionId,
 				volunteerUserId: volunteers.userId,
 			})
 			.from(helpOffers)

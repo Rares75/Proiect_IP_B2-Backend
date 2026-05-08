@@ -375,8 +375,9 @@ export class HelpRequestService {
 			...(data as any),
 			guestSessionId: sessionId,
 			requestedByUserId: null, // Guestul nu are cont
-			urgency: "CRITICAL", // Fortat conform cerintelor
+			urgency: data.urgency ?? "HIGH",
 			anonymousMode: true, // Fortat conform cerintelor
+			category: "MESSAGES_ONLY",
 			status: "OPEN",
 		};
 

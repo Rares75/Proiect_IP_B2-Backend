@@ -117,7 +117,7 @@ const guestTaskSuccessSchema = z
 			data: {
 				id: "550e8400-e29b-41d4-a716-446655440000",
 				title: "Ajutor transport clinica",
-				urgency: "CRITICAL",
+				urgency: "HIGH",
 				status: "OPEN",
 			},
 			message: "Request completed successfully",
