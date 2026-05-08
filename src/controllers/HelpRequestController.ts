@@ -186,7 +186,10 @@ export class HelpRequestController {
 							"Invalid input or moderation error (inappropriate content)",
 						content: {
 							"application/json": {
-								schema: resolver(moderationResponseSchema),
+								schema: resolver(z.union([
+									emptyApiResponseSchema, 
+									moderationResponseSchema
+								])), // support boths
 							},
 						},
 					},
@@ -219,6 +222,7 @@ export class HelpRequestController {
 						createData as CreateHelpRequestDTO,
 					);
 
+					// FLAGGED = override message in api response
 					if (result.moderationWarning) {
 						return sendApiResponse(c, result, {
 							kind: "created" as const,
@@ -226,9 +230,11 @@ export class HelpRequestController {
 						});
 					}
 
+					// CLEAN = send result
 					return sendApiResponse(c, result, { kind: "created" as const });
 				} catch (error: any) {
 					// check if error comes from inappropriate request
+					// BLOCKED = data becomes the moderation result level and the reason
 					if (error instanceof ModerationError) {
 						const logMsg = `[MODERATION] User ${session?.userId || "anonymous"} rejected. Reason: ${error.reason}`;
 						logger.warn(logMsg);
