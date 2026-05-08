@@ -49,16 +49,19 @@ export class HelpRequestService {
 			results.find((r) => r.level === ModerationLevel.FLAGGED);
 
 		if (worstOffender) {
-			const message =
-				worstOffender.level === ModerationLevel.BLOCKED
-					? "Your request was blocked due to inappropriate content."
-					: "Your request was flagged due to suspicious content.";
+			// hard block
+			if (worstOffender.level === ModerationLevel.BLOCKED) {
+				throw new ModerationError(
+					worstOffender.reason || "Content blocked.",
+					ModerationLevel.BLOCKED,
+					worstOffender.reason || "Violation of safety policies."
+				);
+			}
 
-			throw new ModerationError(
-				message,
-				worstOffender.level,
-				worstOffender.reason || "General policy violation.", // ori motivul ori fallback string
-			);
+			// soft block
+			if (worstOffender.level === ModerationLevel.FLAGGED) {
+				logger.info(`[Moderation] Task created with warnings: ${worstOffender.reason}`);
+			}
 		}
 
 		try {

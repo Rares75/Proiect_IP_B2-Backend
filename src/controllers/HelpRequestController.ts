@@ -13,6 +13,7 @@ import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
 } from "../validation";
+import { logger } from "../utils/logger";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
@@ -73,6 +74,39 @@ const successDetailsSchema = z
 			isClientError: false,
 			app: { url: "http://localhost:3000" },
 			statusCode: 200,
+		},
+	});
+
+const moderationResponseSchema = z
+	.object({
+		data: z.object({
+			level: z.enum(["FLAGGED", "BLOCKED"]),
+			reason: z.string(),
+		}),
+		message: z.string(),
+		notFound: z.boolean(),
+		isUnauthorized: z.boolean(),
+		isServerError: z.boolean(),
+		isClientError: z.boolean(),
+		app: z.object({
+			url: z.string(),
+		}),
+		statusCode: z.literal(400),
+	})
+	.meta({
+		ref: "ModerationErrorResponse",
+		example: {
+			data: {
+				level: "BLOCKED",
+				reason: "Content violates policies regarding financial scams.",
+			},
+			message: "Inappropriate content detected.",
+			notFound: false,
+			isUnauthorized: false,
+			isServerError: false,
+			isClientError: true,
+			app: { url: "http://localhost:3000" },
+			statusCode: 400,
 		},
 	});
 
@@ -151,7 +185,7 @@ export class HelpRequestController {
 						description:
 							"Invalid input or moderation error (inappropriate content)",
 						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
+							"application/json": { schema: resolver(moderationResponseSchema) },
 						},
 					},
 					500: {
@@ -186,11 +220,11 @@ export class HelpRequestController {
 				} catch (error: any) {
 					// check if error comes from inappropriate request
 					if (error instanceof ModerationError) {
-						//return c.json({ error: error.message }, 400);
-						return sendApiResponse(c, null, {
-							message: error.message,
-							kind: "clientError",
-						});
+						return sendApiResponse(
+							c, 
+							{ level: error.level, reason: error.reason },
+							{ message: error.message, kind: "clientError" }
+						);
 					}
 
 					console.error(error);
