@@ -4,3 +4,4 @@ export * from "./skillFilter";
 export * from "./types";
 export * from "./cityFilter";
 export * from "./distanceFilter";
+export * from "./categoryFilter";

@@ -4,6 +4,7 @@ import {
 	parseStatusFilter,
 	parseCityFilter,
 	parseSkillFilter,
+	parseCategoryFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
@@ -37,6 +38,7 @@ export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
 	const statusRaw = getSingleQueryValue(query.status);
 	const languageRaw = getSingleQueryValue(query.language);
 	const cityRaw = getSingleQueryValue(query.city);
+	const categoryRaw = getSingleQueryValue(query.category);
 
 	const page = pageRaw ? Number(pageRaw) : 1;
 	const pageSize = pageSizeRaw ? Number(pageSizeRaw) : 10;
@@ -90,6 +92,13 @@ export const validateTasksQuery = (query: Record<string, TaskQueryValue>) => {
 		return { error: cityValidation.error };
 	}
 	Object.assign(filters, cityValidation.validData);
+
+	//Category validation
+	const categoryValidation = parseCategoryFilter(categoryRaw);
+	if (categoryValidation.error) {
+		return { error: categoryValidation.error };
+	}
+	Object.assign(filters, categoryValidation.validData);
 
 	const distanceValidation = parseDistanceFilter(query);
 	if (distanceValidation.error || !distanceValidation.validData) {
