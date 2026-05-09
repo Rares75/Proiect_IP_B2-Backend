@@ -164,17 +164,26 @@ const removeClientOwnerFields = (
 
 const sanitizeAnonymousTask = (
 	task: ExistingHelpRequestResponse,
-): ExistingHelpRequestResponse | Record<string, unknown> => {
+	currentUserId?: string,
+): Record<string, unknown> => {
+	const { ownerName, ownerUsername, ...baseTask } = task as any;
+
 	if (!task.anonymousMode) {
-		return task;
+		return baseTask;
 	}
 
-	const safeTask: Record<string, unknown> = { ...task };
-	delete safeTask.requestedByUserId;
-	delete safeTask.userId;
-	delete safeTask.ownerId;
+	const isOwner =
+		(task as any).requestedByUserId !== null &&
+		(task as any).requestedByUserId === currentUserId;
 
-	return safeTask;
+	if (isOwner) {
+		return { ...baseTask, isMine: true };
+	}
+
+	const { requestedByUserId, ...restOfTask } = baseTask;
+	const displayName =
+		(task as any).requestedByUserId === null ? null : (ownerUsername ?? null);
+	return { ...restOfTask, displayName };
 };
 
 enum OfferStatus {
@@ -522,9 +531,11 @@ export class HelpRequestController {
 						? foundTask[0]
 						: foundTask;
 					//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
-					return sendApiResponse(c, sanitizeAnonymousTask(dataToReturn), {
-						kind: "success",
-					});
+					return sendApiResponse(
+						c,
+						sanitizeAnonymousTask(dataToReturn, session?.userId),
+						{ kind: "success" },
+					);
 				} catch (error) {
 					console.error(
 						`Eroare critica la GET /tasks/${c.req.param("id")} :`,

@@ -4,11 +4,13 @@ import {
 	count as drizzleCount,
 	desc,
 	eq,
+	getTableColumns,
 	inArray,
 } from "drizzle-orm";
 import { db } from "../";
 import type { DatabaseClient } from "./databaseClient";
 import { repository } from "../../di/decorators/repository";
+import { user } from "../auth-schema";
 import { volunteers } from "../profile";
 import {
 	helpRequests,
@@ -91,6 +93,24 @@ export class HelpRequestRepository
 		const [found] = await db
 			.select()
 			.from(helpRequests)
+			.where(eq(helpRequests.id, id));
+		return found;
+	}
+
+	async findByIdWithUser(
+		id: number,
+	): Promise<
+		| (HelpRequest & { ownerName: string | null; ownerUsername: string | null })
+		| undefined
+	> {
+		const [found] = await db
+			.select({
+				...getTableColumns(helpRequests),
+				ownerName: user.name,
+				ownerUsername: user.username,
+			})
+			.from(helpRequests)
+			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
 			.where(eq(helpRequests.id, id));
 		return found;
 	}
@@ -346,6 +366,8 @@ export class HelpRequestRepository
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
 				requestLocation: requestLocations,
+				ownerName: user.name,
+				ownerUsername: user.username,
 			})
 			.from(helpRequests)
 			.leftJoin(
@@ -356,6 +378,7 @@ export class HelpRequestRepository
 				requestLocations,
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
 			.where(composedWhere)
 			.orderBy(...orderBy);
 
@@ -374,12 +397,14 @@ export class HelpRequestRepository
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
 		const data = rows.map(
-			({ helpRequest, requestDetails, requestLocation }) => ({
+			({ helpRequest, requestDetails, requestLocation, ownerName, ownerUsername }) => ({
 				...helpRequest,
 				requestDetails,
 				city: requestLocation?.city ?? null,
 				addressText: requestLocation?.addressText ?? null,
 				location: requestLocation?.location ?? null,
+				ownerName,
+				ownerUsername,
 			}),
 		);
 
@@ -407,15 +432,19 @@ export class HelpRequestRepository
 			helpRequest: HelpRequest;
 			requestDetails: typeof requestDetails.$inferSelect | null;
 			requestLocation: typeof requestLocations.$inferSelect | null;
+			ownerName: string | null;
+			ownerUsername: string | null;
 		}>,
 		requestedSkills: string[] | undefined,
 	) {
-		return rows.map(({ helpRequest, requestDetails, requestLocation }) => ({
+		return rows.map(({ helpRequest, requestDetails, requestLocation, ownerName, ownerUsername }) => ({
 			...helpRequest,
 			requestDetails,
 			city: requestLocation?.city ?? null,
 			addressText: requestLocation?.addressText ?? null,
 			location: requestLocation?.location ?? null,
+			ownerName,
+			ownerUsername,
 			skillScore: calculateSkillMachScore(
 				requestedSkills,
 				helpRequest?.skillsNeeded,

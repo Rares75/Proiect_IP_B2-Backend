@@ -148,7 +148,7 @@ export class HelpRequestService {
 	 */
 	async getHelpRequestById(id: number) {
 		//fetch the main task
-		const helpRequest = await this.helpRequestRepo.findById(id);
+		const helpRequest = await this.helpRequestRepo.findByIdWithUser(id);
 
 		//if the task doesn't exist, I return `undefined` (the controller will handle the 404)
 		if (!helpRequest) {
@@ -275,11 +275,23 @@ export class HelpRequestService {
 		const totalPages = Math.ceil(total / pageSize);
 
 		const formattedData = data.map((task) => {
-			if (task.anonymousMode) {
-				const { requestedByUserId, ...restOfTask } = task;
-				return restOfTask;
+			const { ownerName, ownerUsername, ...baseTask } = task;
+
+			if (!task.anonymousMode) {
+				return baseTask;
 			}
-			return task;
+
+			const isOwner =
+				task.requestedByUserId !== null && task.requestedByUserId === userId;
+
+			if (isOwner) {
+				return { ...baseTask, isMine: true };
+			}
+
+			const { requestedByUserId, ...restOfTask } = baseTask;
+			const displayName =
+				task.requestedByUserId === null ? null : (ownerUsername ?? null);
+			return { ...restOfTask, displayName };
 		});
 
 		return {

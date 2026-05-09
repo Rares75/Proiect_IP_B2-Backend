@@ -429,3 +429,139 @@ describe("GET /api/tasks (Paginare BE1-12)", () => {
 		serviceSpy.mockRestore();
 	});
 });
+
+describe("GET /api/tasks/:id - anonimizare (4 scenarii)", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+	let serviceSpy: ReturnType<typeof spyOn> | undefined;
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		serviceSpy?.mockRestore();
+		authSpy = undefined;
+		serviceSpy = undefined;
+	});
+
+	it("anonim + owner: vede requestedByUserId si isMine=true, fara ownerName/ownerUsername", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "owner-1" } as any,
+			session: { id: "s1", userId: "owner-1" } as any,
+		});
+		const mockTask = {
+			id: 10,
+			anonymousMode: true,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task anonim",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/10");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBe(true);
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+		expect(body.data.displayName).toBeUndefined();
+	});
+
+	it("anonim + non-owner: nu vede requestedByUserId, vede displayName=username, fara ownerName/ownerUsername", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "other-user" } as any,
+			session: { id: "s2", userId: "other-user" } as any,
+		});
+		const mockTask = {
+			id: 11,
+			anonymousMode: true,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task anonim",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/11");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBeUndefined();
+		expect(body.data.displayName).toBe("johndoe");
+		expect(body.data.isMine).toBeUndefined();
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+	});
+
+	it("non-anonim + owner: comportament nemodificat, requestedByUserId vizibil, fara isMine/displayName", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "owner-1" } as any,
+			session: { id: "s3", userId: "owner-1" } as any,
+		});
+		const mockTask = {
+			id: 12,
+			anonymousMode: false,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task public",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/12");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBeUndefined();
+		expect(body.data.displayName).toBeUndefined();
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+	});
+
+	it("non-anonim + non-owner: comportament nemodificat, requestedByUserId vizibil, fara isMine/displayName", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "other-user" } as any,
+			session: { id: "s4", userId: "other-user" } as any,
+		});
+		const mockTask = {
+			id: 13,
+			anonymousMode: false,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task public",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/13");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBeUndefined();
+		expect(body.data.displayName).toBeUndefined();
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+	});
+});

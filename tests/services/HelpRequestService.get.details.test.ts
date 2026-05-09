@@ -26,6 +26,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 		// Mock repositories
 		mockHelpRequestRepo = {
 			findById: vi.fn(),
+			findByIdWithUser: vi.fn(),
 			create: vi.fn(),
 		};
 
@@ -85,11 +86,11 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				safetyNotes: "Verificare identitate obligatorie",
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
 			const result = await service.getHelpRequestById(taskId);
-			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(taskId);
 			expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(taskId);
 			expect(result).toEqual({
 				...mockTask,
@@ -116,12 +117,12 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				location: null,
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
 
 			const result = await service.getHelpRequestById(taskId);
 
-			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(taskId);
 			expect(mockDetailsRepo.findByHelpRequestId).toHaveBeenCalledWith(taskId);
 			expect(result).toEqual({
 				...mockTask,
@@ -155,7 +156,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				safetyNotes: "Safety notes",
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
 			const result = await service.getHelpRequestById(taskId);
@@ -179,18 +180,18 @@ describe("HelpRequestService - getHelpRequestById", () => {
 	describe("Not Found Cases", () => {
 		it("should return undefined when task does not exist", async () => {
 			const taskId = 999;
-			mockHelpRequestRepo.findById.mockResolvedValue(undefined);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(undefined);
 
 			const result = await service.getHelpRequestById(taskId);
 
-			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(taskId);
+			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(taskId);
 			expect(mockDetailsRepo.findByHelpRequestId).not.toHaveBeenCalled();
 			expect(result).toBeUndefined();
 		});
 
 		it("should not fetch details when task repository returns null", async () => {
 			const taskId = 999;
-			mockHelpRequestRepo.findById.mockResolvedValue(null);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(null);
 
 			const result = await service.getHelpRequestById(taskId);
 
@@ -203,7 +204,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 		it("should propagate error when task repository fails", async () => {
 			const taskId = 1;
 			const dbError = new Error("Database connection failed");
-			mockHelpRequestRepo.findById.mockRejectedValue(dbError);
+			mockHelpRequestRepo.findByIdWithUser.mockRejectedValue(dbError);
 
 			expect(service.getHelpRequestById(taskId)).rejects.toThrow(
 				"Database connection failed",
@@ -228,7 +229,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			};
 
 			const detailsError = new Error("Failed to fetch request details");
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockRejectedValue(detailsError);
 
 			expect(service.getHelpRequestById(taskId)).rejects.toThrow(
@@ -252,7 +253,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				location: null,
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(null);
 
 			const result = await service.getHelpRequestById(taskId);
@@ -266,8 +267,8 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			const callOrder: string[] = [];
 			const taskId = 1;
 
-			mockHelpRequestRepo.findById.mockImplementation(async () => {
-				callOrder.push("findById");
+			mockHelpRequestRepo.findByIdWithUser.mockImplementation(async () => {
+				callOrder.push("findByIdWithUser");
 				return { id: 1, title: "Test" };
 			});
 
@@ -278,12 +279,12 @@ describe("HelpRequestService - getHelpRequestById", () => {
 
 			await service.getHelpRequestById(taskId);
 
-			expect(callOrder).toEqual(["findById", "findByHelpRequestId"]);
+			expect(callOrder).toEqual(["findByIdWithUser", "findByHelpRequestId"]);
 		});
 
 		it("should not call findByHelpRequestId if task not found", async () => {
 			const taskId = 999;
-			mockHelpRequestRepo.findById.mockResolvedValue(undefined);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(undefined);
 
 			await service.getHelpRequestById(taskId);
 
@@ -303,7 +304,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				safetyNotes: null,
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(mockDetails);
 
 			const result = await service.getHelpRequestById(taskId);
@@ -318,13 +319,13 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			const largeId = Number.MAX_SAFE_INTEGER;
 			const mockTask = { id: largeId, title: "Large ID test" };
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(undefined);
 
 			const result = await service.getHelpRequestById(largeId);
 
 			expect(result.id).toBe(largeId);
-			expect(mockHelpRequestRepo.findById).toHaveBeenCalledWith(largeId);
+			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(largeId);
 		});
 
 		it("should correctly handle falsy but valid detail values", async () => {
@@ -338,7 +339,7 @@ describe("HelpRequestService - getHelpRequestById", () => {
 				safetyNotes: undefined,
 			};
 
-			mockHelpRequestRepo.findById.mockResolvedValue(mockTask);
+			mockHelpRequestRepo.findByIdWithUser.mockResolvedValue(mockTask);
 			mockDetailsRepo.findByHelpRequestId.mockResolvedValue(
 				mockDetailsWithFalsyValues,
 			);
