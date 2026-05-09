@@ -397,7 +397,13 @@ export class HelpRequestRepository
 
 		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
 		const data = rows.map(
-			({ helpRequest, requestDetails, requestLocation, ownerName, ownerUsername }) => ({
+			({
+				helpRequest,
+				requestDetails,
+				requestLocation,
+				ownerName,
+				ownerUsername,
+			}) => ({
 				...helpRequest,
 				requestDetails,
 				city: requestLocation?.city ?? null,
@@ -437,19 +443,27 @@ export class HelpRequestRepository
 		}>,
 		requestedSkills: string[] | undefined,
 	) {
-		return rows.map(({ helpRequest, requestDetails, requestLocation, ownerName, ownerUsername }) => ({
-			...helpRequest,
-			requestDetails,
-			city: requestLocation?.city ?? null,
-			addressText: requestLocation?.addressText ?? null,
-			location: requestLocation?.location ?? null,
-			ownerName,
-			ownerUsername,
-			skillScore: calculateSkillMachScore(
-				requestedSkills,
-				helpRequest?.skillsNeeded,
-			),
-		}));
+		return rows.map(
+			({
+				helpRequest,
+				requestDetails,
+				requestLocation,
+				ownerName,
+				ownerUsername,
+			}) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+				ownerName,
+				ownerUsername,
+				skillScore: calculateSkillMachScore(
+					requestedSkills,
+					helpRequest?.skillsNeeded,
+				),
+			}),
+		);
 	}
 	// BE1-31
 	async countActiveByGuestSession(guestSessionId: string): Promise<number> {

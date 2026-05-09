@@ -325,7 +325,9 @@ describe("HelpRequestService - getHelpRequestById", () => {
 			const result = await service.getHelpRequestById(largeId);
 
 			expect(result.id).toBe(largeId);
-			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(largeId);
+			expect(mockHelpRequestRepo.findByIdWithUser).toHaveBeenCalledWith(
+				largeId,
+			);
 		});
 
 		it("should correctly handle falsy but valid detail values", async () => {
