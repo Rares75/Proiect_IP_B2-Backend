@@ -33,6 +33,7 @@ import {
 } from "../services/HelpOfferService";
 import { MessageService } from "../services/MessageService";
 import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -94,10 +95,6 @@ const successDetailsSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-type HelpRequestResponse = Awaited<
-	ReturnType<HelpRequestService["getHelpRequestById"]>
->;
-type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 
@@ -160,21 +157,6 @@ const removeClientOwnerFields = (
 	delete safeBody.requestedByUserId;
 
 	return safeBody;
-};
-
-const sanitizeAnonymousTask = (
-	task: ExistingHelpRequestResponse,
-): ExistingHelpRequestResponse | Record<string, unknown> => {
-	if (!task.anonymousMode) {
-		return task;
-	}
-
-	const safeTask: Record<string, unknown> = { ...task };
-	delete safeTask.requestedByUserId;
-	delete safeTask.userId;
-	delete safeTask.ownerId;
-
-	return safeTask;
 };
 
 enum OfferStatus {
@@ -522,9 +504,11 @@ export class HelpRequestController {
 						? foundTask[0]
 						: foundTask;
 					//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
-					return sendApiResponse(c, sanitizeAnonymousTask(dataToReturn), {
-						kind: "success",
-					});
+					return sendApiResponse(
+						c,
+						sanitizeAnonymousTask(dataToReturn, session?.userId),
+						{ kind: "success" },
+					);
 				} catch (error) {
 					console.error(
 						`Eroare critica la GET /tasks/${c.req.param("id")} :`,

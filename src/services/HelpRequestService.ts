@@ -29,6 +29,7 @@ import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -148,7 +149,7 @@ export class HelpRequestService {
 	 */
 	async getHelpRequestById(id: number) {
 		//fetch the main task
-		const helpRequest = await this.helpRequestRepo.findById(id);
+		const helpRequest = await this.helpRequestRepo.findByIdWithUser(id);
 
 		//if the task doesn't exist, I return `undefined` (the controller will handle the 404)
 		if (!helpRequest) {
@@ -274,13 +275,9 @@ export class HelpRequestService {
 
 		const totalPages = Math.ceil(total / pageSize);
 
-		const formattedData = data.map((task) => {
-			if (task.anonymousMode) {
-				const { requestedByUserId, ...restOfTask } = task;
-				return restOfTask;
-			}
-			return task;
-		});
+		const formattedData = data.map((task) =>
+			sanitizeAnonymousTask(task, userId),
+		);
 
 		return {
 			data: formattedData,
