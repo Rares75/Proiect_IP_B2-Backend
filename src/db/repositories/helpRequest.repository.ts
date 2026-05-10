@@ -249,7 +249,6 @@ export class HelpRequestRepository
 				.returning({ id: helpRequests.id });
 			const deleted = deleteResult.length > 0;
 
-
 			return { deleted, pendingOffers };
 		});
 	}

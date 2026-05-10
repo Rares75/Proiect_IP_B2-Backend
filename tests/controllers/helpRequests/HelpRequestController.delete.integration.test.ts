@@ -122,7 +122,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -164,7 +164,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -191,7 +191,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -215,7 +215,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -239,7 +239,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -256,7 +256,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
-				MessageService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
