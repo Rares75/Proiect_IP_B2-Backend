@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import "../app";
@@ -6,6 +6,7 @@ import "../app";
 export { Controller } from "../di/decorators/controller";
 
 let isLoaded = false;
+let loadingPromise: Promise<void> | undefined;
 
 async function loadRecursively(dir: string) {
 	for (const file of readdirSync(dir)) {
@@ -18,10 +19,32 @@ async function loadRecursively(dir: string) {
 	}
 }
 
+function resolveControllersDir(dir: string) {
+	if (existsSync(dir)) return dir;
+
+	const fallback = join(process.cwd(), "src", "controllers");
+	if (
+		dir.includes(`${join("tests", "src", "controllers")}`) &&
+		existsSync(fallback)
+	) {
+		return fallback;
+	}
+
+	return dir;
+}
+
 export async function loadControllers(dir: string) {
 	// Dacă rutele au fost deja încărcate de alt test, ne oprim (evităm blocajul Bun)
 	if (isLoaded) return;
-	isLoaded = true;
+	if (loadingPromise) return loadingPromise;
 
-	await loadRecursively(dir);
+	loadingPromise = loadRecursively(resolveControllersDir(dir))
+		.then(() => {
+			isLoaded = true;
+		})
+		.finally(() => {
+			loadingPromise = undefined;
+		});
+
+	return loadingPromise;
 }

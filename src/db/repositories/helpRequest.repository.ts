@@ -1,27 +1,50 @@
-import { and, asc, count as drizzleCount, desc, eq } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count as drizzleCount,
+	desc,
+	eq,
+	getTableColumns,
+	inArray,
+} from "drizzle-orm";
 import { db } from "../";
+import type { DatabaseClient } from "./databaseClient";
 import { repository } from "../../di/decorators/repository";
+import { user } from "../auth-schema";
 import { volunteers } from "../profile";
 import {
 	helpRequests,
 	requestDetails,
 	requestLocations,
 	taskAssignments,
+	helpOffers,
 } from "../requests";
 import type { IRepository } from "./base.repository";
 import type { requestStatusEnum } from "../enums";
 import {
+	calculateSkillMachScore,
+	buildDistanceFilter,
+	buildDistanceLocationPresenceFilter,
+	buildDistanceOrderBy,
 	buildLanguageFilter,
 	buildStatusFilter,
+	buildCityFilter,
+	buildCategoryFilter,
 	type TaskFilterParams,
 } from "../../filters";
 
 export type HelpRequest = typeof helpRequests.$inferSelect;
 export type RequestLocation = typeof requestLocations.$inferSelect;
 export type HelpRequestAssignmentAuthorization = {
-	requestedByUserId: string;
+	requestedByUserId: string | null;
 	handledByVolunteerId: number;
 	volunteerUserId: string;
+};
+
+type PendingOfferForDeletion = {
+	id: number;
+	volunteerId: number;
+	volunteerUserId: string | null;
 };
 
 // Extindem tipul de baza cu campurile optionale de locatie, pentru ca repository-ul sa le astepte
@@ -70,6 +93,24 @@ export class HelpRequestRepository
 		const [found] = await db
 			.select()
 			.from(helpRequests)
+			.where(eq(helpRequests.id, id));
+		return found;
+	}
+
+	async findByIdWithUser(
+		id: number,
+	): Promise<
+		| (HelpRequest & { ownerName: string | null; ownerUsername: string | null })
+		| undefined
+	> {
+		const [found] = await db
+			.select({
+				...getTableColumns(helpRequests),
+				ownerName: user.name,
+				ownerUsername: user.username,
+			})
+			.from(helpRequests)
+			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
 			.where(eq(helpRequests.id, id));
 		return found;
 	}
@@ -134,6 +175,84 @@ export class HelpRequestRepository
 		return result.length > 0;
 	}
 
+	/**
+	 * Delete a help request and reject all pending offers in a single transaction.
+	 * Returns details about the operation so the caller can verify effects.
+	 *
+	 * @param id HelpRequest id
+	 * @param inTransactionCallback Optional callback executed inside the same DB transaction.
+	 *        The callback receives the transaction client and can perform additional
+	 *        operations (for example inserting notifications) to guarantee atomicity.
+	 */
+	async deleteWithOfferRejection(
+		id: number,
+		inTransactionCallback?: (
+			tx: DatabaseClient,
+			pendingOffers: PendingOfferForDeletion[],
+		) => Promise<void>,
+	): Promise<{
+		deleted: boolean;
+		pendingOffers: PendingOfferForDeletion[];
+	}> {
+		return await db.transaction(async (tx) => {
+			// read pending offers (we need volunteerUserId for notifications)
+			const pendingRows = await tx
+				.select({ id: helpOffers.id, volunteerId: helpOffers.volunteerId })
+				.from(helpOffers)
+				.where(
+					and(
+						eq(helpOffers.helpRequestId, id),
+						eq(helpOffers.status, "PENDING"),
+					),
+				);
+
+			// if there are volunteers, fetch their userIds
+			const pendingOffers: PendingOfferForDeletion[] = [];
+			if (pendingRows.length > 0) {
+				// join with volunteers to get userId
+				const volunteerIds = pendingRows.map((r: any) => r.volunteerId);
+				const volunteersRows = await tx
+					.select({ id: volunteers.id, userId: volunteers.userId })
+					.from(volunteers)
+					.where(inArray(volunteers.id, volunteerIds));
+
+				for (const r of pendingRows) {
+					const vol = volunteersRows.find((v: any) => v.id === r.volunteerId);
+					pendingOffers.push({
+						id: r.id,
+						volunteerId: r.volunteerId,
+						volunteerUserId: vol?.userId ?? null,
+					});
+				}
+			}
+
+			// Update all PENDING offers to REJECTED
+			await tx
+				.update(helpOffers)
+				.set({ status: "REJECTED" })
+				.where(
+					and(
+						eq(helpOffers.helpRequestId, id),
+						eq(helpOffers.status, "PENDING"),
+					),
+				);
+
+			// Allow caller to run additional operations while the help request still exists
+			if (inTransactionCallback) {
+				await inTransactionCallback(tx, pendingOffers);
+			}
+
+			//Delete the help request (cascade delete applies to request_locations and request_details)
+			const deleteResult = await tx
+				.delete(helpRequests)
+				.where(eq(helpRequests.id, id))
+				.returning({ id: helpRequests.id });
+			const deleted = deleteResult.length > 0;
+
+			return { deleted, pendingOffers };
+		});
+	}
+
 	async exists(id: number): Promise<boolean> {
 		const [{ value }] = await db
 			.select({ value: drizzleCount() })
@@ -194,39 +313,106 @@ export class HelpRequestRepository
 		//filtrele
 		const statusFilter = filters ? buildStatusFilter(filters) : undefined;
 		const languageFilter = filters ? buildLanguageFilter(filters) : undefined;
+		// const skillFilter = filters ? buildSkillFilter(filters) : undefined;
+		const cityFilter = filters ? buildCityFilter(filters) : undefined;
+		//filtru pentru categorie
+		const categoryFilter = filters ? buildCategoryFilter(filters) : undefined;
+
+		// Distances will safely be undefined if bypassed in helpRequestDistance.ts
+		const distanceFilter = filters
+			? buildDistanceFilter(filters.distance)
+			: undefined;
+		const distanceLocationPresenceFilter = filters
+			? buildDistanceLocationPresenceFilter(filters.distance)
+			: undefined;
+		const distanceOrderBy = buildDistanceOrderBy(filters?.distance);
+
+		//skills
+		const requestedSkills = filters?.skills;
+		const shouldSortBySkillScore = Boolean(requestedSkills?.length);
 
 		//group the filters into an array and remove any 'undefined' or null values
-		const whereClause = [statusFilter, languageFilter].filter(Boolean);
+		const whereClause = [
+			statusFilter,
+			languageFilter,
+			cityFilter,
+			categoryFilter,
+			distanceLocationPresenceFilter,
+			distanceFilter,
+		].filter(Boolean);
 
 		//if there are active filters, combine them
 		const composedWhere =
 			whereClause.length > 0 ? and(...whereClause) : undefined;
+
 		const primarySort =
 			order === "ASC" ? asc(helpRequests[sortBy]) : desc(helpRequests[sortBy]);
-		const orderBy =
-			sortBy === "urgency"
+
+		//basic sorting by urgency level
+		const orderBy = distanceOrderBy
+			? sortBy === "urgency"
+				? [
+						desc(helpRequests.urgency),
+						asc(distanceOrderBy),
+						desc(helpRequests.id),
+					]
+				: [asc(distanceOrderBy), desc(helpRequests.id)]
+			: sortBy === "urgency"
 				? [primarySort, desc(helpRequests.createdAt), desc(helpRequests.id)]
 				: [primarySort, desc(helpRequests.id)];
 
-		const rows = await db
+		const baseRowsQuery = db
 			.select({
 				helpRequest: helpRequests,
 				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+				ownerName: user.name,
+				ownerUsername: user.username,
 			})
 			.from(helpRequests)
 			.leftJoin(
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
 			.where(composedWhere)
-			.orderBy(...orderBy)
-			.limit(pageSize)
-			.offset(offset);
+			.orderBy(...orderBy);
 
-		const data = rows.map(({ helpRequest, requestDetails }) => ({
-			...helpRequest,
-			requestDetails,
-		}));
+		if (shouldSortBySkillScore) {
+			const allRows = await baseRowsQuery;
+			const scoredRows = this.buildRowsWithSkillScore(allRows, requestedSkills)
+				.sort((a, b) => b.skillScore - a.skillScore)
+				.slice(offset, offset + pageSize)
+				.map(({ skillScore, ...row }) => row);
+
+			return {
+				data: scoredRows,
+				total: allRows.length,
+			};
+		}
+
+		const rows = await baseRowsQuery.limit(pageSize).offset(offset);
+		const data = rows.map(
+			({
+				helpRequest,
+				requestDetails,
+				requestLocation,
+				ownerName,
+				ownerUsername,
+			}) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+				ownerName,
+				ownerUsername,
+			}),
+		);
 
 		const countQuery = db
 			.select({ value: drizzleCount() })
@@ -235,11 +421,115 @@ export class HelpRequestRepository
 				requestDetails,
 				eq(requestDetails.helpRequestId, helpRequests.id),
 			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
 			.where(composedWhere);
 
 		const [{ value }] = await countQuery;
 		const total = value;
 
 		return { data, total };
+	}
+
+	private buildRowsWithSkillScore(
+		rows: Array<{
+			helpRequest: HelpRequest;
+			requestDetails: typeof requestDetails.$inferSelect | null;
+			requestLocation: typeof requestLocations.$inferSelect | null;
+			ownerName: string | null;
+			ownerUsername: string | null;
+		}>,
+		requestedSkills: string[] | undefined,
+	) {
+		return rows.map(
+			({
+				helpRequest,
+				requestDetails,
+				requestLocation,
+				ownerName,
+				ownerUsername,
+			}) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+				ownerName,
+				ownerUsername,
+				skillScore: calculateSkillMachScore(
+					requestedSkills,
+					helpRequest?.skillsNeeded,
+				),
+			}),
+		);
+	}
+	// BE1-31
+	async countActiveByGuestSession(guestSessionId: string): Promise<number> {
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(
+				and(
+					eq(helpRequests.guestSessionId, guestSessionId),
+					// Active inseamna OPEN, MATCHED sau IN_PROGRESS
+					inArray(helpRequests.status, ["OPEN", "MATCHED", "IN_PROGRESS"]),
+				),
+			);
+		return value;
+	}
+
+	// BE1-32
+	async findPaginatedByGuestSession(
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: (typeof requestStatusEnum.enumValues)[number],
+	) {
+		const offset = (page - 1) * pageSize;
+
+		const conditions = [
+			eq(helpRequests.guestSessionId, guestSessionId),
+			...(status ? [eq(helpRequests.status, status)] : []),
+		];
+		const where = and(...conditions);
+
+		const rows = await db
+			.select({
+				helpRequest: helpRequests,
+				requestDetails: requestDetails,
+				requestLocation: requestLocations,
+			})
+			.from(helpRequests)
+			.leftJoin(
+				requestDetails,
+				eq(requestDetails.helpRequestId, helpRequests.id),
+			)
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(where)
+			.orderBy(desc(helpRequests.createdAt), desc(helpRequests.id))
+			.limit(pageSize)
+			.offset(offset);
+
+		const data = rows.map(
+			({ helpRequest, requestDetails, requestLocation }) => ({
+				...helpRequest,
+				requestDetails,
+				city: requestLocation?.city ?? null,
+				addressText: requestLocation?.addressText ?? null,
+				location: requestLocation?.location ?? null,
+			}),
+		);
+
+		const [{ value }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpRequests)
+			.where(where);
+
+		return { data, total: value };
 	}
 }

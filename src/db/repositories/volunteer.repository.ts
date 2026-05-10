@@ -1,13 +1,31 @@
-import { eq, count as drizzleCount } from "drizzle-orm";
+import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
 import { repository } from "../../di/decorators/repository";
 import { userProfiles, volunteerProfiles, volunteers } from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
+import { helpOffers, helpRequests, requestLocations } from "../schema";
 
 export type Volunteer = typeof volunteers.$inferSelect;
 export type CreateVolunteerDTO = typeof volunteers.$inferInsert;
 export type UpdateVolunteerDTO = Partial<CreateVolunteerDTO>;
+
+export interface OfferWithTaskData {
+	id: number;
+	volunteerId: number;
+	helpRequestId: number;
+	message: string | null;
+	status: "PENDING" | "ACCEPTED" | "REJECTED";
+	createdAt: Date;
+	task: {
+		id: number;
+		title: string;
+		urgency: string;
+		status: string;
+		city: string | null;
+		description: string | null;
+	};
+}
 
 @repository()
 export class VolunteerRepository {
@@ -42,6 +60,23 @@ export class VolunteerRepository {
 			.from(volunteers)
 			.where(eq(volunteers.userId, userId));
 		return found;
+	}
+
+	async findDistancePreferencesByUserId(userId: string) {
+		const [result] = await db
+			.select({
+				volunteerId: volunteers.id,
+				maxDistanceKm: volunteerProfiles.maxDistanceKm,
+			})
+			.from(volunteers)
+			.leftJoin(
+				volunteerProfiles,
+				eq(volunteerProfiles.volunteerId, volunteers.id),
+			)
+			.where(eq(volunteers.userId, userId))
+			.limit(1);
+
+		return result;
 	}
 
 	/**
@@ -173,5 +208,90 @@ export class VolunteerRepository {
 			.select({ value: drizzleCount() })
 			.from(volunteers);
 		return value;
+	}
+
+	/**
+	 * Fetch offers sent by a specific volunteer with associated task data
+	 * @param volunteerId id of Volunteer
+	 * @param options filters and pagination options
+	 * @returns paginated list of offers with task details and total count
+	 */
+	async findOffersByVolunteer(
+		volunteerId: number,
+		options: {
+			status?: "PENDING" | "ACCEPTED" | "REJECTED";
+			page?: number;
+			pageSize?: number;
+		},
+	): Promise<{
+		offers: OfferWithTaskData[];
+		totalCount: number;
+	}> {
+		const { status, page = 1, pageSize = 10 } = options;
+
+		// Build where conditions
+		const conditions = [eq(helpOffers.volunteerId, volunteerId)];
+		if (status) {
+			conditions.push(eq(helpOffers.status, status));
+		}
+
+		// Build offset for pagination
+		const offset = (page - 1) * pageSize;
+
+		// Get total count with filters
+		const [{ value: totalCount }] = await db
+			.select({ value: drizzleCount() })
+			.from(helpOffers)
+			.where(and(...conditions));
+
+		// Fetch paginated offers with task details, including city from request_locations.
+		const offers = await db
+			.select({
+				id: helpOffers.id,
+				volunteerId: helpOffers.volunteerId,
+				helpRequestId: helpOffers.helpRequestId,
+				message: helpOffers.message,
+				status: helpOffers.status,
+				createdAt: helpOffers.createdAt,
+				taskId: helpRequests.id,
+				taskTitle: helpRequests.title,
+				taskUrgency: helpRequests.urgency,
+				taskStatus: helpRequests.status,
+				taskCity: requestLocations.city,
+				taskDescription: helpRequests.description,
+			})
+			.from(helpOffers)
+			.innerJoin(helpRequests, eq(helpOffers.helpRequestId, helpRequests.id))
+			.leftJoin(
+				requestLocations,
+				eq(requestLocations.helpRequestId, helpRequests.id),
+			)
+			.where(and(...conditions))
+			.orderBy(desc(helpOffers.createdAt))
+			.limit(pageSize)
+			.offset(offset);
+
+		// Transform response to match expected format
+		const transformedOffers = offers.map((offer) => ({
+			id: offer.id,
+			volunteerId: offer.volunteerId,
+			helpRequestId: offer.helpRequestId,
+			message: offer.message,
+			status: offer.status,
+			createdAt: offer.createdAt,
+			task: {
+				id: offer.taskId,
+				title: offer.taskTitle,
+				urgency: offer.taskUrgency,
+				status: offer.taskStatus,
+				city: offer.taskCity,
+				description: offer.taskDescription,
+			},
+		}));
+
+		return {
+			offers: transformedOffers,
+			totalCount,
+		};
 	}
 }

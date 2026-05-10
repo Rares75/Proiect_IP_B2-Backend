@@ -59,3 +59,8 @@ export const helpRequestCategoryEnum = pgEnum("help_request_category", [
 	"MESSAGES_ONLY",
 	"FACE_TO_FACE",
 ]);
+
+export const messageContentTypeEnum = pgEnum("message_content_type", [
+	"TEXTCONTENT",
+	"AUDIOCONTENT",
+]);

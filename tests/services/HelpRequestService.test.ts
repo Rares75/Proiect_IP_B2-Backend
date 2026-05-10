@@ -47,6 +47,15 @@ const detailsRepo = {
 	findByHelpRequestId: async () => undefined,
 };
 
+const helpOfferRepo = {
+	findPendingByHelpRequestIdAndVolunteerId: async () => undefined,
+	create: async (data: any) => data,
+};
+
+const volunteerRepo = {
+	findByUserId: async () => undefined,
+};
+
 const moderationService = {
 	scanContent: () => ({ level: "CLEAN" }),
 };
@@ -57,6 +66,8 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 		repo.seed({ id: 1, status: "OPEN" });
 		const service = new HelpRequestService(
 			repo as any,
+			helpOfferRepo as any,
+			volunteerRepo as any,
 			detailsRepo as any,
 			moderationService as any,
 		);
@@ -73,6 +84,8 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 		repo.seed({ id: 2, status: "IN_PROGRESS" });
 		const service = new HelpRequestService(
 			repo as any,
+			helpOfferRepo as any,
+			volunteerRepo as any,
 			detailsRepo as any,
 			moderationService as any,
 		);
@@ -89,6 +102,8 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 		repo.seed({ id: 3, status: "OPEN" });
 		const service = new HelpRequestService(
 			repo as any,
+			helpOfferRepo as any,
+			volunteerRepo as any,
 			detailsRepo as any,
 			moderationService as any,
 		);
@@ -109,6 +124,8 @@ describe("HelpRequestService.updateHelpRequestStatus", () => {
 		repo.seed({ id: 4, status: "COMPLETED" });
 		const service = new HelpRequestService(
 			repo as any,
+			helpOfferRepo as any,
+			volunteerRepo as any,
 			detailsRepo as any,
 			moderationService as any,
 		);

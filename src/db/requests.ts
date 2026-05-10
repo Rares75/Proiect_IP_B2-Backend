@@ -29,6 +29,7 @@ export const helpRequests = pgTable("help_requests", {
 	guestSessionId: varchar("guest_session_id", { length: 128 }),
 	title: varchar("title", { length: 255 }).notNull(),
 	description: text("description"),
+	audioUrl: text("audio_url"),
 	urgency: urgencyLevelEnum("urgency").notNull().default("MEDIUM"),
 	skillsNeeded: jsonb("skills").$type<string[]>().notNull().default([]),
 	status: requestStatusEnum("status").notNull().default("OPEN"),
@@ -94,9 +95,7 @@ export const taskAssignments = pgTable("task_assignments", {
 	offerId: integer("offer_id").references(() => helpOffers.id, {
 		onDelete: "set null",
 	}),
-	requestedByUserId: text("requested_by_user_id")
-		.notNull()
-		.references(() => user.id),
+	requestedByUserId: text("requested_by_user_id").references(() => user.id),
 	handledByVolunteerId: integer("handled_by_volunteer_id")
 		.notNull()
 		.references(() => volunteers.id),

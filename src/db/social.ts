@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 import {
+	messageContentTypeEnum,
 	accountStatusEnum,
 	conversationStatusEnum,
 	notificationTypeEnum,
@@ -33,7 +34,9 @@ export const messages = pgTable("messages", {
 	senderId: text("sender_id")
 		.notNull()
 		.references(() => user.id),
-	content: text("content").notNull(),
+	type: messageContentTypeEnum("type").notNull().default("TEXTCONTENT"),
+	content: text("content"),
+	audioUrl: text("audio_url"),
 	sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
