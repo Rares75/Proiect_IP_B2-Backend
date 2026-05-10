@@ -2,76 +2,105 @@ import { NotificationRepository } from "../db/repositories/notification.reposito
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
-	notifyEligibleVolunteersForNewRequest,
-	notifyOwnerOfferReceived,
-	notifyVolunteerOfferAccepted,
-	type NewRequestNotificationContext,
-	type NotificationDbClient,
-	type OfferAcceptedNotificationContext,
-	type OfferReceivedNotificationContext,
+    notifyEligibleVolunteersForNewRequest,
+    notifyOwnerOfferReceived,
+    notifyVolunteerOfferAccepted,
+    type NewRequestNotificationContext,
+    type NotificationDbClient,
+    type OfferAcceptedNotificationContext,
+    type OfferReceivedNotificationContext,
 } from "./notifications";
 
 @Service()
 export class NotificationService {
-	constructor(
-		@inject(NotificationRepository)
-		private readonly notificationRepo: NotificationRepository,
-	) {}
+    // 1. MAP-UL UNIFICAT PENTRU WEBSOCKETS (userId SAU guestSessionId -> socket)
+    // Punem 'any' la socket momentan, depinde ce librarie WS folositi in controller
+    public notificationSockets = new Map<string, any>();
 
-	async notifyEligibleVolunteersForNewRequest(
-		helpRequest: NewRequestNotificationContext,
-	): Promise<void> {
-		await notifyEligibleVolunteersForNewRequest(
-			this.notificationRepo,
-			helpRequest,
-		);
-	}
+    constructor(
+        @inject(NotificationRepository)
+        private readonly notificationRepo: NotificationRepository,
+    ) {}
 
-	async notifyOwnerOfferReceived(
-		context: OfferReceivedNotificationContext,
-		client?: NotificationDbClient,
-	): Promise<void> {
-		await notifyOwnerOfferReceived(this.notificationRepo, context, client);
-	}
+    // 2. HELPER-UL PENTRU WEBSOCKET CERUT IN JIRA
+    public pushIfConnected(key: string, notification: any) {
+        const socket = this.notificationSockets.get(key);
+        if (socket) {
+            // Trimitem payload-ul exact in formatul cerut: { type: "NOTIFICATION", data: ... }
+            socket.send(JSON.stringify({
+                type: "NOTIFICATION",
+                data: notification
+            }));
+        }
+    }
 
-	async notifyVolunteerOfferAccepted(
-		context: OfferAcceptedNotificationContext,
-		client?: NotificationDbClient,
-	): Promise<void> {
-		await notifyVolunteerOfferAccepted(this.notificationRepo, context, client);
-	}
+    async notifyEligibleVolunteersForNewRequest(
+        helpRequest: NewRequestNotificationContext,
+    ): Promise<void> {
+        await notifyEligibleVolunteersForNewRequest(
+            this.notificationRepo,
+            helpRequest,
+        );
+    }
 
-	/**
-	 * Send TASK_UPDATED notifications to multiple volunteers (bulk operation)
-	 * Used when a task is deleted and all pending offers are rejected
-	 */
-	async notifyVolunteersPendingOffersCancelled(
-		notifications: Array<{
-			userId: string;
-			type: "TASK_UPDATED";
-			text: string;
-			relatedRequestId: number;
-			relatedAssignmentId: null;
-			createdAt: Date;
-		}>,
-		client?: any,
-	): Promise<void> {
-		if (notifications.length === 0) {
-			return;
-		}
+    async notifyOwnerOfferReceived(
+        context: OfferReceivedNotificationContext & { guestSessionId?: string | null },
+        client?: NotificationDbClient,
+    ): Promise<void> {
+        // Preluăm notificarea returnată de helper-ul pe care tocmai l-am modificat
+        const notification = await notifyOwnerOfferReceived(this.notificationRepo, context, client);
+        
+        // Căutăm cheia (cine e destinatarul: user autentificat sau guest?)
+        const key = notification.userId || notification.guestSessionId;
+        if (key) {
+            // Dacă e online pe WebSocket, i-o împingem instant!
+            this.pushIfConnected(key, notification);
+        }
+    }
 
-		// Create bulk notifications in the database. Accept an optional DB client to
-		// allow running inside an existing transaction for atomicity.
-		await this.notificationRepo.createMany(
-			notifications.map((notif) => ({
-				userId: notif.userId,
-				type: notif.type,
-				text: notif.text,
-				relatedRequestId: notif.relatedRequestId,
-				relatedAssignmentId: notif.relatedAssignmentId,
-				createdAt: notif.createdAt,
-			})),
-			client,
-		);
-	}
+    async notifyVolunteerOfferAccepted(
+        context: OfferAcceptedNotificationContext,
+        client?: NotificationDbClient,
+    ): Promise<void> {
+        const notification = await notifyVolunteerOfferAccepted(this.notificationRepo, context, client) as any;
+        // Dacă helper-ul a fost updatat să returneze notificarea:
+        if (notification?.userId) {
+            this.pushIfConnected(notification.userId, notification);
+        }
+    }
+
+    async notifyVolunteersPendingOffersCancelled(
+        notifications: Array<{
+            userId: string;
+            type: "TASK_UPDATED";
+            text: string;
+            relatedRequestId: number;
+            relatedAssignmentId: null;
+            createdAt: Date;
+        }>,
+        client?: any,
+    ): Promise<void> {
+        if (notifications.length === 0) {
+            return;
+        }
+
+        const createdNotifications = await this.notificationRepo.createMany(
+            notifications.map((notif) => ({
+                userId: notif.userId,
+                type: notif.type,
+                text: notif.text,
+                relatedRequestId: notif.relatedRequestId,
+                relatedAssignmentId: notif.relatedAssignmentId,
+                createdAt: notif.createdAt,
+            })),
+            client,
+        );
+
+        // Trimitem prin WS notificările (pentru toți voluntarii afectați)
+        for (const notif of createdNotifications) {
+            if (notif.userId) {
+                this.pushIfConnected(notif.userId, notif);
+            }
+        }
+    }
 }

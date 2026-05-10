@@ -5,6 +5,7 @@ import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
 import { join } from "node:path";
 import { logger } from "./utils/logger";
+import { websocket } from "hono/bun";
 
 await loadDiModules(
 	join(import.meta.dir, "db", "repositories"),
@@ -15,10 +16,12 @@ await loadControllers(join(import.meta.dir, "controllers"));
 
 parseEnv();
 
+
 const server = Bun.serve({
 	port: Bun.env.PORT || 3000,
 	hostname: "0.0.0.0",
 	fetch: app.fetch,
+	websocket,
 });
 
 const hostname = server.hostname === "0.0.0.0" ? "localhost" : server.hostname;
