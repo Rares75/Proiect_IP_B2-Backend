@@ -29,6 +29,7 @@ import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
 import { resolveTaskDistanceFilter } from "./helpRequestDistance";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -274,25 +275,9 @@ export class HelpRequestService {
 
 		const totalPages = Math.ceil(total / pageSize);
 
-		const formattedData = data.map((task) => {
-			const { ownerName, ownerUsername, ...baseTask } = task;
-
-			if (!task.anonymousMode) {
-				return baseTask;
-			}
-
-			const isOwner =
-				task.requestedByUserId !== null && task.requestedByUserId === userId;
-
-			if (isOwner) {
-				return { ...baseTask, isMine: true };
-			}
-
-			const { requestedByUserId, ...restOfTask } = baseTask;
-			const displayName =
-				task.requestedByUserId === null ? null : (ownerUsername ?? null);
-			return { ...restOfTask, displayName };
-		});
+		const formattedData = data.map((task) =>
+			sanitizeAnonymousTask(task, userId),
+		);
 
 		return {
 			data: formattedData,

@@ -33,6 +33,7 @@ import {
 } from "../services/HelpOfferService";
 import { MessageService } from "../services/MessageService";
 import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -94,10 +95,6 @@ const successDetailsSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-type HelpRequestResponse = Awaited<
-	ReturnType<HelpRequestService["getHelpRequestById"]>
->;
-type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 
@@ -160,30 +157,6 @@ const removeClientOwnerFields = (
 	delete safeBody.requestedByUserId;
 
 	return safeBody;
-};
-
-const sanitizeAnonymousTask = (
-	task: ExistingHelpRequestResponse,
-	currentUserId?: string,
-): Record<string, unknown> => {
-	const { ownerName, ownerUsername, ...baseTask } = task as any;
-
-	if (!task.anonymousMode) {
-		return baseTask;
-	}
-
-	const isOwner =
-		(task as any).requestedByUserId !== null &&
-		(task as any).requestedByUserId === currentUserId;
-
-	if (isOwner) {
-		return { ...baseTask, isMine: true };
-	}
-
-	const { requestedByUserId, ...restOfTask } = baseTask;
-	const displayName =
-		(task as any).requestedByUserId === null ? null : (ownerUsername ?? null);
-	return { ...restOfTask, displayName };
 };
 
 enum OfferStatus {
