@@ -81,28 +81,27 @@ export const interactionHistories = pgTable("interaction_histories", {
 });
 
 export const notifications = pgTable("notifications", {
-    id: serial("id").primaryKey(),
-    userId: text("user_id")
-        .references(() => user.id, { onDelete: "cascade" }), // am scos .notNull()
-    guestSessionId: text("guest_session_id"), // am adaugat suport pentru guest
-    type: notificationTypeEnum("type").notNull(),
-    text: text("text").notNull(),
-    relatedRequestId: integer("related_request_id").references(
-        () => helpRequests.id,
-        {
-            onDelete: "set null",
-        },
-    ),
-    relatedAssignmentId: integer("related_assignment_id").references(
-        () => taskAssignments.id,
-        {
-            onDelete: "set null",
-        },
-    ),
-    createdAt: timestamp("created_at", { withTimezone: true })
-        .notNull()
-        .defaultNow(),
-    readAt: timestamp("read_at", { withTimezone: true }),
+	id: serial("id").primaryKey(),
+	userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // am scos .notNull()
+	guestSessionId: text("guest_session_id"), // am adaugat suport pentru guest
+	type: notificationTypeEnum("type").notNull(),
+	text: text("text").notNull(),
+	relatedRequestId: integer("related_request_id").references(
+		() => helpRequests.id,
+		{
+			onDelete: "set null",
+		},
+	),
+	relatedAssignmentId: integer("related_assignment_id").references(
+		() => taskAssignments.id,
+		{
+			onDelete: "set null",
+		},
+	),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	readAt: timestamp("read_at", { withTimezone: true }),
 });
 
 export const conversationsRelations = relations(
