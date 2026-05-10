@@ -195,7 +195,7 @@ export class HelpRequestRepository
 		pendingOffers: PendingOfferForDeletion[];
 	}> {
 		return await db.transaction(async (tx) => {
-			// 1. read pending offers (we need volunteerUserId for notifications)
+			// read pending offers (we need volunteerUserId for notifications)
 			const pendingRows = await tx
 				.select({ id: helpOffers.id, volunteerId: helpOffers.volunteerId })
 				.from(helpOffers)
@@ -226,7 +226,7 @@ export class HelpRequestRepository
 				}
 			}
 
-			// 2. Update all PENDING offers to REJECTED
+			// Update all PENDING offers to REJECTED
 			await tx
 				.update(helpOffers)
 				.set({ status: "REJECTED" })
@@ -237,17 +237,18 @@ export class HelpRequestRepository
 					),
 				);
 
-			// 3. Delete the help request (cascade delete applies to request_locations and request_details)
+			// Allow caller to run additional operations while the help request still exists
+			if (inTransactionCallback) {
+				await inTransactionCallback(tx, pendingOffers);
+			}
+
+			//Delete the help request (cascade delete applies to request_locations and request_details)
 			const deleteResult = await tx
 				.delete(helpRequests)
 				.where(eq(helpRequests.id, id))
 				.returning({ id: helpRequests.id });
 			const deleted = deleteResult.length > 0;
 
-			// 4. allow caller to run additional operations inside the same transaction (eg. create notifications)
-			if (inTransactionCallback) {
-				await inTransactionCallback(tx, pendingOffers);
-			}
 
 			return { deleted, pendingOffers };
 		});
