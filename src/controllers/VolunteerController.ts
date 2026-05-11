@@ -9,8 +9,6 @@ import { authMiddlware } from "../middlware/authMiddleware";
 import { sendApiResponse } from "../utils/apiReponse";
 import { NotFoundError } from "../utils/Errors";
 
-// ─── Zod Schemas ─────────────────────────────────────────────────────────────
-
 const ratingItemSchema = z
 	.object({
 		id: z.number().int().positive(),
@@ -79,8 +77,6 @@ const volunteerResponseSchema = z
 const errorSchema = z
 	.object({ error: z.string() })
 	.meta({ ref: "VolunteerError" });
-
-// ─── Controller ──────────────────────────────────────────────────────────────
 
 @Controller("/volunteers")
 export class VolunteerController {
