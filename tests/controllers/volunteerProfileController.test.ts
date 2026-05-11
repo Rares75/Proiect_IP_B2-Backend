@@ -6,10 +6,10 @@ describe("VolunteerController", () => {
 	beforeEach(() => {
 		mockService = {
 			getVolunteerProfile: async () => null,
-			createVolunteerProfile: async () => null,
-			updateVolunteerProfile: async () => null,
-			addSkill: async () => null,
-			removeSkill: async () => null,
+			createVolunteerProfile: async (_: string, __: any) => null,
+			updateVolunteerProfile: async (_: string, __: any) => null,
+			addSkill: async (_: string, __: string) => null,
+			removeSkill: async (_: string, __: string) => null,
 		};
 	});
 
@@ -78,7 +78,7 @@ describe("VolunteerController", () => {
 				maxDistanceKm: 10,
 			};
 
-			mockService.createVolunteerProfile = async (data: any) => ({
+			mockService.createVolunteerProfile = async (_: string, data: any) => ({
 				...mockCreated,
 				...data,
 			});
@@ -193,7 +193,7 @@ describe("VolunteerController", () => {
 
 	describe("POST /volunteers/me/skills", () => {
 		test("should add a new skill successfully", async () => {
-			mockService.addSkill = async (skill: string) => ({
+mockService.addSkill = async (_: string, skill: string) => ({
 				id: 1,
 				volunteerId: 1,
 				skills: ["cooking", skill],
