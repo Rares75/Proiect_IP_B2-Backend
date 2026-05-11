@@ -1,17 +1,31 @@
 /// <reference types="bun-types" />
-import { describe, expect, it, beforeAll, spyOn } from "bun:test";
+import { describe, expect, it, beforeAll, beforeEach, afterEach, spyOn } from "bun:test";
 import { join } from "node:path";
 import app from "../../src/app";
 import { loadControllers } from "../../src/utils/controller";
 import { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";
+import auth from "../../src/auth";
 
 describe("GET /api/volunteers/:id", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
 	beforeAll(async () => {
 		const controllersPath = join(
 			(import.meta as any).dir,
 			"../../src/controllers",
 		);
 		await loadControllers(controllersPath);
+	});
+
+	beforeEach(() => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "test-user", email: "test@test.com" } as any,
+			session: { id: "session-test", userId: "test-user" } as any,
+		});
+	});
+
+	afterEach(() => {
+		authSpy?.mockRestore();
 	});
 
 	it("ar trebui sa returneze 400 pentru TOATE tipurile de ID-uri invalide", async () => {
