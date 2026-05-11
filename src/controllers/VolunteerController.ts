@@ -147,9 +147,8 @@ export class VolunteerController {
 					const volunteerId = Number(idParam);
 
 					if (
-						!Number.isInteger(volunteerId) ||
-						volunteerId <= 0 ||
-						Number.isNaN(volunteerId)
+						!/^\d+$/.test(idParam) ||
+						volunteerId <= 0 
 					) {
 						return c.json(
 							{ error: "Invalid volunteer ID. Must be a positive integer." },
@@ -167,34 +166,44 @@ export class VolunteerController {
 						);
 					}
 
-					const ratingData = await this.volunteerRepository.findRatingsById(volunteerId);
-            const ratings = ratingData?.ratings ?? [];
-            const averageStars = ratingData?.averageStars ?? null;
+					const ratingData =
+						await this.volunteerRepository.findRatingsById(volunteerId);
+					const ratings = ratingData?.ratings ?? [];
+					const averageStars = ratingData?.averageStars ?? null;
 
-					return c.json({
-						id: volunteer.volunteerId,
-						availability: volunteer.availability,
-						trustScore: volunteer.trustScore,
-						completedTasks: volunteer.completedTasks,
-						user: {
-							id: volunteer.userId,
-							name: volunteer.hiddenIdentity ? null : (volunteer.name ?? null),
-                    email: volunteer.hiddenIdentity ? null : (volunteer.email ?? null),
-                    phone: volunteer.hiddenIdentity ? null : (volunteer.phone ?? null),
-                    image: volunteer.image ?? null,
+					return c.json(
+						{
+							id: volunteer.volunteerId,
+							availability: volunteer.availability,
+							trustScore: volunteer.trustScore,
+							completedTasks: volunteer.completedTasks,
+							user: {
+								id: volunteer.userId,
+								name: volunteer.hiddenIdentity
+									? null
+									: (volunteer.name ?? null),
+								email: volunteer.hiddenIdentity
+									? null
+									: (volunteer.email ?? null),
+								phone: volunteer.hiddenIdentity
+									? null
+									: (volunteer.phone ?? null),
+								image: volunteer.image ?? null,
+							},
+							profile: {
+								bio: volunteer.bio ?? null,
+								languages: volunteer.languages ?? [],
+								skills: volunteer.skills ?? [],
+								maxDistanceKm: volunteer.maxDistanceKm ?? null,
+							},
+							ratingInfo: {
+								averageStars,
+								totalRatings: ratings.length,
+								ratings,
+							},
 						},
-						profile: {
-							bio: volunteer.bio ?? null,
-							languages: volunteer.languages ?? [],
-							skills: volunteer.skills ?? [],
-							maxDistanceKm: volunteer.maxDistanceKm ?? null,
-						},
-						ratingInfo: {
-							averageStars,
-							totalRatings: ratings.length,
-							ratings,
-						},
-					},200);
+						200,
+					);
 				} catch (err) {
 					console.error("VOLUNTEER ERROR:", err);
 					return c.json({ error: "Internal server error" }, 500);
