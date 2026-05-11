@@ -193,7 +193,7 @@ describe("VolunteerController", () => {
 
 	describe("POST /volunteers/me/skills", () => {
 		test("should add a new skill successfully", async () => {
-mockService.addSkill = async (_: string, skill: string) => ({
+			mockService.addSkill = async (_: string, skill: string) => ({
 				id: 1,
 				volunteerId: 1,
 				skills: ["cooking", skill],
