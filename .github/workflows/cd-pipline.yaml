@@ -48,6 +48,6 @@ jobs:
       
       #2. Redeploy NGINX service for fresh BE intern URL
       - name: Redeploy Nginx Proxy
-        run: railway redeploy --service ${{ secrets.RAILWAY_NGINX_SERVICE_ID }}
+        run: railway redeploy --service ${{ secrets.RAILWAY_NGINX_SERVICE_ID }} --yes
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
