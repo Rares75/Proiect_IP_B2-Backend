@@ -29,7 +29,11 @@ class TaskConversationConnections {
 		this.connectionsByTask.set(taskId, existing);
 	}
 
-	remove(taskId: number, role: TaskSocketRole, socket: Bun.ServerWebSocket<unknown>) {
+	remove(
+		taskId: number,
+		role: TaskSocketRole,
+		socket: Bun.ServerWebSocket<unknown>,
+	) {
 		const existing = this.connectionsByTask.get(taskId);
 		if (!existing) {
 			return;

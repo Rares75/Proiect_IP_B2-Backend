@@ -77,7 +77,8 @@ describe("GET /api/tasks/:id/ws integration", () => {
 		server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
-			fetch: (request, currentServer) => app.fetch(request, { server: currentServer }),
+			fetch: (request, currentServer) =>
+				app.fetch(request, { server: currentServer }),
 			websocket,
 		});
 
@@ -86,29 +87,31 @@ describe("GET /api/tasks/:id/ws integration", () => {
 	});
 
 	beforeEach(() => {
-		authSpy = spyOn(auth.api, "getSession").mockImplementation(
-			(async ({ headers }: { headers: Headers | HeadersInit }) => {
-				const cookieHeader =
-					headers instanceof Headers
-						? headers.get("cookie")
-						: new Headers(headers).get("cookie");
+		authSpy = spyOn(auth.api, "getSession").mockImplementation((async ({
+			headers,
+		}: {
+			headers: Headers | HeadersInit;
+		}) => {
+			const cookieHeader =
+				headers instanceof Headers
+					? headers.get("cookie")
+					: new Headers(headers).get("cookie");
 
-				if (!cookieHeader) {
-					return null as any;
-				}
+			if (!cookieHeader) {
+				return null as any;
+			}
 
-				const matched = /test-session=([^;]+)/.exec(cookieHeader);
-				const userId = matched?.[1];
-				if (!userId) {
-					return null as any;
-				}
+			const matched = /test-session=([^;]+)/.exec(cookieHeader);
+			const userId = matched?.[1];
+			if (!userId) {
+				return null as any;
+			}
 
-				return {
-					user: { id: userId, email: `${userId}@test.local` } as any,
-					session: { id: `session-${userId}`, userId } as any,
-				};
-			}) as any,
-		);
+			return {
+				user: { id: userId, email: `${userId}@test.local` } as any,
+				session: { id: `session-${userId}`, userId } as any,
+			};
+		}) as any);
 	});
 
 	afterEach(async () => {
@@ -123,11 +126,15 @@ describe("GET /api/tasks/:id/ws integration", () => {
 		}
 
 		if (createdTaskIds.length > 0) {
-			await db.delete(helpRequests).where(inArray(helpRequests.id, createdTaskIds));
+			await db
+				.delete(helpRequests)
+				.where(inArray(helpRequests.id, createdTaskIds));
 		}
 
 		if (createdVolunteerIds.length > 0) {
-			await db.delete(volunteers).where(inArray(volunteers.id, createdVolunteerIds));
+			await db
+				.delete(volunteers)
+				.where(inArray(volunteers.id, createdVolunteerIds));
 		}
 
 		if (createdUserIds.length > 0) {
@@ -186,7 +193,7 @@ describe("GET /api/tasks/:id/ws integration", () => {
 				description: "Realtime chat integration task",
 				status: params.taskStatus,
 				category: "MESSAGES_ONLY",
-				anonymousMode: params.ownerUserId ? false : true,
+				anonymousMode: !params.ownerUserId,
 			})
 			.returning({ id: helpRequests.id });
 		createdTaskIds.push(task.id);

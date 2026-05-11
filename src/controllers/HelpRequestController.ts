@@ -375,104 +375,101 @@ export class HelpRequestController {
 			},
 		)
 
-		.get(
-			"/:id/ws",
-			async (c) => {
-				const helpRequestId = Number(c.req.param("id"));
-				if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
-					return new Response("Invalid id", { status: 400 });
-				}
+		.get("/:id/ws", async (c) => {
+			const helpRequestId = Number(c.req.param("id"));
+			if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
+				return new Response("Invalid id", { status: 400 });
+			}
 
-				const session = await getOptionalSession(c);
-				const guestSessionId =
-					c.req.query("guestSession") ?? c.req.query("X-Guest-Session");
+			const session = await getOptionalSession(c);
+			const guestSessionId =
+				c.req.query("guestSession") ?? c.req.query("X-Guest-Session");
 
-				if (!session?.userId && !guestSessionId) {
-					return new Response("Unauthorized", { status: 401 });
-				}
+			if (!session?.userId && !guestSessionId) {
+				return new Response("Unauthorized", { status: 401 });
+			}
 
-				const access = session?.userId
-					? ({ kind: "auth", userId: session.userId } as const)
-					: ({
-							kind: "guest",
-							guestSessionId: guestSessionId as string,
-						} as const);
+			const access = session?.userId
+				? ({ kind: "auth", userId: session.userId } as const)
+				: ({
+						kind: "guest",
+						guestSessionId: guestSessionId as string,
+					} as const);
 
-				const accessResult = await this.messageService.resolveRealtimeAccess(
-					helpRequestId,
-					access,
-				);
+			const accessResult = await this.messageService.resolveRealtimeAccess(
+				helpRequestId,
+				access,
+			);
 
-				if (accessResult.status !== 200) {
-					return new Response(accessResult.message, {
-						status: accessResult.status,
-					});
-				}
-
-				return upgradeWebSocket(c, {
-					onOpen: (_, ws) => {
-						taskConversationConnections.register({
-							taskId: helpRequestId,
-							role: accessResult.role,
-							socket: ws.raw as Bun.ServerWebSocket<unknown>,
-						});
-					},
-					onMessage: async (event, ws) => {
-						const rawData = await getWsMessageText(
-							event.data as string | ArrayBuffer | Blob,
-						);
-
-						let parsedPayload: unknown;
-						try {
-							parsedPayload = JSON.parse(rawData);
-						} catch {
-							ws.send(createWsErrorPayload("Invalid websocket message payload"));
-							return;
-						}
-
-						const parsedMessage = wsMessageSchema.safeParse(parsedPayload);
-						if (!parsedMessage.success) {
-							ws.send(createWsErrorPayload("Invalid websocket message payload"));
-							return;
-						}
-
-						const result = await this.messageService.createRealtimeMessage(
-							helpRequestId,
-							access,
-							parsedMessage.data.data,
-						);
-
-						if (result.status !== 201) {
-							ws.send(createWsErrorPayload(result.message));
-							return;
-						}
-
-						const peerSocket = taskConversationConnections.getPeerSocket(
-							helpRequestId,
-							result.role,
-						);
-
-						if (!peerSocket) {
-							return;
-						}
-
-						peerSocket.send(
-							JSON.stringify({
-								type: "NEW_MESSAGE",
-								data: serializeRealtimeMessage(result.message),
-							}),
-						);
-					},
-					onClose: (_, ws) => {
-						taskConversationConnections.remove(
-							helpRequestId,
-							accessResult.role,
-							ws.raw as Bun.ServerWebSocket<unknown>,
-						);
-					},
+			if (accessResult.status !== 200) {
+				return new Response(accessResult.message, {
+					status: accessResult.status,
 				});
-			},
-		)
+			}
+
+			return upgradeWebSocket(c, {
+				onOpen: (_, ws) => {
+					taskConversationConnections.register({
+						taskId: helpRequestId,
+						role: accessResult.role,
+						socket: ws.raw as Bun.ServerWebSocket<unknown>,
+					});
+				},
+				onMessage: async (event, ws) => {
+					const rawData = await getWsMessageText(
+						event.data as string | ArrayBuffer | Blob,
+					);
+
+					let parsedPayload: unknown;
+					try {
+						parsedPayload = JSON.parse(rawData);
+					} catch {
+						ws.send(createWsErrorPayload("Invalid websocket message payload"));
+						return;
+					}
+
+					const parsedMessage = wsMessageSchema.safeParse(parsedPayload);
+					if (!parsedMessage.success) {
+						ws.send(createWsErrorPayload("Invalid websocket message payload"));
+						return;
+					}
+
+					const result = await this.messageService.createRealtimeMessage(
+						helpRequestId,
+						access,
+						parsedMessage.data.data,
+					);
+
+					if (result.status !== 201) {
+						ws.send(createWsErrorPayload(result.message));
+						return;
+					}
+
+					const peerSocket = taskConversationConnections.getPeerSocket(
+						helpRequestId,
+						result.role,
+					);
+
+					if (!peerSocket) {
+						return;
+					}
+
+					peerSocket.send(
+						JSON.stringify({
+							type: "NEW_MESSAGE",
+							data: serializeRealtimeMessage(result.message),
+						}),
+					);
+				},
+				onClose: (_, ws) => {
+					taskConversationConnections.remove(
+						helpRequestId,
+						accessResult.role,
+						ws.raw as Bun.ServerWebSocket<unknown>,
+					);
+				},
+			});
+		})
 
 		.get(
 			"/:id/messages",

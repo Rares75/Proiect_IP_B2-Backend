@@ -64,7 +64,10 @@ export class MessageService {
 		page: number,
 		pageSize: number,
 	): Promise<GetMessagesForTaskResult> {
-		const accessResult = await this.resolveRealtimeAccess(helpRequestId, access);
+		const accessResult = await this.resolveRealtimeAccess(
+			helpRequestId,
+			access,
+		);
 		if (accessResult.status !== 200) {
 			return accessResult;
 		}
@@ -153,7 +156,10 @@ export class MessageService {
 			| { kind: "guest"; guestSessionId: string },
 		input: MessageInput,
 	): Promise<CreateRealtimeMessageResult> {
-		const accessResult = await this.resolveRealtimeAccess(helpRequestId, access);
+		const accessResult = await this.resolveRealtimeAccess(
+			helpRequestId,
+			access,
+		);
 		if (accessResult.status !== 200) {
 			return accessResult;
 		}
