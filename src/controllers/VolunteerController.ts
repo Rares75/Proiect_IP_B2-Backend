@@ -88,6 +88,7 @@ export class VolunteerController {
 	) {}
 
 	controller = new Hono()
+		.use(authMiddlware)
 		.get(
 			"/:id",
 			describeRoute({
@@ -150,20 +151,20 @@ export class VolunteerController {
 						volunteerId <= 0 ||
 						String(volunteerId) !== idParam
 					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: "Invalid volunteer ID. Must be a positive integer.",
-						});
+						return c.json(
+							{ error: "Invalid volunteer ID. Must be a positive integer." },
+							400,
+						);
 					}
 
 					const volunteer =
 						await this.volunteerRepository.findProfileById(volunteerId);
 
 					if (!volunteer) {
-						return sendApiResponse(c, null, {
-							kind: "notFound",
-							message: `Volunteer with ID ${volunteerId} not found.`,
-						});
+						return c.json(
+							{ error: `Volunteer with ID ${volunteerId} not found.` },
+							404,
+						);
 					}
 
 					const { ratings, averageStars } =
@@ -195,11 +196,10 @@ export class VolunteerController {
 					});
 				} catch (err) {
 					console.error("VOLUNTEER ERROR:", err);
-					return sendApiResponse(c, null, { kind: "serverError" });
+					return c.json({ error: "Internal server error" }, 500);
 				}
 			},
 		)
-		.use(authMiddlware)
 
 		.get("/me/profile", async (c) => {
 			const session = c.get("session");
