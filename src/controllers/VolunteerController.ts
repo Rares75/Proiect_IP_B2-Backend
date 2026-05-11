@@ -143,7 +143,6 @@ export class VolunteerController {
 				try {
 					const idParam = c.req.param("id");
 
-					// Validare riguroasă pentru a satisface testul "badInputs"
 					const volunteerId = Number(idParam);
 
 					if (
@@ -151,26 +150,25 @@ export class VolunteerController {
 						volunteerId <= 0 ||
 						String(volunteerId) !== idParam
 					) {
-						return c.json(
-							{ error: "Invalid volunteer ID. Must be a positive integer." },
-							400,
-						);
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Invalid volunteer ID. Must be a positive integer.",
+						});
 					}
 
 					const volunteer =
 						await this.volunteerRepository.findProfileById(volunteerId);
 
 					if (!volunteer) {
-						return c.json(
-							{ error: `Volunteer with ID ${volunteerId} not found.` },
-							404,
-						);
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: `Volunteer with ID ${volunteerId} not found.`,
+						});
 					}
 
 					const { ratings, averageStars } =
 						await this.volunteerRepository.findRatingsById(volunteerId);
 
-					// Construim răspunsul respectând logica de hiddenIdentity
 					return c.json({
 						id: volunteer.volunteerId,
 						availability: volunteer.availability,
@@ -197,7 +195,7 @@ export class VolunteerController {
 					});
 				} catch (err) {
 					console.error("VOLUNTEER ERROR:", err);
-					return c.json({ error: "Internal server error" }, 500);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
