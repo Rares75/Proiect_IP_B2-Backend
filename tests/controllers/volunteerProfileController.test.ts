@@ -17,8 +17,6 @@ describe("VolunteerController", () => {
 		mockService = null;
 	});
 
-	// ─── GET /volunteers/me/profile ──────────────────────────────────────────────
-
 	describe("GET /volunteers/me/profile", () => {
 		test("should return volunteer profile when found", async () => {
 			const mockProfile = {
@@ -65,8 +63,6 @@ describe("VolunteerController", () => {
 		});
 	});
 
-	// ─── POST /volunteers/me/profile ─────────────────────────────────────────────
-
 	describe("POST /volunteers/me/profile", () => {
 		test("should create volunteer profile with valid data", async () => {
 			const validData = {
@@ -82,10 +78,10 @@ describe("VolunteerController", () => {
 				maxDistanceKm: 10,
 			};
 
-			mockService.createVolunteerProfile = async (
-				userId: string,
-				data: any,
-			) => ({ ...mockCreated, ...data });
+			mockService.createVolunteerProfile = async (data: any) => ({
+				...mockCreated,
+				...data,
+			});
 
 			const result = await mockService.createVolunteerProfile(
 				"user-1",
@@ -195,11 +191,9 @@ describe("VolunteerController", () => {
 		});
 	});
 
-	// ─── POST /volunteers/me/skills ──────────────────────────────────────────────
-
 	describe("POST /volunteers/me/skills", () => {
 		test("should add a new skill successfully", async () => {
-			mockService.addSkill = async (userId: string, skill: string) => ({
+			mockService.addSkill = async (skill: string) => ({
 				id: 1,
 				volunteerId: 1,
 				skills: ["cooking", skill],
@@ -255,11 +249,9 @@ describe("VolunteerController", () => {
 		});
 	});
 
-	// ─── DELETE /volunteers/me/skills/:skill ─────────────────────────────────────
-
 	describe("DELETE /volunteers/me/skills/:skill", () => {
 		test("should remove a skill successfully", async () => {
-			mockService.removeSkill = async (userId: string, skill: string) => ({
+			mockService.removeSkill = async (_skill: string) => ({
 				id: 1,
 				volunteerId: 1,
 				skills: ["cooking"],

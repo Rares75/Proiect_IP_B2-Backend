@@ -102,7 +102,12 @@ describe("VolunteerService", () => {
 	describe("createVolunteerProfile", () => {
 		test("should create profile with valid data", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
-			const created = { id: 1, volunteerId: 1, skills: ["cooking"], maxDistanceKm: 10 };
+			const created = {
+				id: 1,
+				volunteerId: 1,
+				skills: ["cooking"],
+				maxDistanceKm: 10,
+			};
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerRepo.create = async () => volunteer;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => null;
@@ -139,9 +144,9 @@ describe("VolunteerService", () => {
 				volunteerId: 1,
 			});
 
-			expect(
-				service.createVolunteerProfile("user-1", {}),
-			).rejects.toThrow("Volunteer profile already exists");
+			expect(service.createVolunteerProfile("user-1", {})).rejects.toThrow(
+				"Volunteer profile already exists",
+			);
 		});
 
 		test("should propagate repo errors", async () => {
@@ -153,9 +158,9 @@ describe("VolunteerService", () => {
 				throw new Error("Database error");
 			};
 
-			expect(
-				service.createVolunteerProfile("user-1", {}),
-			).rejects.toThrow("Database error");
+			expect(service.createVolunteerProfile("user-1", {})).rejects.toThrow(
+				"Database error",
+			);
 		});
 	});
 
@@ -163,7 +168,12 @@ describe("VolunteerService", () => {
 		test("should update profile with valid data", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
 			const profile = { id: 1, volunteerId: 1, skills: ["cooking"] };
-			const updated = { id: 1, volunteerId: 1, skills: ["cooking", "driving"], maxDistanceKm: 20 };
+			const updated = {
+				id: 1,
+				volunteerId: 1,
+				skills: ["cooking", "driving"],
+				maxDistanceKm: 20,
+			};
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerRepo.update = async () => volunteer;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => profile;
@@ -182,7 +192,7 @@ describe("VolunteerService", () => {
 			let updatedVolunteer: any = null;
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
-			mockVolunteerRepo.update = async (id: number, data: any) => {
+			mockVolunteerRepo.update = async (data: any) => {
 				updatedVolunteer = data;
 				return { ...volunteer, ...data };
 			};
@@ -307,19 +317,23 @@ describe("VolunteerService", () => {
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => null;
 
-			expect(
-				service.removeSkill("user-1", "cooking"),
-			).rejects.toBeInstanceOf(NotFoundError);
+			expect(service.removeSkill("user-1", "cooking")).rejects.toBeInstanceOf(
+				NotFoundError,
+			);
 		});
 
 		test("should call repo.update with correct skills after removal", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
-			const profile = { id: 1, volunteerId: 1, skills: ["cooking", "driving", "teaching"] };
+			const profile = {
+				id: 1,
+				volunteerId: 1,
+				skills: ["cooking", "driving", "teaching"],
+			};
 			let receivedData: any = null;
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => profile;
-			mockVolunteerProfileRepo.update = async (id: number, data: any) => {
+			mockVolunteerProfileRepo.update = async (data: any) => {
 				receivedData = data;
 				return { ...profile, ...data };
 			};
