@@ -149,7 +149,7 @@ export class VolunteerController {
 					if (
 						!Number.isInteger(volunteerId) ||
 						volunteerId <= 0 ||
-						String(volunteerId) !== idParam
+						Number.isNaN(volunteerId)
 					) {
 						return c.json(
 							{ error: "Invalid volunteer ID. Must be a positive integer." },
@@ -167,8 +167,9 @@ export class VolunteerController {
 						);
 					}
 
-					const { ratings, averageStars } =
-						await this.volunteerRepository.findRatingsById(volunteerId);
+					const ratingData = await this.volunteerRepository.findRatingsById(volunteerId);
+            const ratings = ratingData?.ratings ?? [];
+            const averageStars = ratingData?.averageStars ?? null;
 
 					return c.json({
 						id: volunteer.volunteerId,
@@ -177,10 +178,10 @@ export class VolunteerController {
 						completedTasks: volunteer.completedTasks,
 						user: {
 							id: volunteer.userId,
-							name: volunteer.hiddenIdentity ? null : volunteer.name,
-							email: volunteer.hiddenIdentity ? null : volunteer.email,
-							phone: volunteer.hiddenIdentity ? null : volunteer.phone,
-							image: volunteer.image,
+							name: volunteer.hiddenIdentity ? null : (volunteer.name ?? null),
+                    email: volunteer.hiddenIdentity ? null : (volunteer.email ?? null),
+                    phone: volunteer.hiddenIdentity ? null : (volunteer.phone ?? null),
+                    image: volunteer.image ?? null,
 						},
 						profile: {
 							bio: volunteer.bio ?? null,
@@ -193,7 +194,7 @@ export class VolunteerController {
 							totalRatings: ratings.length,
 							ratings,
 						},
-					});
+					},200);
 				} catch (err) {
 					console.error("VOLUNTEER ERROR:", err);
 					return c.json({ error: "Internal server error" }, 500);
