@@ -160,10 +160,10 @@ export class VolunteerController {
 						await this.volunteerRepository.findProfileById(volunteerId);
 
 					if (!volunteer) {
-						return c.json(
-							{ error: `Volunteer with ID ${volunteerId} not found.` },
-							404,
-						);
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: `Volunteer with ID ${volunteerId} not found.`,
+						});
 					}
 
 					const { ratings, averageStars } =
@@ -195,7 +195,7 @@ export class VolunteerController {
 					});
 				} catch (err) {
 					console.error("VOLUNTEER ERROR:", err);
-					return c.json({ error: "Internal server error" }, 500);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		)
