@@ -145,7 +145,11 @@ export class VolunteerController {
 
 					const volunteerId = Number(idParam);
 
-					if (!/^\d+$/.test(idParam) || volunteerId <= 0 || volunteerId > Number.MAX_SAFE_INTEGER) {
+					if (
+						!/^\d+$/.test(idParam) ||
+						volunteerId <= 0 ||
+						volunteerId > Number.MAX_SAFE_INTEGER
+					) {
 						return c.json(
 							{ error: "Invalid volunteer ID. Must be a positive integer." },
 							400,
