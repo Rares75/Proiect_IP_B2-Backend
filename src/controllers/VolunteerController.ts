@@ -146,10 +146,7 @@ export class VolunteerController {
 
 					const volunteerId = Number(idParam);
 
-					if (
-						!/^\d+$/.test(idParam) ||
-						volunteerId <= 0 
-					) {
+					if (!/^\d+$/.test(idParam) || volunteerId <= 0) {
 						return c.json(
 							{ error: "Invalid volunteer ID. Must be a positive integer." },
 							400,
