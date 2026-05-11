@@ -192,7 +192,7 @@ describe("VolunteerService", () => {
 			let updatedVolunteer: any = null;
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
-			mockVolunteerRepo.update = async (data: any) => {
+			mockVolunteerRepo.update = async (_id: number, data: any) => {
 				updatedVolunteer = data;
 				return { ...volunteer, ...data };
 			};
@@ -333,7 +333,7 @@ describe("VolunteerService", () => {
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => profile;
-			mockVolunteerProfileRepo.update = async (data: any) => {
+			mockVolunteerProfileRepo.update = async (_id: number, data: any) => {
 				receivedData = data;
 				return { ...profile, ...data };
 			};
