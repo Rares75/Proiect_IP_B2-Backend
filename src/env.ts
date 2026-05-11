@@ -11,6 +11,7 @@ export const envSchema = z.object({
 	EMAIL_FROM: z.string().optional(),
 	NODE_ENV: z.enum(["development", "production"]).default("development"),
 	CLIENT_URL: z.string(),
+	TRUSTED_ORIGINS: z.string().optional(),
 	R2_ENDPOINT: z.string(),
 	R2_ACCESS_KEY: z.string(),
 	R2_SECRET_ACCESS_KEY: z.string(),
