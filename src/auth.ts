@@ -2,20 +2,17 @@ import { betterAuth } from "better-auth";
 import { emailOTP, openAPI, phoneNumber } from "better-auth/plugins";
 import { db } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { verifyEmailTemplate } from "./mailers/templates/verifyEmail";
 import { signInTemplate } from "./mailers/templates/signIn";
-import { resetPasswordTemplate } from "./mailers/templates/resetPassword";
 import { logger } from "./utils/logger";
 import * as schema from "./db/schema";
 import { getMailer } from "./mailers/getMailer";
 import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
-import { changeEmailTemplate } from "./mailers/templates/changeEmail";
-import { ProfileService } from "./services/ProfileService";
-import { container } from "./di";
+import { sendVerificationOTP } from "./utils/auth/sendVerificationOTPHandler";
+import { createUserProfileHook } from "./utils/auth/hooks/createProfileHook";
 
 const auth = betterAuth({
-	appName: "My App",
+	appName: "Micro-Volunteer Crisis Router",
 	baseURL: process.env.BETTER_AUTH_URL,
 	user: {
 		changeEmail: {
@@ -28,21 +25,11 @@ const auth = betterAuth({
 			},
 		},
 	},
-	database: drizzleAdapter(db, { provider: "postgresql", schema }),
+	database: drizzleAdapter(db, { provider: "pg", schema }),
 	databaseHooks: {
 		user: {
 			create: {
-				after: async (createdUser) => {
-					const profileService = container.get<ProfileService>(ProfileService);
-					const profile = await profileService.createProfile(createdUser.id, {
-						name: createdUser.name,
-						image: createdUser.image || "",
-					});
-
-					logger.info(
-						`Created profile for user ${createdUser.id} with id ${profile.userId}`,
-					);
-				},
+				after: createUserProfileHook,
 			},
 		},
 	},
@@ -108,7 +95,7 @@ const auth = betterAuth({
 
 	plugins: [
 		twoFactor({
-			issuer: "My App",
+			issuer: "Micro-Volunteer Crisis Router",
 			otpOptions: {
 				async sendOTP({ user, otp }) {
 					const mailer = getMailer();
@@ -127,38 +114,7 @@ const auth = betterAuth({
 			changeEmail: {
 				enabled: true,
 			},
-			async sendVerificationOTP({ email, otp, type }) {
-				const mailer = getMailer();
-				try {
-					if (type === "email-verification") {
-						await mailer.send({
-							to: email,
-							subject: "Confirmare cont",
-							html: verifyEmailTemplate(otp, 10),
-						});
-					} else if (type === "sign-in") {
-						await mailer.send({
-							to: email,
-							subject: "Cod autentificare",
-							html: signInTemplate(otp, 10),
-						});
-					} else if (type === "forget-password") {
-						await mailer.send({
-							to: email,
-							subject: "Resetare parolă",
-							html: resetPasswordTemplate(otp, 10),
-						});
-					} else if (type === "change-email") {
-						await mailer.send({
-							to: email,
-							subject: "Confirmare schimbare email",
-							html: changeEmailTemplate(otp, 10),
-						});
-					}
-				} catch (error) {
-					console.error("EROARE SMTP:", error);
-				}
-			},
+			sendVerificationOTP,
 			expiresIn: 600,
 		}),
 	],
