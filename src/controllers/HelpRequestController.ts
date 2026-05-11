@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { upgradeWebSocket } from "../app";
 import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
@@ -19,6 +20,7 @@ import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
 	queryValidationMiddleware,
+	wsMessageSchema,
 } from "../validation";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
@@ -34,6 +36,7 @@ import {
 import { MessageService } from "../services/MessageService";
 import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
 import { sanitizeAnonymousTask } from "../utils/taskMapper";
+import { taskConversationConnections } from "../websockets/taskConversationConnections";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -147,6 +150,40 @@ const parseMessagesPagination = (query: {
 	}
 
 	return { page, pageSize };
+};
+
+const serializeRealtimeMessage = (message: {
+	id: number;
+	senderId: string | null;
+	type: string;
+	content: string | null;
+	audioUrl: string | null;
+	createdAt: Date;
+}) => ({
+	id: message.id,
+	senderId: message.senderId,
+	type: message.type,
+	content: message.content,
+	audioUrl: message.audioUrl,
+	createdAt: message.createdAt.toISOString(),
+});
+
+const createWsErrorPayload = (message: string) =>
+	JSON.stringify({
+		type: "ERROR",
+		data: { message },
+	});
+
+const getWsMessageText = async (data: string | ArrayBuffer | Blob) => {
+	if (typeof data === "string") {
+		return data;
+	}
+
+	if (data instanceof Blob) {
+		return await data.text();
+	}
+
+	return new TextDecoder().decode(data);
 };
 
 const removeClientOwnerFields = (
@@ -335,6 +372,105 @@ export class HelpRequestController {
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
+			},
+		)
+
+		.get(
+			"/:id/ws",
+			async (c) => {
+				const helpRequestId = Number(c.req.param("id"));
+				if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
+					return new Response("Invalid id", { status: 400 });
+				}
+
+				const session = await getOptionalSession(c);
+				const guestSessionId =
+					c.req.query("guestSession") ?? c.req.query("X-Guest-Session");
+
+				if (!session?.userId && !guestSessionId) {
+					return new Response("Unauthorized", { status: 401 });
+				}
+
+				const access = session?.userId
+					? ({ kind: "auth", userId: session.userId } as const)
+					: ({
+							kind: "guest",
+							guestSessionId: guestSessionId as string,
+						} as const);
+
+				const accessResult = await this.messageService.resolveRealtimeAccess(
+					helpRequestId,
+					access,
+				);
+
+				if (accessResult.status !== 200) {
+					return new Response(accessResult.message, {
+						status: accessResult.status,
+					});
+				}
+
+				return upgradeWebSocket(c, {
+					onOpen: (_, ws) => {
+						taskConversationConnections.register({
+							taskId: helpRequestId,
+							role: accessResult.role,
+							socket: ws.raw as Bun.ServerWebSocket<unknown>,
+						});
+					},
+					onMessage: async (event, ws) => {
+						const rawData = await getWsMessageText(
+							event.data as string | ArrayBuffer | Blob,
+						);
+
+						let parsedPayload: unknown;
+						try {
+							parsedPayload = JSON.parse(rawData);
+						} catch {
+							ws.send(createWsErrorPayload("Invalid websocket message payload"));
+							return;
+						}
+
+						const parsedMessage = wsMessageSchema.safeParse(parsedPayload);
+						if (!parsedMessage.success) {
+							ws.send(createWsErrorPayload("Invalid websocket message payload"));
+							return;
+						}
+
+						const result = await this.messageService.createRealtimeMessage(
+							helpRequestId,
+							access,
+							parsedMessage.data.data,
+						);
+
+						if (result.status !== 201) {
+							ws.send(createWsErrorPayload(result.message));
+							return;
+						}
+
+						const peerSocket = taskConversationConnections.getPeerSocket(
+							helpRequestId,
+							result.role,
+						);
+
+						if (!peerSocket) {
+							return;
+						}
+
+						peerSocket.send(
+							JSON.stringify({
+								type: "NEW_MESSAGE",
+								data: serializeRealtimeMessage(result.message),
+							}),
+						);
+					},
+					onClose: (_, ws) => {
+						taskConversationConnections.remove(
+							helpRequestId,
+							accessResult.role,
+							ws.raw as Bun.ServerWebSocket<unknown>,
+						);
+					},
+				});
 			},
 		)
 
