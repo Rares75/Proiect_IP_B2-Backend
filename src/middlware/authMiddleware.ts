@@ -8,10 +8,7 @@ import { sendApiResponse } from "../utils/apiReponse";
 // full API envelope) because many tests expect the historic shape
 // { error: string } when authentication fails.
 export const authMiddlware = async (c: Context<AppEnv>, next: Next) => {
-	console.log("AUTH MIDDLEWARE - cookies:", c.req.header("cookie"));
-  console.log("AUTH MIDDLEWARE - headers:", Object.fromEntries(c.req.raw.headers));
 	const sessionData = await auth.api.getSession({ headers: c.req.raw.headers });
-	  console.log("AUTH MIDDLEWARE - session:", sessionData);
 
 	if (!sessionData?.user || !sessionData?.session) {
 		// Return the original simple JSON error used before the introduction
