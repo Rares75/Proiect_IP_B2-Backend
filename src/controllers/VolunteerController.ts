@@ -88,7 +88,6 @@ export class VolunteerController {
 	) {}
 
 	controller = new Hono()
-		.use(authMiddlware)
 		.get(
 			"/:id",
 			describeRoute({
@@ -146,7 +145,7 @@ export class VolunteerController {
 
 					const volunteerId = Number(idParam);
 
-					if (!/^\d+$/.test(idParam) || volunteerId <= 0) {
+					if (!/^\d+$/.test(idParam) || volunteerId <= 0 || volunteerId > Number.MAX_SAFE_INTEGER) {
 						return c.json(
 							{ error: "Invalid volunteer ID. Must be a positive integer." },
 							400,
@@ -207,7 +206,7 @@ export class VolunteerController {
 				}
 			},
 		)
-
+		.use(authMiddlware)
 		.get("/me/profile", async (c) => {
 			const session = c.get("session");
 			if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
