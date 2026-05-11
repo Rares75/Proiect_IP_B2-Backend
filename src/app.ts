@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { rateLimiter } from "hono-rate-limiter";
 import { container } from "./di/container";
 import type { AuthUserType, SessionType } from "./types";
 import { getAllowedOrigins } from "./utils/origins";
@@ -16,6 +17,15 @@ const app = new Hono<AppEnv>().basePath("/api").use(
 		origin: getAllowedOrigins(),
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		credentials: true,
+	}),
+);
+
+app.use(
+	"/guest/session",
+	rateLimiter({
+		windowMs: 15 * 60 * 1000,
+		limit: 10,
+		keyGenerator: (c) => c.req.header("x-forwarded-for") ?? "unknown",
 	}),
 );
 

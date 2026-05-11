@@ -12,10 +12,12 @@ export const interactionHistoriesSeed: EntitySeed = {
 					const volunteer = context.volunteers.find(
 						(item) => item.id === assignment.handledByVolunteerId,
 					);
+					const requesterId =
+						assignment.requestedByUserId ?? pick(context.users, index).id;
 
 					return [
 						{
-							userId: assignment.requestedByUserId,
+							userId: requesterId,
 							taskAssignmentId: assignment.id,
 							date: seedDate(index + 1, 20),
 							summary: `Requester interaction for assignment ${assignment.id}.`,

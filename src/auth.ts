@@ -33,7 +33,7 @@ const auth = betterAuth({
 			},
 		},
 	},
-	database: drizzleAdapter(db, { provider: "pg", schema }),
+	database: drizzleAdapter(db, { provider: "postgresql", schema }),
 	databaseHooks: {
 		user: {
 			create: {

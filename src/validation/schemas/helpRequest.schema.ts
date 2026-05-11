@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
+	helpRequestCategoryEnum,
 	requestStatusEnum,
 	urgencyLevelEnum,
-	helpRequestCategoryEnum,
 } from "../../db/enums";
 
-export const helpRequestInputSchema = z
+const baseHelpRequestInputSchema = z
 	.object({
 		userId: z.unknown().optional(),
 		requestedByUserId: z.unknown().optional(),
@@ -15,13 +15,25 @@ export const helpRequestInputSchema = z
 				error: "Title is required",
 			})
 			.trim()
-			.min(1, "Title is required"),
+			.min(1, "Title is required")
+			.describe("Titlul scurt al cererii de ajutor"),
 		description: z
 			.string({
 				error: "Description is required",
 			})
 			.trim()
-			.min(1, "Description is required"),
+			.min(1, "Description is required")
+			.optional() // <-- Am pus optional aici!
+			.describe("Descrierea detaliată în format text"),
+
+		audioUrl: z
+			.string()
+			.url({ message: "Must be a valid URL" })
+			.optional()
+			.describe(
+				"URL-ul către înregistrarea audio (dacă descrierea nu este text)",
+			),
+
 		urgency: z.enum(urgencyLevelEnum.enumValues, {
 			error: "Urgency is required",
 		}),
@@ -34,26 +46,81 @@ export const helpRequestInputSchema = z
 
 		city: z.string().max(100).optional(),
 		addressText: z.string().optional(),
-
-		// MODIFICARE 1: Categoria este acum obligatorie si de tip enum
 		category: z.enum(helpRequestCategoryEnum.enumValues, {
 			error: "Category is required",
 		}),
-
-		// MODIFICARE 2: skillsNeeded adăugat ca array de string-uri validate
 		skillsNeeded: z.array(z.string().trim().min(1)).optional(),
-
-		// MODIFICARE 3: Am sters .optional() de la location. Acum e OBLIGATORIU!
 		location: z
 			.object({
 				x: z.number(),
 				y: z.number(),
 			})
-			.strict(),
+			.strict()
+			.describe("Coordonatele geografice ale locației"),
 	})
 	.strict();
+
+// 2. Schema principala (Baza + Refine)
+export const helpRequestInputSchema = baseHelpRequestInputSchema.refine(
+	(data) => data.description || data.audioUrl,
+	{
+		message: "You must provide either a description or an audioUrl",
+		path: ["description"],
+	},
+);
 
 export const helpRequestCreateInputSchema = helpRequestInputSchema;
 
 export const HelpRequestSchema = helpRequestInputSchema;
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
+
+// 3. Schema pentru Guest (Baza + Omit + Refine)
+export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
+	.omit({
+		urgency: true,
+		anonymousMode: true,
+		userId: true,
+		category: true,
+		status: true,
+	})
+	.extend({
+		urgency: z
+			.enum(["LOW", "MEDIUM", "HIGH"])
+			.optional()
+			.describe("Urgența percepută de guest"),
+		notes: z
+			.string()
+			.optional()
+			.describe("Note suplimentare pentru procesarea cererii"),
+		languageNeeded: z
+			.string()
+			.optional()
+			.describe(
+				"Limba în care guest-ul are nevoie de ajutor (ex: 'Română', 'Ucraineană')",
+			),
+		safetyNotes: z
+			.string()
+			.optional()
+			.describe(
+				"Avertismente de siguranță (ex: 'Câine în curte', 'Zonă greu accesibilă')",
+			),
+	})
+	.strict()
+	.refine((data) => data.description || data.audioUrl, {
+		message: "You must provide either a description or an audioUrl",
+		path: ["description"],
+	});
+
+export const guestTasksQuerySchema = z.object({
+	page: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 1))
+		.pipe(z.number().int().min(1)),
+	pageSize: z
+		.string()
+		.optional()
+		.transform((v) => (v ? parseInt(v, 10) : 10))
+		.pipe(z.number().int().min(1).max(50)),
+	status: z.enum(requestStatusEnum.enumValues).optional(),
+});

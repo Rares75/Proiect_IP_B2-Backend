@@ -7,6 +7,7 @@ export const API_RESPONSE_KEYS = [
 	"isUnauthorized",
 	"isServerError",
 	"isClientError",
+	"isForbidden",
 	"app",
 	"statusCode",
 ] as const;
@@ -48,6 +49,21 @@ export const expectClientErrorApiResponse = (
 	expect(body.isUnauthorized).toBe(false);
 	expect(body.isServerError).toBe(false);
 	expect(body.isClientError).toBe(true);
+};
+
+export const expectForbiddenApiResponse = (
+	body: any,
+	message: string,
+	statusCode = 403,
+) => {
+	expectApiEnvelope(body, statusCode);
+	expect(body.data).toBeNull();
+	expect(body.message).toBe(message);
+	expect(body.notFound).toBe(false);
+	expect(body.isUnauthorized).toBe(false);
+	expect(body.isServerError).toBe(false);
+	expect(body.isClientError).toBe(false);
+	expect(body.isForbidden).toBe(true);
 };
 
 export const expectNotFoundApiResponse = (

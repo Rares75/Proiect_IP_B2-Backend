@@ -1,0 +1,1 @@
+ALTER TABLE "help_requests" ADD COLUMN "audio_url" text;
