@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { rateLimiter } from "hono-rate-limiter";
 import { container } from "./di/container";
 import type { AuthUserType, SessionType } from "./types";
+import { getAllowedOrigins } from "./utils/origins";
 
 export type AppEnv = {
 	Variables: {
@@ -13,7 +14,7 @@ export type AppEnv = {
 
 const app = new Hono<AppEnv>().basePath("/api").use(
 	cors({
-		origin: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
+		origin: getAllowedOrigins(),
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		credentials: true,
 	}),
