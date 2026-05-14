@@ -1,13 +1,12 @@
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import { db } from "../db";
-import { user } from "../db/schema";
+import { user, volunteers } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { UserRepository } from "../db/repositories/user.repository";
 import { NotFoundError } from "../utils/Errors";
 import { logger } from "../utils/logger";
-
 @Service()
 export class BecomeVolunteerService {
 	constructor(
@@ -39,12 +38,19 @@ export class BecomeVolunteerService {
 			throw new Error("User is already a volunteer");
 		}
 
-		const volunteer = await this.volunteerRepository.create({ userId });
+		return await db.transaction(async (tx) => {
+			const [volunteer] = await tx
+				.insert(volunteers)
+				.values({ userId })
+				.returning();
 
-		await db.update(user).set({ role: "volunteer" }).where(eq(user.id, userId));
+			await tx
+				.update(user)
+				.set({ role: "volunteer" })
+				.where(eq(user.id, userId));
 
-		logger.info(`User '${userId}' successfully became a volunteer`);
-
-		return volunteer;
+			logger.info(`User '${userId}' successfully became a volunteer`);
+			return volunteer;
+		});
 	}
 }

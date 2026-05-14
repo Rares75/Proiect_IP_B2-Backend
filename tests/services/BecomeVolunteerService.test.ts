@@ -7,14 +7,26 @@ describe("BecomeVolunteerService", () => {
 	let service: BecomeVolunteerService;
 	let mockVolunteerRepo: any;
 	let mockUserRepo: any;
-	const originalUpdate = (db as any).update;
+	const originalTransaction = (db as any).transaction;
 
-	beforeEach(() => {
-		(db as any).update = () => ({
+	const makeTx = (overrides: any = {}) => ({
+		insert: () => ({
+			values: () => ({
+				returning: async () => [
+					{ id: 1, userId: "user-1", availability: false },
+				],
+			}),
+		}),
+		update: () => ({
 			set: () => ({
 				where: async () => [],
 			}),
-		});
+		}),
+		...overrides,
+	});
+
+	beforeEach(() => {
+		(db as any).transaction = async (fn: any) => fn(makeTx());
 
 		mockUserRepo = {
 			findById: async () => null,
@@ -22,7 +34,6 @@ describe("BecomeVolunteerService", () => {
 
 		mockVolunteerRepo = {
 			findByUserId: async () => null,
-			create: async () => null,
 		};
 
 		service = new BecomeVolunteerService(
@@ -32,7 +43,7 @@ describe("BecomeVolunteerService", () => {
 	});
 
 	afterEach(() => {
-		(db as any).update = originalUpdate;
+		(db as any).transaction = originalTransaction;
 		mockUserRepo = null;
 		mockVolunteerRepo = null;
 	});
@@ -40,15 +51,13 @@ describe("BecomeVolunteerService", () => {
 	describe("becomeVolunteer", () => {
 		test("should create volunteer record and return it when user exists and is not a volunteer", async () => {
 			const mockUser = { id: "user-1", email: "test@test.com", role: "user" };
-			const mockVolunteer = { id: 1, userId: "user-1", availability: false };
 
 			mockUserRepo.findById = async () => mockUser;
 			mockVolunteerRepo.findByUserId = async () => null;
-			mockVolunteerRepo.create = async () => mockVolunteer;
 
 			const result = await service.becomeVolunteer("user-1");
 
-			expect(result).toMatchObject(mockVolunteer);
+			expect(result).toMatchObject({ id: 1, userId: "user-1" });
 		});
 
 		test("should throw NotFoundError when user does not exist", async () => {
@@ -75,20 +84,15 @@ describe("BecomeVolunteerService", () => {
 			);
 		});
 
-		test("should call volunteerRepo.create with correct userId", async () => {
+		test("should return volunteer with correct userId", async () => {
 			const mockUser = { id: "user-1", email: "test@test.com", role: "user" };
-			let receivedData: any = null;
 
 			mockUserRepo.findById = async () => mockUser;
 			mockVolunteerRepo.findByUserId = async () => null;
-			mockVolunteerRepo.create = async (data: any) => {
-				receivedData = data;
-				return { id: 1, ...data };
-			};
 
-			await service.becomeVolunteer("user-1");
+			const result = await service.becomeVolunteer("user-1");
 
-			expect(receivedData).toMatchObject({ userId: "user-1" });
+			expect(result).toMatchObject({ userId: "user-1" });
 		});
 
 		test("should propagate repo errors from userRepo", async () => {
@@ -101,12 +105,13 @@ describe("BecomeVolunteerService", () => {
 			);
 		});
 
-		test("should propagate repo errors from volunteerRepo.create", async () => {
+		test("should propagate errors from transaction", async () => {
 			const mockUser = { id: "user-1", email: "test@test.com", role: "user" };
 
 			mockUserRepo.findById = async () => mockUser;
 			mockVolunteerRepo.findByUserId = async () => null;
-			mockVolunteerRepo.create = async () => {
+
+			(db as any).transaction = async () => {
 				throw new Error("Database error");
 			};
 
