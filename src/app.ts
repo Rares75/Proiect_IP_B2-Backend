@@ -20,14 +20,14 @@ const app = new Hono<AppEnv>().basePath("/api").use(
 	}),
 );
 
-app.use(
-	"*",
-	rateLimiter({
-		windowMs: 1 * 60 * 1000, // Max 100 Request-uri per minut
-		limit: 100,
-		keyGenerator: (c) => c.req.header("x-forwarded-for") ?? "unknown",
-	}),
-);
+// app.use(
+// 	"*",
+// 	rateLimiter({
+// 		windowMs: 1 * 60 * 1000, // Max 100 Request-uri per minut
+// 		limit: 100,
+// 		keyGenerator: (c) => c.req.header("x-forwarded-for") ?? "unknown",
+// 	}),
+// );
 
 app.use(
 	"/guest/session",
