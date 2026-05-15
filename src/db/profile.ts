@@ -51,7 +51,7 @@ export const userAccesses = pgTable("user_accesses", {
 		.notNull()
 		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ new Date()),
-});
+});	
 
 export const volunteers = pgTable("volunteers", {
 	id: serial("id").primaryKey(),

@@ -105,7 +105,7 @@ export const createApiResponse = <T>(
 		isServerError: kind === "serverError",
 		isClientError: kind === "clientError",
 		app: {
-			url: Bun.env.SERVER_URL,
+			url: Bun.env.SERVER_URL,	
 		},
 		statusCode,
 	};

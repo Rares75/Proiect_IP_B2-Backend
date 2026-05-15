@@ -249,4 +249,4 @@ describe("ProfileService", () => {
 			expect(service.deleteProfile("user-1")).rejects.toThrow("Database error");
 		});
 	});
-});
+});		
