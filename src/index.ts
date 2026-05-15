@@ -5,6 +5,7 @@ import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
 import { join } from "node:path";
 import { logger } from "./utils/logger";
+//import { websocket } from "hono/bun";
 import * as Sentry from "@sentry/bun";
 
 Sentry.init({
