@@ -73,17 +73,17 @@ const auth = betterAuth({
 
 	trustedOrigins,
 	advanced: {
-		useSecureCookies: isProduction,
+		useSecureCookies: true,
 		defaultCookieAttributes: {
-			sameSite: sessionCookieSameSite,
-			secure: isProduction,
+			sameSite: "none",
+			secure: true,
 		},
 		cookies: {
 			session_token: {
 				attributes: {
 					httpOnly: true,
-					secure: isProduction,
-					sameSite: sessionCookieSameSite,
+					secure: true,
+					sameSite: "none",
 					maxAge: 60 * 60 * 24 * 7,
 					path: "/",
 				},
