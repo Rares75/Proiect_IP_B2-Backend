@@ -23,8 +23,8 @@ const app = new Hono<AppEnv>().basePath("/api").use(
 app.use(
 	"*",
 	rateLimiter({
-		windowMs: 1 * 60 * 1000, // Max 150 Request-uri per minut
-		limit: 150,
+		windowMs: 1 * 60 * 1000, // Max 200 Request-uri per minut
+		limit: 200,
 		keyGenerator: (c) => c.req.header("x-forwarded-for") ?? "unknown",
 	}),
 );
