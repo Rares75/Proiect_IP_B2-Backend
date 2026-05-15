@@ -13,7 +13,7 @@ export class VolunteerService {
 		private readonly volunteerProfileRepo: VolunteerProfileRepository,
 	) {}
 
-	async getOrCreateVolunteer(userId: string) {
+	async getVolunteer(userId: string) {
 		let volunteer = await this.volunteerRepo.findByUserId(userId);
 		if (!volunteer) {
 			volunteer = await this.volunteerRepo.create({ userId });
@@ -38,7 +38,7 @@ export class VolunteerService {
 			maxDistanceKm?: number;
 		},
 	) {
-		const volunteer = await this.getOrCreateVolunteer(userId);
+		const volunteer = await this.getVolunteer(userId);
 
 		const existing = await this.volunteerProfileRepo.findByVolunteerId(
 			volunteer.id,

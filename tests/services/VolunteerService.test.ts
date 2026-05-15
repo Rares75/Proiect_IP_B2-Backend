@@ -36,7 +36,7 @@ describe("VolunteerService", () => {
 			const existing = { id: 1, userId: "user-1", availability: false };
 			mockVolunteerRepo.findByUserId = async () => existing;
 
-			const result = await service.getOrCreateVolunteer("user-1");
+			const result = await service.getVolunteer("user-1");
 			expect(result).toMatchObject(existing);
 		});
 
@@ -45,7 +45,7 @@ describe("VolunteerService", () => {
 			mockVolunteerRepo.findByUserId = async () => null;
 			mockVolunteerRepo.create = async () => created;
 
-			const result = await service.getOrCreateVolunteer("user-1");
+			const result = await service.getVolunteer("user-1");
 			expect(result).toMatchObject(created);
 		});
 
@@ -54,9 +54,7 @@ describe("VolunteerService", () => {
 				throw new Error("Database error");
 			};
 
-			expect(service.getOrCreateVolunteer("user-1")).rejects.toThrow(
-				"Database error",
-			);
+			expect(service.getVolunteer("user-1")).rejects.toThrow("Database error");
 		});
 	});
 

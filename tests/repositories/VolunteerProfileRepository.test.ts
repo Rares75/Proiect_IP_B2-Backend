@@ -202,4 +202,39 @@ describe("VolunteerProfileRepository tests", () => {
 
 		expect(result).toMatchObject(expected);
 	});
+	test("should find first volunteer profile by criteria", async () => {
+		const expected = { id: 1, volunteerId: 1, skills: ["first-aid"] };
+
+		(db as any).select = () => ({
+			from: () => ({
+				where: () => ({
+					limit: async () => [expected],
+				}),
+			}),
+		});
+
+		const result = await repo.findFirstBy({ volunteerId: 1 });
+
+		expect(result).toMatchObject(expected);
+	});
+
+	test("should return undefined when no profile matches criteria", async () => {
+		(db as any).select = () => ({
+			from: () => ({
+				where: () => ({
+					limit: async () => [],
+				}),
+			}),
+		});
+
+		const result = await repo.findFirstBy({ volunteerId: 999 });
+
+		expect(result).toBeUndefined();
+	});
+
+	test("should return undefined when criteria is empty", async () => {
+		const result = await repo.findFirstBy({});
+
+		expect(result).toBeUndefined();
+	});
 });
