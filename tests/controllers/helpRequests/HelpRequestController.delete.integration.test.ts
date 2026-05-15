@@ -4,6 +4,7 @@ import auth from "../../../src/auth";
 import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
 import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import { MessageService } from "../../../src/services/MessageService";
 
 // Integration-like tests using in-memory repos to exercise the delete flow
 
@@ -28,13 +29,13 @@ describe("DELETE /tasks/:id - integration-like", () => {
 				id: number,
 				cb?: (tx: any, pendingOffers: any[]) => Promise<void>,
 			) => {
-				// atomically reject pending offers and remove task
+				// atomically reject pending offers, notify inside the transaction,
+				// then remove the task
 				offers = offers.map((o) =>
 					o.helpRequestId === id && o.status === "PENDING"
 						? { ...o, status: "REJECTED" }
 						: o,
 				);
-				store.delete(id);
 				const pending = offers
 					.filter((o) => o.helpRequestId === id)
 					.map((o) => ({
@@ -43,6 +44,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 						volunteerUserId: o.volunteerUserId,
 					}));
 				if (cb) await cb({}, pending);
+				store.delete(id);
 				return { deleted: true, pendingOffers: pending };
 			},
 		};
@@ -120,6 +122,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -161,6 +164,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -187,6 +191,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -210,6 +215,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -233,6 +239,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);
@@ -249,6 +256,7 @@ describe("DELETE /tasks/:id - integration-like", () => {
 		const controller = new HelpRequestController(
 			service as any,
 			HelpOfferService.prototype as any,
+			MessageService.prototype as any,
 		);
 		app = new Hono();
 		app.route("/tasks", controller.controller);

@@ -1,111 +1,125 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1774712228370,
-			"tag": "0000_true_warbound",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1774713673710,
-			"tag": "0001_crazy_boom_boom",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1776684956879,
-			"tag": "0002_slippery_captain_flint",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1776688457318,
-			"tag": "0003_windy_green_goblin",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1776749353202,
-			"tag": "0004_breezy_nemesis",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1777019417727,
-			"tag": "0005_flat_miracleman",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1777023030631,
-			"tag": "0006_overrated_bloodstrike",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "7",
-			"when": 1777038355467,
-			"tag": "0007_adorable_shinko_yamashiro",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "7",
-			"when": 1777300238673,
-			"tag": "0008_ambiguous_molten_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1777310982019,
-			"tag": "0009_cultured_miracleman",
-			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "7",
-			"when": 1778101200000,
-			"tag": "0010_nullable_assignment_requester",
-			"breakpoints": true
-		},
-		{
-			"idx": 11,
-			"version": "7",
-			"when": 1778177912241,
-			"tag": "0011_aspiring_the_watchers",
-			"breakpoints": true
-		},
-		{
-			"idx": 12,
-			"version": "7",
-			"when": 1778178563792,
-			"tag": "0012_parched_brood",
-			"breakpoints": true
-		},
-		{
-			"idx": 13,
-			"version": "7",
-			"when": 1778248485050,
-			"tag": "0013_redundant_goliath",
-			"breakpoints": true
-		},
-		{
-			"idx": 14,
-			"version": "7",
-			"when": 1778417750131,
-			"tag": "0014_magenta_wrecker",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1774712228370,
+      "tag": "0000_true_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774713673710,
+      "tag": "0001_crazy_boom_boom",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776684956879,
+      "tag": "0002_slippery_captain_flint",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776688457318,
+      "tag": "0003_windy_green_goblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776749353202,
+      "tag": "0004_breezy_nemesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777019417727,
+      "tag": "0005_flat_miracleman",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777023030631,
+      "tag": "0006_overrated_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777038355467,
+      "tag": "0007_adorable_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777300238673,
+      "tag": "0008_ambiguous_molten_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777310982019,
+      "tag": "0009_cultured_miracleman",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778101200000,
+      "tag": "0010_nullable_assignment_requester",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778177912241,
+      "tag": "0011_aspiring_the_watchers",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778178563792,
+      "tag": "0012_parched_brood",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778248485050,
+      "tag": "0013_redundant_goliath",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778515200000,
+      "tag": "0014_guest_message_sender",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1778518800000,
+      "tag": "0015_task_assignment_requester_nullable_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778844103098,
+      "tag": "0016_great_rhino",
+      "breakpoints": true
+    }
+  ]
 }
