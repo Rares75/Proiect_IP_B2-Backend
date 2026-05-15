@@ -25,7 +25,7 @@ parseEnv();
 
 const server = Bun.serve({
 	port: Bun.env.PORT || 3000,
-	hostname: "::",
+	hostname: "0.0.0.0",
 	fetch: app.fetch,
 });
 
