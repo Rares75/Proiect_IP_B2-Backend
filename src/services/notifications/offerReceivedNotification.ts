@@ -7,16 +7,25 @@ import type {
 
 export const notifyOwnerOfferReceived = async (
 	notificationRepo: NotificationRepository,
-	context: OfferReceivedNotificationContext,
+	// Extindem tipul aici ca să evitam erorile de TypeScript
+	context: OfferReceivedNotificationContext & {
+		guestSessionId?: string | null;
+	},
 	client?: NotificationDbClient,
-): Promise<void> => {
-	await notificationRepo.create(
+) => {
+	// Nu mai returnam void, ci returnam notificarea
+	const notification = await notificationRepo.create(
 		{
-			userId: context.ownerUserId,
+			// Dacă e guest, ownerUserId va fi null/undefined
+			userId: context.ownerUserId ?? null,
+			guestSessionId: context.guestSessionId ?? null,
 			type: "NEW_REQUEST",
 			text: buildOfferReceivedText(context.title),
 			relatedRequestId: context.helpRequestId,
 		},
 		client,
 	);
+
+	// Returnăm notificarea ca să o prindem în Service pentru WebSocket
+	return notification;
 };

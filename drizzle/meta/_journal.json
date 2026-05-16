@@ -99,6 +99,13 @@
 			"when": 1778248485050,
 			"tag": "0013_redundant_goliath",
 			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1778923557770,
+			"tag": "0014_abandoned_vampiro",
+			"breakpoints": true
 		}
 	]
 }

@@ -7,6 +7,7 @@ import { conversations, messages } from "../social";
 
 export type ConversationAccessContext = {
 	helpRequestId: number;
+	helpRequestStatus: string;
 	requestedByUserId: string | null;
 	guestSessionId: string | null;
 	taskAssignmentId: number | null;
@@ -16,11 +17,20 @@ export type ConversationAccessContext = {
 
 export type PaginatedConversationMessage = {
 	id: number;
-	senderId: string;
+	senderId: string | null;
 	type: string;
 	content: string | null;
 	audioUrl: string | null;
 	createdAt: Date;
+};
+
+export type CreateConversationMessageInput = {
+	conversationId: number;
+	senderId: string | null;
+	guestSessionId: string | null;
+	type: string;
+	content: string | null;
+	audioUrl: string | null;
 };
 
 @repository()
@@ -31,6 +41,7 @@ export class MessageRepository {
 		const rows = await db
 			.select({
 				helpRequestId: helpRequests.id,
+				helpRequestStatus: helpRequests.status,
 				requestedByUserId: helpRequests.requestedByUserId,
 				guestSessionId: helpRequests.guestSessionId,
 				taskAssignmentId: taskAssignments.id,
@@ -54,6 +65,31 @@ export class MessageRepository {
 			.limit(1);
 
 		return rows[0] ?? null;
+	}
+
+	async createMessage(
+		input: CreateConversationMessageInput,
+	): Promise<PaginatedConversationMessage> {
+		const [created] = await db
+			.insert(messages)
+			.values({
+				conversationId: input.conversationId,
+				senderId: input.senderId,
+				guestSessionId: input.guestSessionId,
+				type: input.type as any,
+				content: input.content,
+				audioUrl: input.audioUrl,
+			})
+			.returning({
+				id: messages.id,
+				senderId: messages.senderId,
+				type: messages.type,
+				content: messages.content,
+				audioUrl: messages.audioUrl,
+				createdAt: messages.sentAt,
+			});
+
+		return created;
 	}
 
 	async getMessagesByConversationId(

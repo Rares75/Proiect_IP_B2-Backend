@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createBunWebSocket } from "hono/bun";
 import { cors } from "hono/cors";
 import { rateLimiter } from "hono-rate-limiter";
 import { container } from "./di/container";
@@ -6,16 +7,21 @@ import type { AuthUserType, SessionType } from "./types";
 import { getAllowedOrigins } from "./utils/origins";
 
 export type AppEnv = {
+	Bindings: {
+		server: Bun.Server<unknown>;
+	};
 	Variables: {
 		session: SessionType;
 		user: AuthUserType;
 	};
 };
 
+const { websocket, upgradeWebSocket } = createBunWebSocket();
+
 const app = new Hono<AppEnv>().basePath("/api").use(
 	cors({
 		origin: getAllowedOrigins(),
-		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
 		credentials: true,
 	}),
 );
@@ -31,4 +37,5 @@ app.use(
 
 container.addConstant("app", app);
 
+export { websocket, upgradeWebSocket };
 export default app;

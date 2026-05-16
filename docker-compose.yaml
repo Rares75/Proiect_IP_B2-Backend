@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: proiectIP
       POSTGRES_DB: proiectIP
     ports:
-      - "5432:5432"
+      - "5430:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
