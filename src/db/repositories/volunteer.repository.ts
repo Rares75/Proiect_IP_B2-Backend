@@ -1,7 +1,12 @@
 import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
 import { repository } from "../../di/decorators/repository";
-import { userProfiles, volunteerProfiles, volunteers } from "../profile";
+import {
+	userProfiles,
+	volunteerKnownLocations,
+	volunteerProfiles,
+	volunteers,
+} from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
 import { helpOffers, helpRequests, requestLocations } from "../schema";
@@ -26,6 +31,18 @@ export interface OfferWithTaskData {
 		description: string | null;
 	};
 }
+
+type Point = { x: number; y: number };
+
+type SaveVolunteerPreferencesInput = {
+	maxDistanceKm: number | null;
+	currentLocation: Point | null;
+	knownLocations: {
+		city?: string | null;
+		addressText?: string | null;
+		location: Point;
+	}[];
+};
 
 @repository()
 export class VolunteerRepository {
@@ -77,6 +94,90 @@ export class VolunteerRepository {
 			.limit(1);
 
 		return result;
+	}
+
+	async findCurrentProfileByUserId(userId: string) {
+		const volunteer = await this.findByUserId(userId);
+		if (!volunteer) {
+			return undefined;
+		}
+
+		const [profile] = await db
+			.select({
+				maxDistanceKm: volunteerProfiles.maxDistanceKm,
+				currentLocation: volunteerProfiles.currentLocation,
+			})
+			.from(volunteerProfiles)
+			.where(eq(volunteerProfiles.volunteerId, volunteer.id))
+			.limit(1);
+
+		const knownLocations = await db
+			.select({
+				id: volunteerKnownLocations.id,
+				city: volunteerKnownLocations.city,
+				addressText: volunteerKnownLocations.addressText,
+				location: volunteerKnownLocations.location,
+			})
+			.from(volunteerKnownLocations)
+			.where(eq(volunteerKnownLocations.volunteerId, volunteer.id));
+
+		return {
+			volunteerId: volunteer.id,
+			maxDistanceKm: profile?.maxDistanceKm ?? null,
+			currentLocation: profile?.currentLocation ?? null,
+			knownLocations,
+		};
+	}
+
+	async saveCurrentProfileByUserId(
+		userId: string,
+		data: SaveVolunteerPreferencesInput,
+	) {
+		const volunteer = await this.findByUserId(userId);
+		if (!volunteer) {
+			return undefined;
+		}
+
+		await db.transaction(async (tx) => {
+			const [existingProfile] = await tx
+				.select({ id: volunteerProfiles.id })
+				.from(volunteerProfiles)
+				.where(eq(volunteerProfiles.volunteerId, volunteer.id))
+				.limit(1);
+
+			if (existingProfile) {
+				await tx
+					.update(volunteerProfiles)
+					.set({
+						maxDistanceKm: data.maxDistanceKm,
+						currentLocation: data.currentLocation,
+					})
+					.where(eq(volunteerProfiles.volunteerId, volunteer.id));
+			} else {
+				await tx.insert(volunteerProfiles).values({
+					volunteerId: volunteer.id,
+					maxDistanceKm: data.maxDistanceKm,
+					currentLocation: data.currentLocation,
+				});
+			}
+
+			await tx
+				.delete(volunteerKnownLocations)
+				.where(eq(volunteerKnownLocations.volunteerId, volunteer.id));
+
+			if (data.knownLocations.length > 0) {
+				await tx.insert(volunteerKnownLocations).values(
+					data.knownLocations.map((knownLocation) => ({
+						volunteerId: volunteer.id,
+						city: knownLocation.city ?? null,
+						addressText: knownLocation.addressText ?? null,
+						location: knownLocation.location,
+					})),
+				);
+			}
+		});
+
+		return this.findCurrentProfileByUserId(userId);
 	}
 
 	/**
