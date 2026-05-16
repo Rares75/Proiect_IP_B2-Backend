@@ -70,35 +70,29 @@ export class HelpRequestService {
 		const titleResult = this.moderationService.scanContent(data.title);
 		const descResult = this.moderationService.scanContent(data.description);
 
-		let finalResult = ModerationLevel.CLEAN;
-		if (
-			titleResult.level === ModerationLevel.BLOCKED ||
-			descResult.level === ModerationLevel.BLOCKED
-		) {
-			finalResult = ModerationLevel.BLOCKED;
-		} else if (
-			titleResult.level === ModerationLevel.FLAGGED ||
-			descResult.level === ModerationLevel.FLAGGED
-		) {
-			finalResult = ModerationLevel.FLAGGED;
+		const results = [titleResult, descResult];
+
+		// BLOCKED takes priority (|| scurtcircuiteaza la prima valoare gasita aici)
+		const worstOffender =
+			results.find((r) => r.level === ModerationLevel.BLOCKED) ||
+			results.find((r) => r.level === ModerationLevel.FLAGGED);
+
+		if (worstOffender) {
+			// hard block
+			if (worstOffender.level === ModerationLevel.BLOCKED) {
+				throw new ModerationError(
+					worstOffender.reason || "Content blocked.",
+					ModerationLevel.BLOCKED,
+					worstOffender.reason || "Violation of safety policies.",
+				);
+			}
 		}
-
-		const reason = titleResult.reason || descResult.reason;
-
-		if (finalResult === ModerationLevel.BLOCKED) {
-			throw new ModerationError(reason ?? "Inappropriate content.");
-		}
-
-		if (finalResult === ModerationLevel.FLAGGED) {
-			// TODO: do something?
-		}
-
 		try {
 			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
-
+			// Trigger notifications for eligible volunteers
 			try {
 				await this.notificationService.notifyEligibleVolunteersForNewRequest(
 					createdRequest,
@@ -110,10 +104,24 @@ export class HelpRequestService {
 				);
 			}
 
-			return createdRequest;
+			// Log moderation warnings if flagged
+			if (worstOffender?.level === ModerationLevel.FLAGGED) {
+				logger.info(
+					`[Moderation] Task created with warnings: ${worstOffender.reason}`,
+				);
+			}
+
+			// Return the created request with the moderation warning attached if applicable
+			return {
+				...createdRequest,
+				...(worstOffender?.level === ModerationLevel.FLAGGED
+					? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
+					: {}),
+			};
 		} catch (error) {
-			console.error("--- RAW DB ERROR ---", error);
-			logger.exception(error);
+			logger.error(
+				`[HelpRequestService] DB create failed: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			throw new Error("Could not create help request");
 		}
 	}
