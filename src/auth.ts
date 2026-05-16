@@ -10,6 +10,11 @@ import { username } from "better-auth/plugins";
 import { twoFactor } from "better-auth/plugins";
 import { sendVerificationOTP } from "./utils/auth/sendVerificationOTPHandler";
 import { createUserProfileHook } from "./utils/auth/hooks/createProfileHook";
+import { getAllowedOrigins } from "./utils/origins";
+
+const isProduction = Bun.env.NODE_ENV === "production";
+const sessionCookieSameSite = isProduction ? "none" : "lax";
+const trustedOrigins = getAllowedOrigins();
 
 const auth = betterAuth({
 	appName: "Micro-Volunteer Crisis Router",
@@ -51,23 +56,21 @@ const auth = betterAuth({
 
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: true,
 	},
 
-	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
+	trustedOrigins,
 	advanced: {
-		crossSubDomainCookies: { enabled: true },
-		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
-		trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
-		cookiePrefix: "my-app",
-		useSecureCookies: false,
+		useSecureCookies: isProduction,
+		defaultCookieAttributes: {
+			sameSite: sessionCookieSameSite,
+			secure: isProduction,
+		},
 		cookies: {
 			session_token: {
-				name: "session_token",
 				attributes: {
 					httpOnly: true,
-					secure: false,
-					sameSite: "lax",
+					secure: isProduction,
+					sameSite: sessionCookieSameSite,
 					maxAge: 60 * 60 * 24 * 7,
 					path: "/",
 				},
@@ -111,6 +114,10 @@ const auth = betterAuth({
 		openAPI(),
 		phoneNumber(),
 		emailOTP({
+			sendVerificationOnSignUp: true,
+			storeOTP: "hashed",
+			otpLength: 6,
+			allowedAttempts: 3,
 			changeEmail: {
 				enabled: true,
 			},

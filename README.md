@@ -6,6 +6,13 @@ To install dependencies:
 bun install
 ```
 
+To setup database
+
+```sh
+docker compose up -d
+bun db:migrate
+```
+
 To run:
 
 ```sh

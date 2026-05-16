@@ -29,6 +29,7 @@
 		"@better-auth/drizzle-adapter": "^1.6.5",
 		"@hono/standard-validator": "^0.2.2",
 		"@scalar/hono-api-reference": "^0.10.10",
+		"@sentry/bun": "^10.51.0",
 		"better-auth": "1.5.5",
 		"bunup": "^0.16.31",
 		"drizzle-orm": "^0.45.2",

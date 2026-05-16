@@ -8,11 +8,18 @@ import {
 } from "../../src/services/HelpOfferService";
 
 describe("HelpOfferService.createOffer", () => {
+	const createNotificationServiceMock = () =>
+		({
+			notifyOwnerOfferReceived: async () => undefined,
+		}) as any;
+
 	it("creates a pending offer for a volunteer on an OPEN task", async () => {
+		let notifiedOwner: any;
 		const service = new HelpOfferService(
 			{
 				findById: async () => ({
 					id: 1,
+					title: "Open task",
 					status: "OPEN",
 					requestedByUserId: "owner-1",
 				}),
@@ -29,6 +36,11 @@ describe("HelpOfferService.createOffer", () => {
 			{
 				findByUserId: async () => ({ id: 7, userId: "volunteer-user" }),
 			} as any,
+			{
+				notifyOwnerOfferReceived: async (context: any) => {
+					notifiedOwner = context;
+				},
+			} as any,
 		);
 
 		const created = await service.createOffer(1, "volunteer-user", {
@@ -42,6 +54,11 @@ describe("HelpOfferService.createOffer", () => {
 			message: "",
 			status: "PENDING",
 		});
+		expect(notifiedOwner).toEqual({
+			helpRequestId: 1,
+			title: "Open task",
+			ownerUserId: "owner-1",
+		});
 	});
 
 	it("throws not found when task does not exist", async () => {
@@ -51,6 +68,7 @@ describe("HelpOfferService.createOffer", () => {
 			} as any,
 			{} as any,
 			{} as any,
+			createNotificationServiceMock(),
 		);
 
 		await expect(
@@ -69,6 +87,7 @@ describe("HelpOfferService.createOffer", () => {
 			} as any,
 			{} as any,
 			{} as any,
+			createNotificationServiceMock(),
 		);
 
 		await expect(
@@ -89,6 +108,7 @@ describe("HelpOfferService.createOffer", () => {
 			{
 				findByUserId: async () => undefined,
 			} as any,
+			createNotificationServiceMock(),
 		);
 
 		await expect(
@@ -109,6 +129,7 @@ describe("HelpOfferService.createOffer", () => {
 			{
 				findByUserId: async () => ({ id: 7, userId: "owner-1" }),
 			} as any,
+			createNotificationServiceMock(),
 		);
 
 		await expect(service.createOffer(1, "owner-1", {})).rejects.toBeInstanceOf(
@@ -136,6 +157,7 @@ describe("HelpOfferService.createOffer", () => {
 			{
 				findByUserId: async () => ({ id: 7, userId: "volunteer-user" }),
 			} as any,
+			createNotificationServiceMock(),
 		);
 
 		await expect(
