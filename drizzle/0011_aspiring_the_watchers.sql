@@ -1,4 +1,10 @@
-ALTER TYPE "public"."notification_type" ADD VALUE 'ACCOUNT_DISABLED';--> statement-breakpoint
+DO $$
+BEGIN
+	ALTER TYPE "public"."notification_type" ADD VALUE 'ACCOUNT_DISABLED';
+EXCEPTION
+	WHEN duplicate_object THEN NULL;
+END
+$$;--> statement-breakpoint
 CREATE TABLE "disable_notifications" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,

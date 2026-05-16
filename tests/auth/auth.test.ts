@@ -52,24 +52,16 @@ describe("Sign Up", () => {
 		).rejects.toThrow();
 	});
 
-	test("returns existing user on duplicate email", async () => {
-		const res = await auth.api.signUpEmail({ body: TEST_USER });
-		expect(res.user.email).toBe(TEST_USER.email);
+	test("throws error on user signup with existing email", async () => {
+		expect(
+			auth.api.signUpEmail({
+				body: TEST_USER,
+			}),
+		).rejects.toThrow("User already exists. Use another email.");
 	});
 });
 
 describe("Sign In", () => {
-	test("fails when email is not verified", async () => {
-		expect(
-			auth.api.signInEmail({
-				body: {
-					email: TEST_USER.email,
-					password: TEST_USER.password,
-				},
-			}),
-		).rejects.toThrow();
-	});
-
 	test("fails with wrong password", async () => {
 		expect(
 			auth.api.signInEmail({

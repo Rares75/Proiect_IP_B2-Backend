@@ -2,6 +2,7 @@ import * as z from "zod";
 import pe from "./utils/pretty-error";
 
 export const envSchema = z.object({
+	NODE_ENV: z.enum(["development", "production"]).default("development"),
 	SERVER_URL: z.string(),
 	DATABASE_URL: z.string(),
 	BETTER_AUTH_URL: z.string(),
@@ -9,7 +10,8 @@ export const envSchema = z.object({
 	GMAIL_USER: z.string().optional(),
 	GMAIL_APP_PASSWORD: z.string().optional(),
 	EMAIL_FROM: z.string().optional(),
-	NODE_ENV: z.enum(["development", "production"]).default("development"),
+	TRUSTED_ORIGINS: z.string().optional(),
+	TRUSTED_PROXIES: z.string().optional(),
 	CLIENT_URL: z.string(),
 	R2_ENDPOINT: z.string(),
 	R2_ACCESS_KEY: z.string(),
@@ -18,6 +20,7 @@ export const envSchema = z.object({
 	R2_DOMAIN: z.string(),
 	R2_BUCKET_NAME: z.string(),
 	R2_BUCKET: z.string(),
+	SENTRY_DSN: z.string().optional(),
 });
 
 export function parseEnv() {
