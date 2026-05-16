@@ -17,6 +17,7 @@ export class VolunteerService {
 		private readonly volunteerProfileRepo: VolunteerProfileRepository,
 	) {}
 
+	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: <trust me>
 	private hasOwnProperty<T extends object>(
 		object: T,
 		property: PropertyKey,
