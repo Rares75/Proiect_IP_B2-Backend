@@ -1,7 +1,12 @@
 import { eq, and, desc, count as drizzleCount } from "drizzle-orm";
 import { db } from "../../db";
 import { repository } from "../../di/decorators/repository";
-import { userProfiles, volunteerProfiles, volunteers } from "../profile";
+import {
+	userProfiles,
+	volunteerKnownLocations,
+	volunteerProfiles,
+	volunteers,
+} from "../profile";
 import { user } from "../auth-schema";
 import { ratings } from "../social";
 import { helpOffers, helpRequests, requestLocations } from "../schema";
@@ -26,6 +31,17 @@ export interface OfferWithTaskData {
 		description: string | null;
 	};
 }
+
+export type VolunteerLocationPoint = {
+	x: number;
+	y: number;
+};
+
+export type VolunteerKnownLocationInput = {
+	city?: string | null;
+	addressText?: string | null;
+	location: VolunteerLocationPoint;
+};
 
 @repository()
 export class VolunteerRepository {
@@ -77,6 +93,42 @@ export class VolunteerRepository {
 			.limit(1);
 
 		return result;
+	}
+
+	async findKnownLocationsByVolunteerId(volunteerId: number) {
+		return db
+			.select({
+				id: volunteerKnownLocations.id,
+				city: volunteerKnownLocations.city,
+				addressText: volunteerKnownLocations.addressText,
+				location: volunteerKnownLocations.location,
+			})
+			.from(volunteerKnownLocations)
+			.where(eq(volunteerKnownLocations.volunteerId, volunteerId));
+	}
+
+	async replaceKnownLocations(
+		volunteerId: number,
+		knownLocations: VolunteerKnownLocationInput[],
+	): Promise<void> {
+		await db.transaction(async (tx) => {
+			await tx
+				.delete(volunteerKnownLocations)
+				.where(eq(volunteerKnownLocations.volunteerId, volunteerId));
+
+			if (knownLocations.length === 0) {
+				return;
+			}
+
+			await tx.insert(volunteerKnownLocations).values(
+				knownLocations.map((knownLocation) => ({
+					volunteerId,
+					city: knownLocation.city ?? null,
+					addressText: knownLocation.addressText ?? null,
+					location: knownLocation.location,
+				})),
+			);
+		});
 	}
 
 	/**
