@@ -4,6 +4,8 @@ import { z } from "zod";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import auth from "../auth";
+import { mapUserIdentity } from "../utils/identityMapper";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -24,6 +26,8 @@ const volunteerUserSchema = z
 		email: z.string().nullable(),
 		phone: z.string().nullable(),
 		image: z.string().nullable(),
+		alias: z.string(),
+		isIdentityHidden: z.boolean(),
 	})
 	.meta({ ref: "VolunteerUser" });
 
@@ -152,6 +156,26 @@ export class VolunteerController {
 
 				const { ratings, averageStars } =
 					await this.volunteerRepository.findRatingsById(volunteerId);
+				const sessionData = await auth.api.getSession({
+					headers: c.req.raw.headers,
+				});
+				const viewer = sessionData?.user
+					? {
+							userId: sessionData.user.id,
+							role: (sessionData.user as any).role,
+						}
+					: undefined;
+				const identity = mapUserIdentity(
+					{
+						userId: volunteer.userId,
+						name: volunteer.name,
+						email: volunteer.email,
+						phone: volunteer.phone,
+						image: volunteer.image,
+						hiddenIdentity: volunteer.hiddenIdentity,
+					},
+					viewer,
+				);
 
 				// Construim răspunsul respectând logica de hiddenIdentity
 				return c.json({
@@ -160,11 +184,13 @@ export class VolunteerController {
 					trustScore: volunteer.trustScore,
 					completedTasks: volunteer.completedTasks,
 					user: {
-						id: volunteer.userId,
-						name: volunteer.hiddenIdentity ? null : volunteer.name,
-						email: volunteer.hiddenIdentity ? null : volunteer.email,
-						phone: volunteer.hiddenIdentity ? null : volunteer.phone,
-						image: volunteer.image,
+						id: identity.id,
+						name: identity.name,
+						email: identity.email,
+						phone: identity.phone,
+						image: identity.image,
+						alias: identity.alias,
+						isIdentityHidden: identity.isIdentityHidden,
 					},
 					profile: {
 						bio: volunteer.bio ?? null,

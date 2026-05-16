@@ -1,21 +1,24 @@
 import { InteractionsRepository } from "../db/repositories/interactions.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
+import { mapUserIdOnly, type AnonymizedUserDto } from "../utils/identityMapper";
+
+export type SafeRatingDto = {
+	id: number;
+	createdAt: Date;
+	taskAssignmentId: number;
+	stars: number;
+	comment: string | null;
+	writtenBy: AnonymizedUserDto;
+	receivedBy: AnonymizedUserDto;
+};
 
 export type InteractionWithRating = {
 	interactionId: number;
 	taskAssignmentId: number;
 	date: Date;
 	summary: string | null;
-	rating: {
-		id: number;
-		createdAt: Date;
-		taskAssignmentId: number;
-		writtenByUserId: string;
-		receivedByUserId: string;
-		stars: number;
-		comment: string | null;
-	} | null;
+	rating: SafeRatingDto | null;
 };
 
 type GetInteractionsForUserResponse =
@@ -69,14 +72,26 @@ export class InteractionsService {
 				const ratings = await this.ratingRepo.getRatingsByTaskAssignmentId(
 					interaction.taskAssignmentId,
 				);
+
 				const receivedRating =
 					ratings.find((rating) => rating.receivedByUserId === userId) ?? null;
+
 				return {
 					interactionId: interaction.id,
 					taskAssignmentId: interaction.taskAssignmentId,
 					date: interaction.date,
 					summary: interaction.summary,
-					rating: receivedRating,
+					rating: receivedRating
+						? {
+								id: receivedRating.id,
+								createdAt: receivedRating.createdAt,
+								taskAssignmentId: receivedRating.taskAssignmentId,
+								stars: receivedRating.stars,
+								comment: receivedRating.comment,
+								writtenBy: mapUserIdOnly(receivedRating.writtenByUserId),
+								receivedBy: mapUserIdOnly(receivedRating.receivedByUserId),
+							}
+						: null,
 				};
 			}),
 		);

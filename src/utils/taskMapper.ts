@@ -1,16 +1,42 @@
-﻿export const sanitizeAnonymousTask = (task: any, currentUserId?: string) => {
-	const { ownerName, ownerUsername, ...baseTask } = task;
+import {
+	createAnonymousAlias,
+	getDisplayNameForIdentity,
+	type IdentityViewer,
+} from "./identityMapper";
+
+export const sanitizeAnonymousTask = (
+	task: any,
+	currentUserIdOrViewer?: string | IdentityViewer,
+) => {
+	const viewer =
+		typeof currentUserIdOrViewer === "string"
+			? { userId: currentUserIdOrViewer }
+			: currentUserIdOrViewer;
+	const { ownerName, ownerUsername, ownerHiddenIdentity, ...baseTask } = task;
 
 	const isGuestTask = baseTask.requestedByUserId === null;
-	const isOwner = !isGuestTask && baseTask.requestedByUserId === currentUserId;
+	const isOwner = !isGuestTask && baseTask.requestedByUserId === viewer?.userId;
+	const isAdmin = viewer?.role === "admin";
+	const shouldHideOwnerIdentity =
+		Boolean(task.anonymousMode) || Boolean(ownerHiddenIdentity);
+	const ownerAlias = createAnonymousAlias(baseTask.requestedByUserId);
+	const ownerIdentity = {
+		userId: baseTask.requestedByUserId,
+		name: ownerName,
+		username: ownerUsername,
+		hiddenIdentity: ownerHiddenIdentity,
+	};
 
-	if (isOwner) {
+	if (isOwner || isAdmin) {
 		return {
 			...baseTask,
-			isMine: true,
+			...(isOwner ? { isMine: true } : {}),
 			ownerName,
 			ownerUsername,
-			displayName: task.anonymousMode ? ownerUsername : ownerName,
+			ownerAlias,
+			displayName: task.anonymousMode
+				? (ownerUsername ?? ownerAlias)
+				: getDisplayNameForIdentity(ownerIdentity, viewer),
 		};
 	}
 
@@ -19,9 +45,14 @@
 		return { ...restOfTask, displayName: null };
 	}
 
-	if (task.anonymousMode) {
+	if (shouldHideOwnerIdentity) {
 		const { requestedByUserId, ...restOfTask } = baseTask;
-		return { ...restOfTask, displayName: ownerUsername ?? null };
+		return {
+			...restOfTask,
+			displayName: ownerAlias,
+			ownerAlias,
+			isIdentityHidden: true,
+		};
 	}
 
 	return { ...baseTask, displayName: ownerName ?? null };

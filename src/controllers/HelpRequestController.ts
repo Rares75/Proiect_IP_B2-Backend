@@ -132,6 +132,8 @@ const getOptionalSession = async (c: any) => {
 	return sessionData.session;
 };
 
+const getViewerRole = (c: any) => (c.get("user") as any)?.role ?? null;
+
 const parseMessagesPagination = (query: {
 	page?: string;
 	pageSize?: string;
@@ -354,6 +356,7 @@ export class HelpRequestController {
 						order,
 						filters,
 						c.get("user")?.id,
+						getViewerRole(c),
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
@@ -639,7 +642,10 @@ export class HelpRequestController {
 					//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
 					return sendApiResponse(
 						c,
-						sanitizeAnonymousTask(dataToReturn, session?.userId),
+						sanitizeAnonymousTask(dataToReturn, {
+							userId: session?.userId,
+							role: getViewerRole(c),
+						}),
 						{ kind: "success" },
 					);
 				} catch (error) {
@@ -1026,6 +1032,7 @@ export class HelpRequestController {
 							page,
 							pageSize,
 							status,
+							{ userId: session.userId, role: getViewerRole(c) },
 						);
 
 					return sendApiResponse(c, result);

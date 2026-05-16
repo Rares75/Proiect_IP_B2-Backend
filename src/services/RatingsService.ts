@@ -5,6 +5,8 @@ import { RatingsRepository } from "../db/repositories/ratings.repository";
 import type { RatingSummaryType } from "../types";
 import { logger } from "../utils/logger";
 import { inject } from "../di";
+import { mapUserIdOnly, type AnonymizedUserDto } from "../utils/anonymizeUser";
+
 export type CreateRatingInput = {
 	taskAssignmentId: number;
 	writtenByUserId: string;
@@ -13,6 +15,28 @@ export type CreateRatingInput = {
 	comment: string;
 };
 
+export type SafeRatingDto = {
+	id: number;
+	taskAssignmentId: number;
+	stars: number;
+	comment: string | null;
+	createdAt: Date;
+	writtenBy: AnonymizedUserDto;
+	receivedBy: AnonymizedUserDto;
+};
+
+function mapRatingToSafeDto(rating: RatingType): SafeRatingDto {
+	return {
+		id: rating.id,
+		taskAssignmentId: rating.taskAssignmentId,
+		stars: rating.stars,
+		comment: rating.comment,
+		createdAt: rating.createdAt,
+		writtenBy: mapUserIdOnly(rating.writtenByUserId),
+		receivedBy: mapUserIdOnly(rating.receivedByUserId),
+	};
+}
+
 @Service()
 export class RatingsService {
 	constructor(
@@ -20,7 +44,7 @@ export class RatingsService {
 		private readonly ratingRepo: RatingsRepository,
 	) {}
 
-	async createRating(input: CreateRatingInput): Promise<RatingType | null> {
+	async createRating(input: CreateRatingInput): Promise<SafeRatingDto | null> {
 		try {
 			const {
 				taskAssignmentId,
@@ -66,6 +90,7 @@ export class RatingsService {
 
 			const requesterRatesVolunteer =
 				writtenByUserId === requesterId && receivedByUserId === volunteerUserId;
+
 			const volunteerRatesRequester =
 				writtenByUserId === volunteerUserId && receivedByUserId === requesterId;
 
@@ -97,7 +122,7 @@ export class RatingsService {
 				comment: comment.trim(),
 			});
 
-			return createdRating ?? null;
+			return createdRating ? mapRatingToSafeDto(createdRating) : null;
 		} catch (error) {
 			logger.exception(
 				new RatingException(
@@ -110,7 +135,7 @@ export class RatingsService {
 		}
 	}
 
-	async getRatingsForUser(userId: string): Promise<RatingType[] | null> {
+	async getRatingsForUser(userId: string): Promise<SafeRatingDto[] | null> {
 		try {
 			if (!userId) {
 				logger.exception(
@@ -119,7 +144,8 @@ export class RatingsService {
 				return null;
 			}
 
-			return await this.ratingRepo.getRatingsByReceivedUserId(userId);
+			const ratings = await this.ratingRepo.getRatingsByReceivedUserId(userId);
+			return ratings.map(mapRatingToSafeDto);
 		} catch (error) {
 			logger.exception(
 				new RatingException(
@@ -157,7 +183,7 @@ export class RatingsService {
 		}
 	}
 
-	async getRecentRatingsForUser(userId: string): Promise<RatingType[] | null> {
+	async getRecentRatingsForUser(userId: string): Promise<SafeRatingDto[] | null> {
 		try {
 			if (!userId) {
 				logger.exception(
@@ -166,7 +192,10 @@ export class RatingsService {
 				return null;
 			}
 
-			return await this.ratingRepo.getRecentRatingsByReceivedUserId(userId);
+			const ratings =
+				await this.ratingRepo.getRecentRatingsByReceivedUserId(userId);
+
+			return ratings.map(mapRatingToSafeDto);
 		} catch (error) {
 			logger.exception(
 				new RatingException(
