@@ -26,7 +26,7 @@ parseEnv();
 
 const server = Bun.serve({
 	port: Bun.env.PORT || 3000,
-	hostname: "0.0.0.0",
+	hostname: "::",
 	fetch: (request, server) => app.fetch(request, { server }),
 	websocket,
 });
