@@ -82,9 +82,8 @@ export const interactionHistories = pgTable("interaction_histories", {
 
 export const notifications = pgTable("notifications", {
 	id: serial("id").primaryKey(),
-	userId: text("user_id")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
+	userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // am scos .notNull()
+	guestSessionId: text("guest_session_id"), // am adaugat suport pentru guest
 	type: notificationTypeEnum("type").notNull(),
 	text: text("text").notNull(),
 	relatedRequestId: integer("related_request_id").references(

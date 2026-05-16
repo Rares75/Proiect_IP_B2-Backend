@@ -6,6 +6,7 @@ import {
 	type CreateHelpOfferDTO,
 } from "../db/repositories/helpOffer.repository";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import { NotificationService } from "./NotificationService";
 
 export class HelpOfferTaskNotFoundError extends Error {
 	constructor(helpRequestId: number) {
@@ -46,6 +47,8 @@ export class HelpOfferService {
 		private readonly helpOfferRepo: HelpOfferRepository,
 		@inject(VolunteerRepository)
 		private readonly volunteerRepo: VolunteerRepository,
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService,
 	) {}
 
 	async createOffer(
@@ -84,11 +87,28 @@ export class HelpOfferService {
 			throw new HelpOfferDuplicatePendingError();
 		}
 
-		return this.helpOfferRepo.create({
+		const offer = await this.helpOfferRepo.create({
 			helpRequestId,
 			volunteerId: volunteer.id,
 			message: payload.message ?? null,
 			status: "PENDING",
 		});
+
+		if (task.requestedByUserId) {
+			try {
+				await this.notificationService.notifyOwnerOfferReceived({
+					helpRequestId: task.id,
+					title: task.title,
+					ownerUserId: task.requestedByUserId,
+				});
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify task owner about received offer:",
+					notificationError,
+				);
+			}
+		}
+
+		return offer;
 	}
 }

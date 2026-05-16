@@ -8,13 +8,14 @@ import {
 	it,
 	spyOn,
 } from "bun:test";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { join } from "node:path";
 import app from "../../../src/app";
 import auth from "../../../src/auth";
 import { db } from "../../../src/db";
 import { helpOffers, helpRequests } from "../../../src/db/requests";
 import { volunteers } from "../../../src/db/profile";
+import { notifications } from "../../../src/db/social";
 import { loadControllers } from "../../../src/utils/controller";
 
 describe("POST /api/tasks/:id/offers integration", () => {
@@ -57,6 +58,9 @@ describe("POST /api/tasks/:id/offers integration", () => {
 		}
 
 		if (createdTaskId) {
+			await db
+				.delete(notifications)
+				.where(eq(notifications.relatedRequestId, createdTaskId));
 			await db
 				.delete(helpOffers)
 				.where(eq(helpOffers.helpRequestId, createdTaskId));
@@ -147,5 +151,23 @@ describe("POST /api/tasks/:id/offers integration", () => {
 		expect(savedOffer.volunteerId).toBe(volunteer.id);
 		expect(savedOffer.message).toBe("Pot ajuta maine dimineata");
 		expect(savedOffer.status).toBe("PENDING");
+
+		const ownerNotifications = await db
+			.select()
+			.from(notifications)
+			.where(
+				and(
+					eq(notifications.userId, requesterUserId),
+					eq(notifications.relatedRequestId, task.id),
+				),
+			);
+
+		expect(ownerNotifications).toHaveLength(1);
+		expect(ownerNotifications[0]).toMatchObject({
+			userId: requesterUserId,
+			type: "NEW_REQUEST",
+			text: "Un voluntar a oferit ajutor pentru: Task for offer integration",
+			relatedRequestId: task.id,
+		});
 	});
 });
