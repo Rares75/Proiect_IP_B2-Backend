@@ -21,7 +21,7 @@ export class VolunteerService {
 		object: T,
 		property: PropertyKey,
 	): boolean {
-		return Object.prototype.hasOwnProperty.call(object, property);
+		return Object.hasOwn(object, property);
 	}
 
 	async getVolunteer(userId: string) {
@@ -126,13 +126,13 @@ export class VolunteerService {
 			currentLocation?: VolunteerLocationPoint | null;
 		} = {};
 
-		if (this.hasOwnProperty(data, "skills")) {
+		if (Object.hasOwn(this, data)) {
 			updateData.skills = data.skills;
 		}
-		if (this.hasOwnProperty(data, "maxDistanceKm")) {
+		if (Object.hasOwn(this, data)) {
 			updateData.maxDistanceKm = data.maxDistanceKm ?? null;
 		}
-		if (this.hasOwnProperty(data, "currentLocation")) {
+		if (Object.hasOwn(this, data)) {
 			updateData.currentLocation = data.currentLocation ?? null;
 		}
 

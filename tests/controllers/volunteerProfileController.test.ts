@@ -137,7 +137,10 @@ describe("VolunteerController /me/profile", () => {
 			};
 
 			let createPayload: unknown;
-			mockService.createVolunteerProfile = async (_userId: string, data: any) => {
+			mockService.createVolunteerProfile = async (
+				_userId: string,
+				data: any,
+			) => {
 				createPayload = data;
 				return {
 					id: 1,
@@ -155,7 +158,9 @@ describe("VolunteerController /me/profile", () => {
 
 			expect(response.status).toBe(201);
 			expect(createPayload).toEqual(payload);
-			expect(body.data.profile.currentLocation).toEqual(payload.currentLocation);
+			expect(body.data.profile.currentLocation).toEqual(
+				payload.currentLocation,
+			);
 			expect(body.data.profile.knownLocations).toEqual([
 				{
 					id: 1,
@@ -196,7 +201,10 @@ describe("VolunteerController /me/profile", () => {
 			};
 
 			let updatePayload: unknown;
-			mockService.updateVolunteerProfile = async (_userId: string, data: any) => {
+			mockService.updateVolunteerProfile = async (
+				_userId: string,
+				data: any,
+			) => {
 				updatePayload = data;
 				return {
 					id: 1,

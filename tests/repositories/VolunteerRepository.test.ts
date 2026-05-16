@@ -30,7 +30,9 @@ describe("GET /api/volunteers/:id", () => {
 
 			expect(response.status).toBe(400);
 			expect(body.isClientError).toBe(true);
-			expect(body.message).toBe("Invalid volunteer ID. Must be a positive integer.");
+			expect(body.message).toBe(
+				"Invalid volunteer ID. Must be a positive integer.",
+			);
 		}
 	});
 
