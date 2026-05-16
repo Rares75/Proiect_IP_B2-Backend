@@ -18,6 +18,9 @@ export const user = pgTable("user", {
 	phoneNumber: text("phone_number").unique(),
 	phoneNumberVerified: boolean("phone_number_verified"),
 	isAnonymus: boolean("is_anonymus").default(false).notNull(),
+	role: text("role", { enum: ["user", "admin", "volunteer"] })
+		.default("user")
+		.notNull(),
 });
 
 export const session = pgTable(
