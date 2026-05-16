@@ -13,6 +13,7 @@ export const envSchema = z.object({
 	TRUSTED_ORIGINS: z.string().optional(),
 	TRUSTED_PROXIES: z.string().optional(),
 	CLIENT_URL: z.string(),
+	TRUSTED_ORIGINS: z.string().optional(),
 	R2_ENDPOINT: z.string(),
 	R2_ACCESS_KEY: z.string(),
 	R2_SECRET_ACCESS_KEY: z.string(),
@@ -20,6 +21,7 @@ export const envSchema = z.object({
 	R2_DOMAIN: z.string(),
 	R2_BUCKET_NAME: z.string(),
 	R2_BUCKET: z.string(),
+	SENTRY_DSN: z.string().optional(),
 });
 
 export function parseEnv() {
