@@ -1,5 +1,5 @@
 {
-	"id": "ec304006-6298-44c2-af1f-117c6e4581b2",
+	"id": "371f361f-5667-4811-b21e-bb614adc69be",
 	"prevId": "1b17c7bc-f1f2-429c-8cc5-5436a1c3c926",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1112,7 +1112,13 @@
 					"name": "sender_id",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": true
+					"notNull": false
+				},
+				"guest_session_id": {
+					"name": "guest_session_id",
+					"type": "varchar(128)",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"type": {
 					"name": "type",
@@ -1183,7 +1189,13 @@
 					"name": "user_id",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": true
+					"notNull": false
+				},
+				"guest_session_id": {
+					"name": "guest_session_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"type": {
 					"name": "type",
