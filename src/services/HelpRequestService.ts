@@ -1,28 +1,28 @@
 import {
-    HelpRequestRepository,
-    type CreateHelpRequestDTO,
-    type HelpRequest,
-    type HelpRequestAssignmentAuthorization,
+	HelpRequestRepository,
+	type CreateHelpRequestDTO,
+	type HelpRequest,
+	type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
 import {
-    HelpOfferRepository,
-    type HelpOffer,
+	HelpOfferRepository,
+	type HelpOffer,
 } from "../db/repositories/helpOffer.repository";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
-    ModerationService,
-    ModerationError,
-    ModerationLevel,
+	ModerationService,
+	ModerationError,
+	ModerationLevel,
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import {
-    ConflictError,
-    ForbiddenError,
-    InvalidStatusTransitionError,
-    NotFoundError,
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
 } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
 import { NotificationService } from "./NotificationService";
@@ -50,21 +50,21 @@ export class HelpRequestOffersForbiddenError extends Error {
 @Service()
 export class HelpRequestService {
 	constructor(
-        @inject(HelpRequestRepository)
-        private readonly helpRequestRepo: HelpRequestRepository,
-        @inject(HelpOfferRepository)
-        private readonly helpOfferRepo: HelpOfferRepository,
-        @inject(VolunteerRepository)
-        private readonly volunteerRepo: VolunteerRepository,
-        @inject(HelpRequestDetailsRepository)
-        private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
-        @inject(ModerationService)
-        private readonly moderationService: ModerationService = new ModerationService(),
-        @inject(NotificationService)
-        private readonly notificationService: NotificationService = {
-            notifyEligibleVolunteersForNewRequest: async () => {},
-        } as unknown as NotificationService,
-    ) {}
+		@inject(HelpRequestRepository)
+		private readonly helpRequestRepo: HelpRequestRepository,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
+		@inject(VolunteerRepository)
+		private readonly volunteerRepo: VolunteerRepository,
+		@inject(HelpRequestDetailsRepository)
+		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
+		@inject(ModerationService)
+		private readonly moderationService: ModerationService = new ModerationService(),
+		@inject(NotificationService)
+		private readonly notificationService: NotificationService = {
+			notifyEligibleVolunteersForNewRequest: async () => {},
+		} as unknown as NotificationService,
+	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
 		const titleResult = this.moderationService.scanContent(data.title);
@@ -87,37 +87,37 @@ export class HelpRequestService {
 				);
 			}
 		}
-      try {
-            const createdRequest = await this.helpRequestRepo.create({
-                ...data,
-                status: "OPEN",
-            });
-          // Trigger notifications for eligible volunteers
-            try {
-                await this.notificationService.notifyEligibleVolunteersForNewRequest(
-                    createdRequest,
-                );
-            } catch (notificationError) {
-                console.error(
-                    "Failed to notify eligible volunteers for new help request:",
-                    notificationError,
-                );
-            }
+		try {
+			const createdRequest = await this.helpRequestRepo.create({
+				...data,
+				status: "OPEN",
+			});
+			// Trigger notifications for eligible volunteers
+			try {
+				await this.notificationService.notifyEligibleVolunteersForNewRequest(
+					createdRequest,
+				);
+			} catch (notificationError) {
+				console.error(
+					"Failed to notify eligible volunteers for new help request:",
+					notificationError,
+				);
+			}
 
-            // Log moderation warnings if flagged
-            if (worstOffender?.level === ModerationLevel.FLAGGED) {
-                logger.info(
-                    `[Moderation] Task created with warnings: ${worstOffender.reason}`,
-                );
-            }
+			// Log moderation warnings if flagged
+			if (worstOffender?.level === ModerationLevel.FLAGGED) {
+				logger.info(
+					`[Moderation] Task created with warnings: ${worstOffender.reason}`,
+				);
+			}
 
-            // Return the created request with the moderation warning attached if applicable
-            return {
-                ...createdRequest,
-                ...(worstOffender?.level === ModerationLevel.FLAGGED
-                    ? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
-                    : {}),
-            };
+			// Return the created request with the moderation warning attached if applicable
+			return {
+				...createdRequest,
+				...(worstOffender?.level === ModerationLevel.FLAGGED
+					? { moderationWarning: worstOffender.reason ?? "Flagged for review" }
+					: {}),
+			};
 		} catch (error) {
 			logger.error(
 				`[HelpRequestService] DB create failed: ${error instanceof Error ? error.message : String(error)}`,

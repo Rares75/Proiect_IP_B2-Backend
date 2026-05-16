@@ -69,7 +69,7 @@ describe("ModerationService", () => {
 	});
 
 	it("should handle extremely long strings (stress test)", () => {
-		const longString = "clean ".repeat(1000) + "scam";
+		const longString = `${"clean ".repeat(1000)}scam`;
 		const result = service.scanContent(longString);
 		expect(result.level).toBe(ModerationLevel.BLOCKED);
 	});
