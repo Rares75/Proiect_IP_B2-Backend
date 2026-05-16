@@ -59,17 +59,17 @@ const updateCurrentVolunteerProfileRequestBody: OpenAPIV3_1.RequestBodyObject =
 		required: true,
 		content: {
 			"application/json": {
-					schema: {
-						type: "object",
-						required: ["maxDistanceKm", "currentLocation", "knownLocations"],
-						properties: {
-							maxDistanceKm: {
-								oneOf: [{ type: "number", minimum: 0 }, { type: "null" }],
-							},
-							currentLocation: {
-								oneOf: [
-									{
-										type: "object",
+				schema: {
+					type: "object",
+					required: ["maxDistanceKm", "currentLocation", "knownLocations"],
+					properties: {
+						maxDistanceKm: {
+							oneOf: [{ type: "number", minimum: 0 }, { type: "null" }],
+						},
+						currentLocation: {
+							oneOf: [
+								{
+									type: "object",
 									required: ["x", "y"],
 									properties: {
 										x: { type: "number" },
@@ -84,15 +84,15 @@ const updateCurrentVolunteerProfileRequestBody: OpenAPIV3_1.RequestBodyObject =
 							items: {
 								type: "object",
 								required: ["location"],
-							properties: {
-								city: {
-									oneOf: [{ type: "string" }, { type: "null" }],
-								},
-								addressText: {
-									oneOf: [{ type: "string" }, { type: "null" }],
-								},
-								location: {
-									type: "object",
+								properties: {
+									city: {
+										oneOf: [{ type: "string" }, { type: "null" }],
+									},
+									addressText: {
+										oneOf: [{ type: "string" }, { type: "null" }],
+									},
+									location: {
+										type: "object",
 										required: ["x", "y"],
 										properties: {
 											x: { type: "number" },

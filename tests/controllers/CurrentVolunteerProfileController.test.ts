@@ -3,7 +3,9 @@ import auth from "../../src/auth";
 import { CurrentVolunteerProfileController } from "../../src/controllers/CurrentVolunteerProfileController";
 
 const makeApp = (mockRepository: any) => {
-	const controller = new CurrentVolunteerProfileController(mockRepository as any);
+	const controller = new CurrentVolunteerProfileController(
+		mockRepository as any,
+	);
 	return controller.controller;
 };
 
