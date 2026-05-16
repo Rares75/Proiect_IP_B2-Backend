@@ -138,7 +138,7 @@ describe("VolunteerService", () => {
 
 		test("should persist currentLocation and knownLocations when provided", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
-			let replacedKnownLocations: any[] | null = null;
+			let replacedKnownLocations: any[] | undefined;
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
 			mockVolunteerRepo.create = async () => volunteer;
@@ -244,7 +244,7 @@ describe("VolunteerService", () => {
 		test("should update currentLocation and replace knownLocations when provided", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
 			const profile = { id: 1, volunteerId: 1, skills: ["cooking"] };
-			let replacedKnownLocations: any[] | null = null;
+			let replacedKnownLocations: any[] | undefined;
 			let updatedProfileData: any = null;
 
 			mockVolunteerRepo.findByUserId = async () => volunteer;
