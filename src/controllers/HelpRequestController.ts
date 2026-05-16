@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { upgradeWebSocket } from "../app";
 import type { AppEnv } from "../app";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
@@ -6,17 +7,37 @@ import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
 import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
-import { authMiddlware } from "../middlware/authMiddleware";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
+import auth from "../auth";
+import {
+	ConflictError,
+	ForbiddenError,
+	InvalidStatusTransitionError,
+	NotFoundError,
+} from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
 	createValidationMiddleware,
 	helpRequestCreateInputSchema,
+	queryValidationMiddleware,
+	wsMessageSchema,
 } from "../validation";
 import { logger } from "../utils/logger";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { RadiusRequiredError } from "../services/helpRequestDistance";
+import {
+	HelpOfferDuplicatePendingError,
+	HelpOfferForbiddenError,
+	HelpOfferService,
+	HelpOfferTaskNotFoundError,
+	HelpOfferTaskStatusConflictError,
+} from "../services/HelpOfferService";
+import { MessageService } from "../services/MessageService";
+import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
+import { taskConversationConnections } from "../websockets/taskConversationConnections";
 
 // Zod Schemas for Swagger documentation
 const emptyApiResponseSchema = z
@@ -111,10 +132,6 @@ const moderationResponseSchema = z
 	});
 
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-type HelpRequestResponse = Awaited<
-	ReturnType<HelpRequestService["getHelpRequestById"]>
->;
-type ExistingHelpRequestResponse = Exclude<HelpRequestResponse, undefined>;
 
 const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
 
@@ -132,6 +149,77 @@ const requireSession = async (c: any) => {
 	return c.get("session");
 };
 
+const getOptionalSession = async (c: any) => {
+	const existingSession = c.get("session");
+	if (existingSession) {
+		return existingSession;
+	}
+
+	const sessionData = await auth.api.getSession({ headers: c.req.raw.headers });
+	if (!sessionData?.user || !sessionData?.session) {
+		return null;
+	}
+
+	c.set("session", sessionData.session);
+	c.set("user", sessionData.user);
+
+	return sessionData.session;
+};
+
+const parseMessagesPagination = (query: {
+	page?: string;
+	pageSize?: string;
+}) => {
+	const page = query.page === undefined ? 1 : Number(query.page);
+	const pageSize = query.pageSize === undefined ? 20 : Number(query.pageSize);
+
+	if (
+		!Number.isInteger(page) ||
+		page < 1 ||
+		!Number.isInteger(pageSize) ||
+		pageSize < 1 ||
+		pageSize > 100
+	) {
+		return null;
+	}
+
+	return { page, pageSize };
+};
+
+const serializeRealtimeMessage = (message: {
+	id: number;
+	senderId: string | null;
+	type: string;
+	content: string | null;
+	audioUrl: string | null;
+	createdAt: Date;
+}) => ({
+	id: message.id,
+	senderId: message.senderId,
+	type: message.type,
+	content: message.content,
+	audioUrl: message.audioUrl,
+	createdAt: message.createdAt.toISOString(),
+});
+
+const createWsErrorPayload = (message: string) =>
+	JSON.stringify({
+		type: "ERROR",
+		data: { message },
+	});
+
+const getWsMessageText = async (data: string | ArrayBuffer | Blob) => {
+	if (typeof data === "string") {
+		return data;
+	}
+
+	if (data instanceof Blob) {
+		return await data.text();
+	}
+
+	return new TextDecoder().decode(data);
+};
+
 const removeClientOwnerFields = (
 	body: CreateHelpRequestDTO & { userId?: unknown },
 ): Omit<CreateHelpRequestDTO, "requestedByUserId"> => {
@@ -142,26 +230,21 @@ const removeClientOwnerFields = (
 	return safeBody;
 };
 
-const sanitizeAnonymousTask = (
-	task: ExistingHelpRequestResponse,
-): ExistingHelpRequestResponse | Record<string, unknown> => {
-	if (!task.anonymousMode) {
-		return task;
-	}
-
-	const safeTask: Record<string, unknown> = { ...task };
-	delete safeTask.requestedByUserId;
-	delete safeTask.userId;
-	delete safeTask.ownerId;
-
-	return safeTask;
-};
+enum OfferStatus {
+	PENDING = "PENDING",
+	ACCEPTED = "ACCEPTED",
+	REJECTED = "REJECTED",
+}
 
 @Controller("/tasks")
 export class HelpRequestController {
 	constructor(
 		@inject(HelpRequestService)
 		private readonly helpRequestService: HelpRequestService,
+		@inject(HelpOfferService)
+		private readonly helpOfferService: HelpOfferService,
+		@inject(MessageService)
+		private readonly messageService: MessageService,
 	) {}
 
 	controller = new Hono<AppEnv>()
@@ -255,6 +338,7 @@ export class HelpRequestController {
 
 		.get(
 			"/",
+			queryValidationMiddleware,
 			describeRoute({
 				summary: "Get paginated tasks",
 				description:
@@ -299,7 +383,11 @@ export class HelpRequestController {
 					}
 
 					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const validation = validateTasksQuery(c.req.query());
+					const repeatedSkills = c.req.queries("skill");
+					const validation = validateTasksQuery({
+						...c.req.query(),
+						...(repeatedSkills ? { skill: repeatedSkills } : {}),
+					});
 
 					//Daca validatorul gaseste o problema
 					if (validation.error || !validation.validData) {
@@ -318,12 +406,212 @@ export class HelpRequestController {
 						sortBy,
 						order,
 						filters,
+						c.get("user")?.id,
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
 				} catch (error) {
+					if (
+						error instanceof RadiusRequiredError ||
+						(error instanceof Error && error.message === "Radius is required")
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: error.message,
+						});
+					}
+
 					console.error("Eroare la GET /tasks paginat si sortat:", error);
 					//return c.json({ error: "Eroare interna a serverului." }, 500);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+
+		.get("/:id/ws", async (c) => {
+			const helpRequestId = Number(c.req.param("id"));
+			if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
+				return new Response("Invalid id", { status: 400 });
+			}
+
+			const session = await getOptionalSession(c);
+			const guestSessionId =
+				c.req.query("guestSession") ?? c.req.query("X-Guest-Session");
+
+			if (!session?.userId && !guestSessionId) {
+				return new Response("Unauthorized", { status: 401 });
+			}
+
+			const access = session?.userId
+				? ({ kind: "auth", userId: session.userId } as const)
+				: ({
+						kind: "guest",
+						guestSessionId: guestSessionId as string,
+					} as const);
+
+			const accessResult = await this.messageService.resolveRealtimeAccess(
+				helpRequestId,
+				access,
+			);
+
+			if (accessResult.status !== 200) {
+				return new Response(accessResult.message, {
+					status: accessResult.status,
+				});
+			}
+
+			return upgradeWebSocket(c, {
+				onOpen: (_, ws) => {
+					taskConversationConnections.register({
+						taskId: helpRequestId,
+						role: accessResult.role,
+						socket: ws.raw as Bun.ServerWebSocket<unknown>,
+					});
+				},
+				onMessage: async (event, ws) => {
+					const rawData = await getWsMessageText(
+						event.data as string | ArrayBuffer | Blob,
+					);
+
+					let parsedPayload: unknown;
+					try {
+						parsedPayload = JSON.parse(rawData);
+					} catch {
+						ws.send(createWsErrorPayload("Invalid websocket message payload"));
+						return;
+					}
+
+					const parsedMessage = wsMessageSchema.safeParse(parsedPayload);
+					if (!parsedMessage.success) {
+						ws.send(createWsErrorPayload("Invalid websocket message payload"));
+						return;
+					}
+
+					const result = await this.messageService.createRealtimeMessage(
+						helpRequestId,
+						access,
+						parsedMessage.data.data,
+					);
+
+					if (result.status !== 201) {
+						ws.send(createWsErrorPayload(result.message));
+						return;
+					}
+
+					const peerSocket = taskConversationConnections.getPeerSocket(
+						helpRequestId,
+						result.role,
+					);
+
+					if (!peerSocket) {
+						return;
+					}
+
+					peerSocket.send(
+						JSON.stringify({
+							type: "NEW_MESSAGE",
+							data: serializeRealtimeMessage(result.message),
+						}),
+					);
+				},
+				onClose: (_, ws) => {
+					taskConversationConnections.remove(
+						helpRequestId,
+						accessResult.role,
+						ws.raw as Bun.ServerWebSocket<unknown>,
+					);
+				},
+			});
+		})
+
+		.get(
+			"/:id/messages",
+			describeRoute({
+				summary: "Get task conversation messages",
+				description:
+					"Retrieves paginated messages for the conversation associated with a task. Accepts either an authenticated owner/assigned volunteer or a matching X-Guest-Session header.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved conversation messages",
+					},
+					400: {
+						description: "Invalid task ID or pagination parameters",
+					},
+					401: {
+						description:
+							"Unauthorized - neither an auth session nor X-Guest-Session was provided",
+					},
+					403: {
+						description:
+							"Forbidden - auth user or guest session does not match the task",
+					},
+					404: {
+						description: "Conversation not found",
+					},
+					500: {
+						description: "Internal server error",
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					const helpRequestId = Number(c.req.param("id"));
+					if (
+						!Number.isInteger(helpRequestId) ||
+						helpRequestId <= 0 ||
+						helpRequestId > Number.MAX_SAFE_INTEGER
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Invalid id",
+						});
+					}
+
+					const pagination = parseMessagesPagination({
+						page: c.req.query("page"),
+						pageSize: c.req.query("pageSize"),
+					});
+					if (!pagination) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message:
+								"Invalid pagination parameters. page must be >= 1 and pageSize must be between 1 and 100.",
+						});
+					}
+
+					const session = await getOptionalSession(c);
+					const guestSessionId = c.req.header("X-Guest-Session");
+
+					if (!session?.userId && !guestSessionId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					const access = session?.userId
+						? ({ kind: "auth", userId: session.userId } as const)
+						: ({
+								kind: "guest",
+								guestSessionId: guestSessionId as string,
+							} as const);
+
+					const result = await this.messageService.getMessagesForTask(
+						helpRequestId,
+						access,
+						pagination.page,
+						pagination.pageSize,
+					);
+
+					if (result.status === 200) {
+						//return c.json(result.body, 200);
+						return sendApiResponse(c, result.body, { kind: "success" });
+					}
+
+					return sendApiResponse(c, null, {
+						statusCode: result.status,
+						message: result.message,
+					});
+				} catch (error) {
+					console.error("Could not retrieve task messages:", error);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
@@ -402,9 +690,11 @@ export class HelpRequestController {
 						? foundTask[0]
 						: foundTask;
 					//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
-					return sendApiResponse(c, sanitizeAnonymousTask(dataToReturn), {
-						kind: "success",
-					});
+					return sendApiResponse(
+						c,
+						sanitizeAnonymousTask(dataToReturn, session?.userId),
+						{ kind: "success" },
+					);
 				} catch (error) {
 					console.error(
 						`Eroare critica la GET /tasks/${c.req.param("id")} :`,
@@ -563,6 +853,381 @@ export class HelpRequestController {
 					}
 
 					throw error;
+				}
+			},
+		)
+
+		.delete(
+			"/:id",
+			authMiddleware,
+			describeRoute({
+				summary: "Delete a task",
+				description:
+					"Deletes a task owned by the authenticated user. Only tasks with OPEN or CANCELLED status can be deleted. All pending offers are automatically rejected, and volunteers are notified.",
+				tags: ["Tasks"],
+				responses: {
+					204: {
+						description: "Task successfully deleted",
+					},
+					400: {
+						description: "Invalid task ID provided",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the task owner",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					409: {
+						description:
+							"Conflict - Task cannot be deleted due to invalid status (MATCHED, IN_PROGRESS, COMPLETED, or REJECTED)",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					// Get the authenticated session from middleware
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					// Extract and validate the task ID
+					const taskIdParam = c.req.param("id");
+					const taskId = Number(taskIdParam);
+
+					if (
+						!Number.isInteger(taskId) ||
+						taskId <= 0 ||
+						taskId > Number.MAX_SAFE_INTEGER
+					) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message:
+								"Error: The ID provided is invalid. It must be a positive integer.",
+						});
+					}
+
+					// Attempt to delete the task
+					await this.helpRequestService.deleteHelpRequestByOwner(
+						taskId,
+						session.userId,
+					);
+
+					// Return 204 No Content on successful deletion
+					//return c.body(null, 204);
+					return sendApiResponse(c, null, { statusCode: 204 });
+				} catch (error) {
+					// Handle ownership error
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					// Handle task not found error
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					// Handle invalid status error (conflict)
+					if (error instanceof ConflictError) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					console.error("Error deleting task:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+
+		.get(
+			"/:id/offers",
+			authMiddleware,
+			describeRoute({
+				summary: "Get offers for a specific task",
+				description:
+					"Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
+				tags: ["Tasks"],
+				responses: {
+					200: {
+						description: "Successfully retrieved offers",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					400: {
+						description:
+							"Invalid task ID, pagination parameters, or status filter",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized - User is not authenticated",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden - User is not the owner of this task",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				try {
+					// Extragem user-ul curent pus de middleware-ul de auth
+					const session = c.get("session");
+					if (!session?.userId) {
+						return sendApiResponse(c, null, { kind: "unauthorized" });
+					}
+
+					const taskId = Number(c.req.param("id"));
+					if (!Number.isInteger(taskId) || taskId <= 0) {
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: "Provide a real number",
+						});
+					}
+
+					// Extragem și validăm query params cu defaults
+					const query = c.req.query();
+					const page = query.page ? Number(query.page) : 1;
+					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+					if (
+						!Number.isInteger(page) ||
+						page < 1 ||
+						!Number.isInteger(pageSize) ||
+						pageSize < 1 ||
+						pageSize > 50
+					) {
+						return sendApiResponse(c, null, { kind: "clientError" });
+					}
+
+					const statusRaw = query.status;
+
+					if (statusRaw) {
+						const isValidStatus = Object.values(OfferStatus).includes(
+							statusRaw as OfferStatus,
+						);
+
+						if (!isValidStatus) {
+							return sendApiResponse(c, null, {
+								kind: "clientError",
+								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
+							});
+						}
+					}
+
+					const status = statusRaw as
+						| "PENDING"
+						| "ACCEPTED"
+						| "REJECTED"
+						| undefined;
+
+					const result =
+						await this.helpRequestService.getPaginatedOffersForTaskOwner(
+							taskId,
+							session.userId,
+							page,
+							pageSize,
+							status,
+						);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: "the task does not exist",
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							kind: "forbidden",
+							message: error.message,
+						});
+					}
+
+					console.error("Could not get task offers:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+
+		// Offer-specific endpoint kept here temporarily by team decision.
+		// Constraints enforced for POST /tasks/:id/offers:
+		// - authenticated session required
+		// - task id must be a positive integer
+		// - request body must match helpOfferCreateInputSchema
+		// - service layer verifies OPEN task status, volunteer ownership rules,
+		//   and duplicate pending offers
+		.post(
+			"/:id/offers",
+			describeRoute({
+				summary: "Create a task offer",
+				description:
+					"Creates a volunteer offer for a task. This endpoint is currently kept in HelpRequestController for routing consistency.",
+				tags: ["Tasks"],
+				responses: {
+					201: {
+						description: "The offer was successfully created",
+						content: {
+							"application/json": { schema: resolver(successDetailsSchema) },
+						},
+					},
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					400: {
+						description: "Invalid task id or invalid request body",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					403: {
+						description: "Forbidden. The session user cannot submit this offer",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					404: {
+						description: "Task not found",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					409: {
+						description: "Task status conflict or duplicate pending offer",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": { schema: resolver(emptyApiResponseSchema) },
+						},
+					},
+				},
+			}),
+			async (c) => {
+				const session = await requireSession(c);
+				if (session instanceof Response) {
+					return session;
+				}
+
+				const helpRequestId = Number(c.req.param("id"));
+				if (!Number.isInteger(helpRequestId) || helpRequestId <= 0) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid id",
+					});
+				}
+
+				const body = await c.req.json().catch(() => null);
+				const parsedBody = helpOfferCreateInputSchema.safeParse(body);
+				if (!parsedBody.success) {
+					return sendApiResponse(
+						c,
+						{
+							errors: parsedBody.error.issues.map((issue) => ({
+								field: issue.path.length === 0 ? "body" : issue.path.join("."),
+								message: issue.message,
+							})),
+						},
+						{
+							statusCode: 400,
+						},
+					);
+				}
+
+				try {
+					const createdOffer = await this.helpOfferService.createOffer(
+						helpRequestId,
+						session.userId,
+						parsedBody.data,
+					);
+
+					return sendApiResponse(c, createdOffer, { kind: "created" });
+				} catch (error) {
+					if (error instanceof HelpOfferTaskNotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: error.message,
+						});
+					}
+
+					if (error instanceof HelpOfferForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: error.message,
+						});
+					}
+
+					if (
+						error instanceof HelpOfferTaskStatusConflictError ||
+						error instanceof HelpOfferDuplicatePendingError
+					) {
+						return sendApiResponse(c, null, {
+							statusCode: 409,
+							message: error.message,
+						});
+					}
+
+					console.error("Could not create help offer:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},
 		);

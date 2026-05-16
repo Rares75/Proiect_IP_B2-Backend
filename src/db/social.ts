@@ -7,9 +7,11 @@ import {
 	text,
 	timestamp,
 	unique,
+	varchar,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 import {
+	messageContentTypeEnum,
 	accountStatusEnum,
 	conversationStatusEnum,
 	notificationTypeEnum,
@@ -30,10 +32,11 @@ export const messages = pgTable("messages", {
 	conversationId: integer("conversation_id")
 		.notNull()
 		.references(() => conversations.id, { onDelete: "cascade" }),
-	senderId: text("sender_id")
-		.notNull()
-		.references(() => user.id),
-	content: text("content").notNull(),
+	senderId: text("sender_id").references(() => user.id),
+	guestSessionId: varchar("guest_session_id", { length: 128 }),
+	type: messageContentTypeEnum("type").notNull().default("TEXTCONTENT"),
+	content: text("content"),
+	audioUrl: text("audio_url"),
 	sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -79,9 +82,8 @@ export const interactionHistories = pgTable("interaction_histories", {
 
 export const notifications = pgTable("notifications", {
 	id: serial("id").primaryKey(),
-	userId: text("user_id")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
+	userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // am scos .notNull()
+	guestSessionId: text("guest_session_id"), // am adaugat suport pentru guest
 	type: notificationTypeEnum("type").notNull(),
 	text: text("text").notNull(),
 	relatedRequestId: integer("related_request_id").references(

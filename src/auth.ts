@@ -13,10 +13,15 @@ import { twoFactor } from "better-auth/plugins";
 import { changeEmailTemplate } from "./mailers/templates/changeEmail";
 import { ProfileService } from "./services/ProfileService";
 import { container } from "./di";
+import { getAllowedOrigins } from "./utils/origins";
+
+const isProduction = Bun.env.NODE_ENV === "production";
+const sessionCookieSameSite = isProduction ? "none" : "lax";
+const trustedOrigins = getAllowedOrigins();
 
 const auth = betterAuth({
 	appName: "My App",
-	baseURL: process.env.BETTER_AUTH_URL,
+	baseURL: Bun.env.BETTER_AUTH_URL,
 	user: {
 		changeEmail: {
 			enabled: true,
@@ -28,7 +33,7 @@ const auth = betterAuth({
 			},
 		},
 	},
-	database: drizzleAdapter(db, { provider: "pg", schema }),
+	database: drizzleAdapter(db, { provider: "postgresql", schema }),
 	databaseHooks: {
 		user: {
 			create: {
@@ -66,20 +71,19 @@ const auth = betterAuth({
 		enabled: true,
 	},
 
-	trustedOrigins: [Bun.env.CLIENT_URL, Bun.env.SERVER_URL],
+	trustedOrigins,
 	advanced: {
-		crossSubDomainCookies: { enabled: true },
-		trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(","),
-		trustedOrigins: (process.env.TRUSTED_ORIGINS ?? "").split(","),
-		cookiePrefix: "my-app",
-		useSecureCookies: false,
+		useSecureCookies: isProduction,
+		defaultCookieAttributes: {
+			sameSite: sessionCookieSameSite,
+			secure: isProduction,
+		},
 		cookies: {
 			session_token: {
-				name: "session_token",
 				attributes: {
 					httpOnly: true,
-					secure: false,
-					sameSite: "lax",
+					secure: isProduction,
+					sameSite: sessionCookieSameSite,
 					maxAge: 60 * 60 * 24 * 7,
 					path: "/",
 				},

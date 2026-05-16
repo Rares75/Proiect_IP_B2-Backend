@@ -1,0 +1,567 @@
+/// <reference types="bun-types" />
+import { describe, expect, it, beforeAll, spyOn, afterEach } from "bun:test";
+import { join } from "node:path";
+import app from "../../../src/app";
+import { loadControllers } from "../../../src/utils/controller";
+import { HelpRequestService } from "../../../src/services/HelpRequestService";
+import auth from "../../../src/auth";
+import {
+	expectClientErrorApiResponse,
+	expectNotFoundApiResponse,
+	expectApiEnvelope,
+	expectServerErrorApiResponse,
+	expectSuccessApiResponse,
+} from "../apiResponseAssertions";
+
+//import { HelpRequestController } from "../../src/controllers/HelpRequestController";
+
+describe("GET /api/tasks/:id", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	beforeAll(async () => {
+		const controllersPath = join(
+			(import.meta as any).dir,
+			"../../src/controllers",
+		);
+		await loadControllers(controllersPath);
+	});
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		authSpy = undefined;
+	});
+
+	const authenticate = () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123", userId: "user-123" } as any,
+		});
+	};
+
+	it("ar trebui sa returneze 401 pentru un task individual fara autentificare", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
+
+		const response = await app.request("/api/tasks/1");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(401);
+		expectApiEnvelope(body, 401);
+		expect(body.message).toBe("Unauthorized");
+		expect(body.isUnauthorized).toBe(true);
+	});
+
+	it("ar trebui sa returneze 400 pentru TOATE tipurile de ID-uri invalide", async () => {
+		authenticate();
+		const badInputs = [
+			"abc", // Litere / Text pur
+			"@#!", // Caractere speciale
+			"-5", // Numar negativ
+			"0", // Zero
+			"3.14", // Numar cu zecimale
+			"999999999999999999999999", // Numar urias (Overflow bazei de date)
+		];
+
+		for (const badId of badInputs) {
+			const response = await app.request(`/api/tasks/${badId}`);
+			const body: any = await response.json();
+
+			expect(response.status).toBe(400);
+			expectClientErrorApiResponse(
+				body,
+				"Error: The ID provided is invalid. It must be a positive integer.",
+				400,
+			);
+		}
+	});
+
+	it("ar trebui sa returneze 404 pentru un task care nu exista", async () => {
+		authenticate();
+		const fakeId = "999999"; // Un ID care nu a fost creat
+		const mockNotFound = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(undefined);
+
+		try {
+			const response = await app.request(`/api/tasks/${fakeId}`);
+			const body: any = await response.json();
+
+			expect(response.status).toBe(404);
+			expectNotFoundApiResponse(
+				body,
+				`Eroare: Task-ul cu ID-ul '${fakeId}' nu exista in sistem.`,
+				404,
+			);
+		} finally {
+			mockNotFound.mockRestore();
+		}
+	});
+
+	it("ar trebui sa returneze 500 daca pica baza de date / serverul", async () => {
+		authenticate();
+		// Simulam o pana de curent la baza de date pentru o secunda
+		const mockError = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockRejectedValue(new Error("Baza de date a picat simulata!"));
+
+		try {
+			const response = await app.request(`/api/tasks/1`);
+			const body: any = await response.json();
+
+			expect(response.status).toBe(500);
+			expectServerErrorApiResponse(
+				body,
+				"Internal server error. Please try again later.",
+				500,
+			);
+		} finally {
+			mockError.mockRestore();
+		}
+	});
+
+	it("ar trebui sa returneze 200 si datele pentru un task valid", async () => {
+		authenticate();
+		const validId = "2";
+		const mockTask = {
+			id: Number(validId),
+			title: "Test task",
+			status: "OPEN",
+			details: null,
+		};
+		const mockFound = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		try {
+			const response = await app.request(`/api/tasks/${validId}`, {
+				headers: { Authorization: "Bearer fake-test-token" },
+			});
+			const body: any = await response.json();
+
+			expect(response.status).toBe(200);
+			expectSuccessApiResponse(body, { ...mockTask, displayName: null }, 200);
+		} finally {
+			mockFound.mockRestore();
+		}
+	});
+
+	it("smoke: envelope-ul complet este prezent pentru GET /tasks/:id", async () => {
+		authenticate();
+		const validId = "3";
+		const mockTask = {
+			id: Number(validId),
+			title: "Smoke task",
+			status: "OPEN",
+		};
+		const mockFound = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		try {
+			const response = await app.request(`/api/tasks/${validId}`, {
+				headers: { Authorization: "Bearer fake-test-token" },
+			});
+			const body: any = await response.json();
+
+			expect(response.status).toBe(200);
+			expectSuccessApiResponse(body, { ...mockTask, displayName: null }, 200);
+		} finally {
+			mockFound.mockRestore();
+		}
+	});
+});
+
+//BE1-12
+describe("GET /api/tasks (Paginare BE1-12)", () => {
+	let authSpy: any;
+
+	afterEach(() => {
+		if (authSpy) {
+			authSpy.mockRestore();
+		}
+	});
+
+	it("ar trebui sa returneze 401 pentru un request neautentificat", async () => {
+		const response = await app.request(`/api/tasks`);
+		const body: any = await response.json();
+
+		expect(response.status).toBe(401);
+		expectApiEnvelope(body, 401);
+		expect(body.message).toBe("Unauthorized");
+		expect(body.isUnauthorized).toBe(true);
+	});
+
+	it("ar trebui sa returneze 400 daca pageSize este 0", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const response = await app.request(`/api/tasks?pageSize=0`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expect(body.errors).toContainEqual({
+			field: "pageSize",
+			message: "Page size must be greater than 0",
+		});
+	});
+
+	it("ar trebui sa returneze 400 daca page este numar negativ", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const response = await app.request(`/api/tasks?page=-1`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expect(JSON.stringify(body)).toContain("page");
+	});
+
+	it("ar trebui sa returneze 400 daca pageSize depaseste maximul (100)", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const response = await app.request(`/api/tasks?pageSize=200`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+		expect(response.status).toBe(400);
+		const body: any = await response.json();
+		expect(JSON.stringify(body)).toContain("pageSize");
+	});
+
+	it("ar trebui sa returneze 200 si valorile default (page 1, pageSize 10) cand nu sunt trimisi parametri", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [{ id: 1, title: "Task Test", anonymousMode: false } as any],
+			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+		});
+
+		const response = await app.request(`/api/tasks`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+
+		expect(response.status).toBe(200);
+		const body: any = await response.json();
+		expectSuccessApiResponse(body, {
+			data: [{ id: 1, title: "Task Test", anonymousMode: false }],
+			meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+		});
+		expect(body.data.meta.page).toBe(1);
+		expect(body.data.meta.pageSize).toBe(10);
+
+		serviceSpy.mockRestore();
+	});
+
+	it("ar trebui sa returneze 200 si un array gol pentru o pagina inexistenta (ex: page=999)", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [],
+			meta: { page: 999, pageSize: 10, total: 5, totalPages: 1 },
+		});
+
+		const response = await app.request(`/api/tasks?page=999`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+
+		expect(response.status).toBe(200);
+		const body: any = await response.json();
+		expectSuccessApiResponse(body, {
+			data: [],
+			meta: { page: 999, pageSize: 10, total: 5, totalPages: 1 },
+		});
+		expect(body.data.data).toBeArray();
+		expect(body.data.data.length).toBe(0);
+		expect(body.data.meta.page).toBe(999);
+
+		serviceSpy.mockRestore();
+	});
+
+	it("ar trebui sa returneze 500 si un mesaj generic daca pica serverul (fara stack trace)", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-123", email: "test@test.com" } as any,
+			session: { id: "session-123" } as any,
+		});
+
+		const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockRejectedValue(
+			new Error("DB_CRASH: parola bazei de date a fost compromisa!"),
+		);
+
+		const response = await app.request(`/api/tasks`, {
+			headers: { Authorization: "Bearer fake-test-token" },
+		});
+
+		expect(response.status).toBe(500);
+		const body: any = await response.json();
+
+		expectServerErrorApiResponse(body, "Internal server error", 500);
+		expect(body.message).not.toContain("parola bazei de date");
+
+		serviceSpy.mockRestore();
+
+		consoleSpy.mockRestore();
+	});
+
+	it("ar trebui sa returneze rezultatele corecte si meta actualizat pentru page=2 si pageSize=5", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-1" },
+			session: { id: "sess-1" },
+		} as any);
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [{ id: 6, title: "Task 6" } as any],
+			meta: { page: 2, pageSize: 5, total: 6, totalPages: 2 },
+		});
+
+		const response = await app.request(`/api/tasks?page=2&pageSize=5`, {
+			headers: { Authorization: "Bearer fake" },
+		});
+		expect(response.status).toBe(200);
+		const body: any = await response.json();
+		expectSuccessApiResponse(body, {
+			data: [{ id: 6, title: "Task 6" }],
+			meta: { page: 2, pageSize: 5, total: 6, totalPages: 2 },
+		});
+		expect(body.data.meta.page).toBe(2);
+		expect(body.data.meta.pageSize).toBe(5);
+
+		serviceSpy.mockRestore();
+	});
+
+	it("ar trebui sa includa requestDetails complet daca exista, altfel null", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-1" },
+			session: { id: "sess-1" },
+		} as any);
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [
+				{ id: 1, requestDetails: { notes: "Avem detalii" } } as any,
+				{ id: 2, requestDetails: null } as any,
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+
+		const response = await app.request(`/api/tasks`, {
+			headers: { Authorization: "Bearer fake" },
+		});
+		const body: any = await response.json();
+
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 1, requestDetails: { notes: "Avem detalii" } },
+				{ id: 2, requestDetails: null },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].requestDetails).not.toBeNull();
+		expect(body.data.data[1].requestDetails).toBeNull();
+
+		serviceSpy.mockRestore();
+	});
+
+	it("ar trebui sa ascunda userId daca anonymousMode este true", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-1" },
+			session: { id: "sess-1" },
+		} as any);
+
+		const serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getPaginatedTasks",
+		).mockResolvedValue({
+			data: [
+				{ id: 1, anonymousMode: true } as any,
+				{ id: 2, anonymousMode: false, requestedByUserId: "user-123" } as any,
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+
+		const response = await app.request(`/api/tasks`, {
+			headers: { Authorization: "Bearer fake" },
+		});
+		const body: any = await response.json();
+
+		expectSuccessApiResponse(body, {
+			data: [
+				{ id: 1, anonymousMode: true },
+				{ id: 2, anonymousMode: false, requestedByUserId: "user-123" },
+			],
+			meta: { page: 1, pageSize: 10, total: 2, totalPages: 1 },
+		});
+		expect(body.data.data[0].requestedByUserId).toBeUndefined();
+		expect(body.data.data[1].requestedByUserId).toBe("user-123");
+
+		serviceSpy.mockRestore();
+	});
+});
+
+describe("GET /api/tasks/:id - anonimizare (4 scenarii)", () => {
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+	let serviceSpy: ReturnType<typeof spyOn> | undefined;
+
+	afterEach(() => {
+		authSpy?.mockRestore();
+		serviceSpy?.mockRestore();
+		authSpy = undefined;
+		serviceSpy = undefined;
+	});
+
+	it("anonim + owner: vede requestedByUserId, isMine=true, ownerName/ownerUsername si displayName=username", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "owner-1" } as any,
+			session: { id: "s1", userId: "owner-1" } as any,
+		});
+		const mockTask = {
+			id: 10,
+			anonymousMode: true,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task anonim",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/10");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBe(true);
+		expect(body.data.ownerName).toBe("John Doe");
+		expect(body.data.ownerUsername).toBe("johndoe");
+		expect(body.data.displayName).toBe("johndoe");
+	});
+
+	it("anonim + non-owner: nu vede requestedByUserId, vede displayName=username, fara ownerName/ownerUsername", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "other-user" } as any,
+			session: { id: "s2", userId: "other-user" } as any,
+		});
+		const mockTask = {
+			id: 11,
+			anonymousMode: true,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task anonim",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/11");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBeUndefined();
+		expect(body.data.displayName).toBe("johndoe");
+		expect(body.data.isMine).toBeUndefined();
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+	});
+
+	it("non-anonim + owner: requestedByUserId vizibil, isMine=true, ownerName/ownerUsername si displayName=name", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "owner-1" } as any,
+			session: { id: "s3", userId: "owner-1" } as any,
+		});
+		const mockTask = {
+			id: 12,
+			anonymousMode: false,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task public",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/12");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBe(true);
+		expect(body.data.ownerName).toBe("John Doe");
+		expect(body.data.ownerUsername).toBe("johndoe");
+		expect(body.data.displayName).toBe("John Doe");
+	});
+
+	it("non-anonim + non-owner: requestedByUserId vizibil, displayName=name, fara isMine/ownerName/ownerUsername", async () => {
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "other-user" } as any,
+			session: { id: "s4", userId: "other-user" } as any,
+		});
+		const mockTask = {
+			id: 13,
+			anonymousMode: false,
+			requestedByUserId: "owner-1",
+			ownerName: "John Doe",
+			ownerUsername: "johndoe",
+			title: "task public",
+			status: "OPEN",
+			details: null,
+		};
+		serviceSpy = spyOn(
+			HelpRequestService.prototype,
+			"getHelpRequestById",
+		).mockResolvedValue(mockTask as any);
+
+		const response = await app.request("/api/tasks/13");
+		const body: any = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.data.requestedByUserId).toBe("owner-1");
+		expect(body.data.isMine).toBeUndefined();
+		expect(body.data.displayName).toBe("John Doe");
+		expect(body.data.ownerName).toBeUndefined();
+		expect(body.data.ownerUsername).toBeUndefined();
+	});
+});
