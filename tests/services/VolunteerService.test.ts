@@ -12,6 +12,8 @@ describe("VolunteerService", () => {
 			findByUserId: async () => null,
 			create: async () => null,
 			update: async () => null,
+			findKnownLocationsByVolunteerId: async () => [],
+			replaceKnownLocations: async () => undefined,
 		};
 
 		mockVolunteerProfileRepo = {
@@ -62,11 +64,27 @@ describe("VolunteerService", () => {
 		test("should return volunteer and profile when found", async () => {
 			const volunteer = { id: 1, userId: "user-1" };
 			const profile = { id: 1, volunteerId: 1, skills: ["cooking"] };
+			const knownLocations = [
+				{
+					id: 1,
+					city: "Iasi",
+					addressText: "Centru",
+					location: { x: 27.58, y: 47.16 },
+				},
+			];
 			mockVolunteerRepo.findByUserId = async () => volunteer;
+			mockVolunteerRepo.findKnownLocationsByVolunteerId = async () =>
+				knownLocations;
 			mockVolunteerProfileRepo.findByVolunteerId = async () => profile;
 
 			const result = await service.getVolunteerProfile("user-1");
-			expect(result).toMatchObject({ volunteer, profile });
+			expect(result).toMatchObject({
+				volunteer,
+				profile: {
+					...profile,
+					knownLocations,
+				},
+			});
 		});
 
 		test("should return null profile when volunteer has no profile", async () => {
@@ -116,6 +134,45 @@ describe("VolunteerService", () => {
 				maxDistanceKm: 10,
 			});
 			expect(result).toMatchObject(created);
+		});
+
+		test("should persist currentLocation and knownLocations when provided", async () => {
+			const volunteer = { id: 1, userId: "user-1" };
+			let replacedKnownLocations: any[] | null = null;
+
+			mockVolunteerRepo.findByUserId = async () => volunteer;
+			mockVolunteerRepo.create = async () => volunteer;
+			mockVolunteerRepo.replaceKnownLocations = async (
+				_volunteerId: number,
+				knownLocations: any[],
+			) => {
+				replacedKnownLocations = knownLocations;
+			};
+			mockVolunteerProfileRepo.findByVolunteerId = async () => null;
+			mockVolunteerProfileRepo.create = async (data: any) => ({
+				id: 1,
+				...data,
+			});
+
+			const result = await service.createVolunteerProfile("user-1", {
+				currentLocation: { x: 27.58, y: 47.16 },
+				knownLocations: [
+					{
+						city: "Iasi",
+						addressText: "Centru",
+						location: { x: 27.58, y: 47.16 },
+					},
+				],
+			});
+
+			expect(result.currentLocation).toEqual({ x: 27.58, y: 47.16 });
+			expect(replacedKnownLocations).toEqual([
+				{
+					city: "Iasi",
+					addressText: "Centru",
+					location: { x: 27.58, y: 47.16 },
+				},
+			]);
 		});
 
 		test("should create profile with empty skills", async () => {
@@ -182,6 +239,48 @@ describe("VolunteerService", () => {
 				maxDistanceKm: 20,
 			});
 			expect(result).toMatchObject(updated);
+		});
+
+		test("should update currentLocation and replace knownLocations when provided", async () => {
+			const volunteer = { id: 1, userId: "user-1" };
+			const profile = { id: 1, volunteerId: 1, skills: ["cooking"] };
+			let replacedKnownLocations: any[] | null = null;
+			let updatedProfileData: any = null;
+
+			mockVolunteerRepo.findByUserId = async () => volunteer;
+			mockVolunteerRepo.replaceKnownLocations = async (
+				_volunteerId: number,
+				knownLocations: any[],
+			) => {
+				replacedKnownLocations = knownLocations;
+			};
+			mockVolunteerProfileRepo.findByVolunteerId = async () => profile;
+			mockVolunteerProfileRepo.update = async (_id: number, data: any) => {
+				updatedProfileData = data;
+				return { ...profile, ...data };
+			};
+
+			await service.updateVolunteerProfile("user-1", {
+				currentLocation: { x: 27.6, y: 47.1 },
+				knownLocations: [
+					{
+						city: "Iasi",
+						addressText: "Copou",
+						location: { x: 27.6, y: 47.1 },
+					},
+				],
+			});
+
+			expect(updatedProfileData).toMatchObject({
+				currentLocation: { x: 27.6, y: 47.1 },
+			});
+			expect(replacedKnownLocations).toEqual([
+				{
+					city: "Iasi",
+					addressText: "Copou",
+					location: { x: 27.6, y: 47.1 },
+				},
+			]);
 		});
 
 		test("should update availability on volunteer", async () => {

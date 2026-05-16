@@ -29,7 +29,8 @@ describe("GET /api/volunteers/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(400);
-			expect(body.error).toBeDefined();
+			expect(body.isClientError).toBe(true);
+			expect(body.message).toBe("Invalid volunteer ID. Must be a positive integer.");
 		}
 	});
 
@@ -44,7 +45,8 @@ describe("GET /api/volunteers/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(404);
-			expect(body.error).toContain("999999");
+			expect(body.notFound).toBe(true);
+			expect(body.message).toContain("999999");
 		} finally {
 			mockNotFound.mockRestore();
 		}
@@ -96,18 +98,18 @@ describe("GET /api/volunteers/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.id).toBe(1);
-			expect(body.availability).toBe(true);
-			expect(body.trustScore).toBe(4.5);
-			expect(body.completedTasks).toBe(10);
-			expect(body.user).toBeDefined();
-			expect(body.user.name).toBe("Ion Popescu");
-			expect(body.profile).toBeDefined();
-			expect(body.profile.languages).toBeArray();
-			expect(body.profile.skills).toBeArray();
-			expect(body.ratingInfo).toBeDefined();
-			expect(body.ratingInfo.averageStars).toBe(5);
-			expect(body.ratingInfo.totalRatings).toBe(1);
+			expect(body.data.id).toBe(1);
+			expect(body.data.availability).toBe(true);
+			expect(body.data.trustScore).toBe(4.5);
+			expect(body.data.completedTasks).toBe(10);
+			expect(body.data.user).toBeDefined();
+			expect(body.data.user.name).toBe("Ion Popescu");
+			expect(body.data.profile).toBeDefined();
+			expect(body.data.profile.languages).toBeArray();
+			expect(body.data.profile.skills).toBeArray();
+			expect(body.data.ratingInfo).toBeDefined();
+			expect(body.data.ratingInfo.averageStars).toBe(5);
+			expect(body.data.ratingInfo.totalRatings).toBe(1);
 		} finally {
 			profileSpy.mockRestore();
 			ratingsSpy.mockRestore();
@@ -147,9 +149,9 @@ describe("GET /api/volunteers/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.user.name).toBeNull();
-			expect(body.user.email).toBeNull();
-			expect(body.user.phone).toBeNull();
+			expect(body.data.user.name).toBeNull();
+			expect(body.data.user.email).toBeNull();
+			expect(body.data.user.phone).toBeNull();
 		} finally {
 			profileSpy.mockRestore();
 			ratingsSpy.mockRestore();
@@ -189,9 +191,9 @@ describe("GET /api/volunteers/:id", () => {
 			const body: any = await response.json();
 
 			expect(response.status).toBe(200);
-			expect(body.ratingInfo.averageStars).toBeNull();
-			expect(body.ratingInfo.totalRatings).toBe(0);
-			expect(body.ratingInfo.ratings).toEqual([]);
+			expect(body.data.ratingInfo.averageStars).toBeNull();
+			expect(body.data.ratingInfo.totalRatings).toBe(0);
+			expect(body.data.ratingInfo.ratings).toEqual([]);
 		} finally {
 			profileSpy.mockRestore();
 			ratingsSpy.mockRestore();
@@ -206,7 +208,9 @@ describe("GET /api/volunteers/:id", () => {
 
 		try {
 			const response = await app.request("/api/volunteers/1");
+			const body: any = await response.json();
 			expect(response.status).toBe(500);
+			expect(body.isServerError).toBe(true);
 		} finally {
 			mockError.mockRestore();
 		}

@@ -1,303 +1,258 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, spyOn } from "bun:test";
+import auth from "../../src/auth";
+import { VolunteerController } from "../../src/controllers/VolunteerController";
+import { NotFoundError } from "../../src/utils/Errors";
 
-describe("VolunteerController", () => {
+const makeApp = (mockRepository: any, mockService: any) => {
+	const controller = new VolunteerController(
+		mockRepository as any,
+		mockService as any,
+	);
+	return controller.controller;
+};
+
+describe("VolunteerController /me/profile", () => {
+	let app: any;
+	let mockRepository: any;
 	let mockService: any;
+	let authSpy: ReturnType<typeof spyOn> | undefined;
+
+	const fullProfileResponse = {
+		volunteer: {
+			id: 1,
+			userId: "user-1",
+			availability: true,
+			trustScore: 4.5,
+			completedTasks: 10,
+		},
+		profile: {
+			id: 1,
+			volunteerId: 1,
+			skills: ["cooking", "driving"],
+			maxDistanceKm: 10,
+			currentLocation: { x: 27.58, y: 47.16 },
+			knownLocations: [
+				{
+					id: 1,
+					city: "Iasi",
+					addressText: "Centru",
+					location: { x: 27.58, y: 47.16 },
+				},
+			],
+		},
+	};
 
 	beforeEach(() => {
-		mockService = {
-			getVolunteerProfile: async () => null,
-			createVolunteerProfile: async (_: string, __: any) => null,
-			updateVolunteerProfile: async (_: string, __: any) => null,
-			addSkill: async (_: string, __: string) => null,
-			removeSkill: async (_: string, __: string) => null,
+		authSpy = spyOn(auth.api, "getSession").mockResolvedValue({
+			user: { id: "user-1", email: "test@test.com" } as any,
+			session: { userId: "user-1", id: "session-1" } as any,
+		});
+
+		mockRepository = {
+			findProfileById: async () => undefined,
+			findRatingsById: async () => ({ ratings: [], averageStars: null }),
 		};
+
+		mockService = {
+			getVolunteerProfile: async () => fullProfileResponse,
+			createVolunteerProfile: async () => ({
+				id: 1,
+				volunteerId: 1,
+			}),
+			updateVolunteerProfile: async () => ({
+				id: 1,
+				volunteerId: 1,
+			}),
+			addSkill: async () => null,
+			removeSkill: async () => null,
+		};
+
+		app = makeApp(mockRepository, mockService);
 	});
 
 	afterEach(() => {
-		mockService = null;
+		authSpy?.mockRestore();
+		authSpy = undefined;
 	});
 
-	describe("GET /volunteers/me/profile", () => {
-		test("should return volunteer profile when found", async () => {
-			const mockProfile = {
-				volunteer: {
-					id: 1,
-					userId: "user-1",
-					availability: true,
-					trustScore: 4.5,
-					completedTasks: 10,
-				},
-				profile: {
-					id: 1,
-					volunteerId: 1,
-					skills: ["cooking", "driving"],
-					maxDistanceKm: 10,
-				},
-			};
+	describe("GET /me/profile", () => {
+		test("should return current volunteer profile including currentLocation and knownLocations", async () => {
+			const response = await app.request("/me/profile");
+			const body: any = await response.json();
 
-			mockService.getVolunteerProfile = async (userId: string) =>
-				userId === "user-1" ? mockProfile : null;
-
-			const result = await mockService.getVolunteerProfile("user-1");
-			expect(result).toMatchObject(mockProfile);
+			expect(response.status).toBe(200);
+			expect(body.data.volunteer.userId).toBe("user-1");
+			expect(body.data.profile.maxDistanceKm).toBe(10);
+			expect(body.data.profile.currentLocation).toEqual({
+				x: 27.58,
+				y: 47.16,
+			});
+			expect(body.data.profile.knownLocations).toEqual([
+				{
+					id: 1,
+					city: "Iasi",
+					addressText: "Centru",
+					location: { x: 27.58, y: 47.16 },
+				},
+			]);
 		});
 
-		test("should return null when volunteer not found", async () => {
-			mockService.getVolunteerProfile = async () => null;
+		test("should return 401 when session is missing", async () => {
+			authSpy?.mockRestore();
+			authSpy = spyOn(auth.api, "getSession").mockResolvedValue(null as any);
 
-			const result = await mockService.getVolunteerProfile("nonexistent");
-			expect(result).toBeNull();
+			const response = await app.request("/me/profile");
+
+			expect(response.status).toBe(401);
 		});
 
-		test("should handle service errors gracefully", async () => {
+		test("should return 404 when volunteer is not found", async () => {
 			mockService.getVolunteerProfile = async () => {
-				throw new Error("Database error");
+				throw new NotFoundError("Volunteer", "user-1");
 			};
+			app = makeApp(mockRepository, mockService);
 
-			try {
-				await mockService.getVolunteerProfile("user-1");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			const response = await app.request("/me/profile");
+			const body: any = await response.json();
+
+			expect(response.status).toBe(404);
+			expect(body.notFound).toBe(true);
 		});
 	});
 
-	describe("POST /volunteers/me/profile", () => {
-		test("should create volunteer profile with valid data", async () => {
-			const validData = {
-				skills: ["cooking", "driving"],
+	describe("POST /me/profile", () => {
+		test("should create and return current volunteer profile with settings", async () => {
+			const payload = {
+				skills: ["cooking"],
 				maxDistanceKm: 10,
+				currentLocation: { x: 27.58, y: 47.16 },
+				knownLocations: [
+					{
+						city: "Iasi",
+						addressText: "Centru",
+						location: { x: 27.58, y: 47.16 },
+					},
+				],
 				availability: true,
 			};
 
-			const mockCreated = {
-				id: 1,
-				volunteerId: 1,
-				skills: ["cooking", "driving"],
-				maxDistanceKm: 10,
+			let createPayload: unknown;
+			mockService.createVolunteerProfile = async (_userId: string, data: any) => {
+				createPayload = data;
+				return {
+					id: 1,
+					volunteerId: 1,
+				};
 			};
+			app = makeApp(mockRepository, mockService);
 
-			mockService.createVolunteerProfile = async (_: string, data: any) => ({
-				...mockCreated,
-				...data,
+			const response = await app.request("/me/profile", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
 			});
+			const body: any = await response.json();
 
-			const result = await mockService.createVolunteerProfile(
-				"user-1",
-				validData,
-			);
-			expect(result).toMatchObject(validData);
+			expect(response.status).toBe(201);
+			expect(createPayload).toEqual(payload);
+			expect(body.data.profile.currentLocation).toEqual(payload.currentLocation);
+			expect(body.data.profile.knownLocations).toEqual([
+				{
+					id: 1,
+					city: "Iasi",
+					addressText: "Centru",
+					location: { x: 27.58, y: 47.16 },
+				},
+			]);
 		});
 
-		test("should create profile with empty skills array", async () => {
-			const data = { skills: [], maxDistanceKm: 5 };
-
-			mockService.createVolunteerProfile = async (_: string, d: any) => ({
-				id: 1,
-				volunteerId: 1,
-				...d,
+		test("should return 400 for invalid profile body", async () => {
+			const response = await app.request("/me/profile", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					maxDistanceKm: -1,
+				}),
 			});
+			const body: any = await response.json();
 
-			const result = await mockService.createVolunteerProfile("user-1", data);
-			expect(result.skills).toEqual([]);
-		});
-
-		test("should throw error when profile already exists", async () => {
-			mockService.createVolunteerProfile = async () => {
-				throw new Error("Volunteer profile already exists");
-			};
-
-			try {
-				await mockService.createVolunteerProfile("user-1", {});
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toBe(
-					"Volunteer profile already exists",
-				);
-			}
-		});
-
-		test("should create profile without optional fields", async () => {
-			const data = {};
-
-			mockService.createVolunteerProfile = async (_: string, d: any) => ({
-				id: 1,
-				volunteerId: 1,
-				skills: [],
-				maxDistanceKm: null,
-				...d,
-			});
-
-			const result = await mockService.createVolunteerProfile("user-1", data);
-			expect(result.skills).toEqual([]);
-			expect(result.maxDistanceKm).toBeNull();
+			expect(response.status).toBe(400);
+			expect(body.isClientError).toBe(true);
 		});
 	});
 
-	// ─── PUT /volunteers/me/profile ──────────────────────────────────────────────
-
-	describe("PUT /volunteers/me/profile", () => {
-		test("should update volunteer profile with valid data", async () => {
-			const updateData = {
-				skills: ["cooking", "driving", "gardening"],
+	describe("PUT /me/profile", () => {
+		test("should update and return current volunteer profile with settings", async () => {
+			const payload = {
 				maxDistanceKm: 20,
-				availability: false,
+				currentLocation: { x: 27.6, y: 47.1 },
+				knownLocations: [
+					{
+						city: "Iasi",
+						addressText: "Copou",
+						location: { x: 27.6, y: 47.1 },
+					},
+				],
 			};
 
-			mockService.updateVolunteerProfile = async (_: string, data: any) => ({
-				id: 1,
-				volunteerId: 1,
-				...data,
+			let updatePayload: unknown;
+			mockService.updateVolunteerProfile = async (_userId: string, data: any) => {
+				updatePayload = data;
+				return {
+					id: 1,
+					volunteerId: 1,
+				};
+			};
+			mockService.getVolunteerProfile = async () => ({
+				...fullProfileResponse,
+				profile: {
+					...fullProfileResponse.profile,
+					maxDistanceKm: 20,
+					currentLocation: { x: 27.6, y: 47.1 },
+					knownLocations: [
+						{
+							id: 2,
+							city: "Iasi",
+							addressText: "Copou",
+							location: { x: 27.6, y: 47.1 },
+						},
+					],
+				},
 			});
+			app = makeApp(mockRepository, mockService);
 
-			const result = await mockService.updateVolunteerProfile(
-				"user-1",
-				updateData,
-			);
-			expect(result).toMatchObject(updateData);
+			const response = await app.request("/me/profile", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			const body: any = await response.json();
+
+			expect(response.status).toBe(200);
+			expect(updatePayload).toEqual(payload);
+			expect(body.data.profile.maxDistanceKm).toBe(20);
+			expect(body.data.profile.currentLocation).toEqual({
+				x: 27.6,
+				y: 47.1,
+			});
+			expect(body.data.profile.knownLocations[0].addressText).toBe("Copou");
 		});
 
-		test("should throw NotFoundError when profile not found", async () => {
+		test("should return 404 when volunteer profile is missing", async () => {
 			mockService.updateVolunteerProfile = async () => {
-				throw new Error("VolunteerProfile not found");
+				throw new NotFoundError("VolunteerProfile", "1");
 			};
+			app = makeApp(mockRepository, mockService);
 
-			try {
-				await mockService.updateVolunteerProfile("nonexistent", {});
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("not found");
-			}
-		});
-
-		test("should update only availability without touching skills", async () => {
-			const updateData = { availability: true };
-
-			mockService.updateVolunteerProfile = async (_: string, data: any) => ({
-				id: 1,
-				volunteerId: 1,
-				skills: ["cooking"],
-				maxDistanceKm: 10,
-				...data,
+			const response = await app.request("/me/profile", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ maxDistanceKm: 10 }),
 			});
+			const body: any = await response.json();
 
-			const result = await mockService.updateVolunteerProfile(
-				"user-1",
-				updateData,
-			);
-			expect(result.availability).toBe(true);
-			expect(result.skills).toEqual(["cooking"]);
-		});
-	});
-
-	describe("POST /volunteers/me/skills", () => {
-		test("should add a new skill successfully", async () => {
-			mockService.addSkill = async (_: string, skill: string) => ({
-				id: 1,
-				volunteerId: 1,
-				skills: ["cooking", skill],
-			});
-
-			const result = await mockService.addSkill("user-1", "teaching");
-			expect(result.skills).toContain("teaching");
-		});
-
-		test("should throw error when skill already exists", async () => {
-			mockService.addSkill = async () => {
-				throw new Error("Skill already exists");
-			};
-
-			try {
-				await mockService.addSkill("user-1", "cooking");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toBe("Skill already exists");
-			}
-		});
-
-		test("should throw NotFoundError when profile not found", async () => {
-			mockService.addSkill = async () => {
-				throw new Error("VolunteerProfile not found");
-			};
-
-			try {
-				await mockService.addSkill("nonexistent", "cooking");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("not found");
-			}
-		});
-
-		test("should not add empty skill", async () => {
-			let called = false;
-			mockService.addSkill = async (_: string, skill: string) => {
-				if (!skill || skill.trim() === "") {
-					throw new Error("Invalid skill");
-				}
-				called = true;
-				return { skills: [skill] };
-			};
-
-			try {
-				await mockService.addSkill("user-1", "");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect(called).toBe(false);
-				expect((error as Error).message).toBe("Invalid skill");
-			}
-		});
-	});
-
-	describe("DELETE /volunteers/me/skills/:skill", () => {
-		test("should remove a skill successfully", async () => {
-			mockService.removeSkill = async (_skill: string) => ({
-				id: 1,
-				volunteerId: 1,
-				skills: ["cooking"],
-			});
-
-			const result = await mockService.removeSkill("user-1", "driving");
-			expect(result.skills).not.toContain("driving");
-		});
-
-		test("should throw error when skill not found", async () => {
-			mockService.removeSkill = async () => {
-				throw new Error("Skill not found");
-			};
-
-			try {
-				await mockService.removeSkill("user-1", "nonexistent");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toBe("Skill not found");
-			}
-		});
-
-		test("should throw NotFoundError when profile not found", async () => {
-			mockService.removeSkill = async () => {
-				throw new Error("VolunteerProfile not found");
-			};
-
-			try {
-				await mockService.removeSkill("nonexistent", "cooking");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("not found");
-			}
-		});
-
-		test("should handle service errors gracefully", async () => {
-			mockService.removeSkill = async () => {
-				throw new Error("Database error");
-			};
-
-			try {
-				await mockService.removeSkill("user-1", "cooking");
-				expect(false).toBe(true);
-			} catch (error) {
-				expect((error as Error).message).toContain("Database error");
-			}
+			expect(response.status).toBe(404);
+			expect(body.notFound).toBe(true);
 		});
 	});
 });

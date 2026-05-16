@@ -1,6 +1,10 @@
 import { Service } from "../di/decorators/service";
 import { inject } from "../di";
-import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import {
+	VolunteerRepository,
+	type VolunteerKnownLocationInput,
+	type VolunteerLocationPoint,
+} from "../db/repositories/volunteer.repository";
 import { VolunteerProfileRepository } from "../db/repositories/volunteerProfile.repository";
 import { NotFoundError } from "../utils/Errors";
 
@@ -12,6 +16,13 @@ export class VolunteerService {
 		@inject(VolunteerProfileRepository)
 		private readonly volunteerProfileRepo: VolunteerProfileRepository,
 	) {}
+
+	private hasOwnProperty<T extends object>(
+		object: T,
+		property: PropertyKey,
+	): boolean {
+		return Object.prototype.hasOwnProperty.call(object, property);
+	}
 
 	async getVolunteer(userId: string) {
 		let volunteer = await this.volunteerRepo.findByUserId(userId);
@@ -28,17 +39,39 @@ export class VolunteerService {
 		const profile = await this.volunteerProfileRepo.findByVolunteerId(
 			volunteer.id,
 		);
-		return { volunteer, profile: profile ?? null };
+		if (!profile) {
+			return { volunteer, profile: null };
+		}
+
+		const knownLocations =
+			await this.volunteerRepo.findKnownLocationsByVolunteerId(volunteer.id);
+
+		return {
+			volunteer,
+			profile: {
+				...profile,
+				knownLocations,
+			},
+		};
 	}
 
 	async createVolunteerProfile(
 		userId: string,
 		data: {
 			skills?: string[];
-			maxDistanceKm?: number;
+			maxDistanceKm?: number | null;
+			currentLocation?: VolunteerLocationPoint | null;
+			knownLocations?: VolunteerKnownLocationInput[];
+			availability?: boolean;
 		},
 	) {
 		const volunteer = await this.getVolunteer(userId);
+
+		if (data.availability !== undefined) {
+			await this.volunteerRepo.update(volunteer.id, {
+				availability: data.availability,
+			});
+		}
 
 		const existing = await this.volunteerProfileRepo.findByVolunteerId(
 			volunteer.id,
@@ -49,7 +82,15 @@ export class VolunteerService {
 			volunteerId: volunteer.id,
 			skills: data.skills ?? [],
 			maxDistanceKm: data.maxDistanceKm,
+			currentLocation: data.currentLocation,
 		});
+
+		if (data.knownLocations !== undefined) {
+			await this.volunteerRepo.replaceKnownLocations(
+				volunteer.id,
+				data.knownLocations,
+			);
+		}
 
 		return created;
 	}
@@ -58,7 +99,9 @@ export class VolunteerService {
 		userId: string,
 		data: {
 			skills?: string[];
-			maxDistanceKm?: number;
+			maxDistanceKm?: number | null;
+			currentLocation?: VolunteerLocationPoint | null;
+			knownLocations?: VolunteerKnownLocationInput[];
 			availability?: boolean;
 		},
 	) {
@@ -77,10 +120,32 @@ export class VolunteerService {
 		if (!profile)
 			throw new NotFoundError("VolunteerProfile", String(volunteer.id));
 
+		const updateData: {
+			skills?: string[];
+			maxDistanceKm?: number | null;
+			currentLocation?: VolunteerLocationPoint | null;
+		} = {};
+
+		if (this.hasOwnProperty(data, "skills")) {
+			updateData.skills = data.skills;
+		}
+		if (this.hasOwnProperty(data, "maxDistanceKm")) {
+			updateData.maxDistanceKm = data.maxDistanceKm ?? null;
+		}
+		if (this.hasOwnProperty(data, "currentLocation")) {
+			updateData.currentLocation = data.currentLocation ?? null;
+		}
+
 		const updated = await this.volunteerProfileRepo.update(profile.id, {
-			skills: data.skills,
-			maxDistanceKm: data.maxDistanceKm,
+			...updateData,
 		});
+
+		if (data.knownLocations !== undefined) {
+			await this.volunteerRepo.replaceKnownLocations(
+				volunteer.id,
+				data.knownLocations,
+			);
+		}
 
 		return updated;
 	}
