@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noPrototypeBuiltins: <trust me> */
 import { Service } from "../di/decorators/service";
 import { inject } from "../di";
 import {

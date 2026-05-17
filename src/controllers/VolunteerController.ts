@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
+import type { OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
@@ -162,6 +163,67 @@ const emptyResponseEnvelopeSchema = apiEnvelopeSchema
 		data: z.null(),
 	})
 	.meta({ ref: "VolunteerEmptyResponseEnvelope" });
+
+const volunteerProfileRequestBody: OpenAPIV3_1.RequestBodyObject = {
+	required: true,
+	content: {
+		"application/json": {
+			schema: {
+				type: "object",
+				properties: {
+					skills: {
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					maxDistanceKm: {
+						oneOf: [{ type: "number", exclusiveMinimum: 0 }, { type: "null" }],
+					},
+					currentLocation: {
+						oneOf: [
+							{
+								type: "object",
+								required: ["x", "y"],
+								properties: {
+									x: { type: "number" },
+									y: { type: "number" },
+								},
+							},
+							{ type: "null" },
+						],
+					},
+					knownLocations: {
+						type: "array",
+						items: {
+							type: "object",
+							required: ["location"],
+							properties: {
+								city: {
+									oneOf: [{ type: "string" }, { type: "null" }],
+								},
+								addressText: {
+									oneOf: [{ type: "string" }, { type: "null" }],
+								},
+								location: {
+									type: "object",
+									required: ["x", "y"],
+									properties: {
+										x: { type: "number" },
+										y: { type: "number" },
+									},
+								},
+							},
+						},
+					},
+					availability: {
+						type: "boolean",
+					},
+				},
+			},
+		},
+	},
+};
 
 const parseVolunteerId = (idParam: string): number | null => {
 	const volunteerId = Number(idParam);
@@ -396,14 +458,7 @@ export class VolunteerController {
 				description:
 					"Creates the editable volunteer profile for the authenticated user. Supports skills, maxDistanceKm, currentLocation, knownLocations and availability.",
 				tags: ["Volunteers"],
-				requestBody: {
-					required: true,
-					content: {
-						"application/json": {
-							schema: resolver(volunteerProfileInputSchema),
-						},
-					},
-				},
+				requestBody: volunteerProfileRequestBody,
 				responses: {
 					201: {
 						description: "Current volunteer profile created successfully",
@@ -487,14 +542,7 @@ export class VolunteerController {
 				description:
 					"Updates the editable volunteer profile for the authenticated user. If knownLocations is provided, it replaces the full saved list.",
 				tags: ["Volunteers"],
-				requestBody: {
-					required: true,
-					content: {
-						"application/json": {
-							schema: resolver(volunteerProfileInputSchema),
-						},
-					},
-				},
+				requestBody: volunteerProfileRequestBody,
 				responses: {
 					200: {
 						description: "Current volunteer profile updated successfully",
