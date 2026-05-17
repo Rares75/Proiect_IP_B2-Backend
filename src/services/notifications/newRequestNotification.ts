@@ -6,7 +6,10 @@ export const notifyEligibleVolunteersForNewRequest = async (
 	notificationRepo: NotificationRepository,
 	helpRequest: NewRequestNotificationContext,
 ): Promise<void> => {
-	const recipients = await notificationRepo.findEligibleNewRequestRecipients();
+	const recipients = await notificationRepo.findEligibleNewRequestRecipients(
+		helpRequest.skillsNeeded ?? [],
+		helpRequest.location ?? null,
+	);
 
 	if (recipients.length === 0) {
 		return;
