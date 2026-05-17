@@ -1,18 +1,11 @@
 /// <reference types="bun-types" />
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	mock,
-	test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { Hono } from "hono";
 import auth from "../../src/auth";
 import { spyOn } from "bun:test";
 import { OfferController } from "../../src/controllers/OfferController";
-import { OfferService } from "../../src/services/OfferService";
-import { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";
+import type { OfferService } from "../../src/services/OfferService";
+import type { VolunteerRepository } from "../../src/db/repositories/volunteer.repository";
 
 describe("PATCH /api/offers/:id/status — taskAssignmentId in response", () => {
 	let app: Hono;

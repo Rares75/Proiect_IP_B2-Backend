@@ -172,7 +172,10 @@ export class OfferService {
 				tx,
 			);
 
-			return { ...accepted.offer, taskAssignmentId: accepted.taskAssignment.id };
+			return {
+				...accepted.offer,
+				taskAssignmentId: accepted.taskAssignment.id,
+			};
 		});
 	}
 
@@ -245,7 +248,10 @@ export class OfferService {
 				tx,
 			);
 
-			return { ...accepted.offer, taskAssignmentId: accepted.taskAssignment.id };
+			return {
+				...accepted.offer,
+				taskAssignmentId: accepted.taskAssignment.id,
+			};
 		});
 	}
 
