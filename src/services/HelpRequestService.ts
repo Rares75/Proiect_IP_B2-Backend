@@ -353,6 +353,65 @@ export class HelpRequestService {
 			},
 		};
 	}
+	async getPaginatedOffersForGuestTaskOwner(
+		taskId: number,
+		guestSessionId: string,
+		page: number,
+		pageSize: number,
+		status?: "PENDING" | "ACCEPTED" | "REJECTED",
+	) {
+		const task = await this.helpRequestRepo.findById(taskId);
+		if (!task) {
+			throw new NotFoundError("HelpRequest", String(taskId));
+		}
+
+		if (task.guestSessionId !== guestSessionId) {
+			throw new ForbiddenError("You don't have permission to see this task.");
+		}
+
+		const { data, total } =
+			await this.helpOfferRepo.findPaginatedOffersByTaskId(
+				taskId,
+				page,
+				pageSize,
+				status,
+			);
+
+		const formattedOffers = data.map((offer) => {
+			const volunteerInfo: any = {
+				username: offer.username,
+				trustScore: offer.trustScore,
+				averageRating:
+					offer.averageRating !== null ? Number(offer.averageRating) : null,
+			};
+
+			if (offer.hiddenIdentity === false) {
+				volunteerInfo.name = offer.name;
+			}
+
+			return {
+				id: offer.id,
+				volunteerId: offer.volunteerId,
+				message: offer.message,
+				status: offer.status,
+				createdAt: offer.createdAt,
+				volunteer: volunteerInfo,
+			};
+		});
+
+		const totalPages = Math.ceil(total / pageSize);
+
+		return {
+			data: formattedOffers,
+			meta: {
+				page,
+				pageSize,
+				total,
+				totalPages,
+			},
+		};
+	}
+
 	//BE1-31
 	async createGuestHelpRequest(sessionId: string, data: any) {
 		// 1. Verificam limita de 3 task-uri active pe sesiune

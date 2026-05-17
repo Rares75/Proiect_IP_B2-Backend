@@ -269,6 +269,111 @@ export class GuestController {
 				}
 			},
 		)
+		.get(
+			"/tasks/:id/offers",
+			describeRoute({
+				summary: "Get offers for a guest-owned task",
+				description:
+					"Retrieves a paginated list of offers for a task created by a guest. Only the guest who created the task (matching X-Guest-Session) can access this.",
+				tags: ["Guest Tasks"],
+				responses: {
+					200: { description: "Successfully retrieved offers" },
+					400: { description: "Invalid task id or query params" },
+					401: { description: "Missing X-Guest-Session header" },
+					403: { description: "X-Guest-Session does not match task owner" },
+					404: { description: "Task not found" },
+					500: { description: "Internal server error" },
+				},
+			}),
+			async (c) => {
+				const guestSession = c.req.header("X-Guest-Session");
+				if (!guestSession) {
+					return sendApiResponse(c, null, {
+						kind: "unauthorized",
+						message: "Missing X-Guest-Session header",
+					});
+				}
+
+				const isValidUuid = z.string().uuid().safeParse(guestSession);
+				if (!isValidUuid.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid X-Guest-Session format; must be a UUID",
+					});
+				}
+
+				const taskId = Number(c.req.param("id"));
+				if (!Number.isInteger(taskId) || taskId <= 0) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Task id must be a valid positive number",
+					});
+				}
+
+				const query = c.req.query();
+				const page = query.page ? Number(query.page) : 1;
+				const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+				if (
+					!Number.isInteger(page) ||
+					page < 1 ||
+					!Number.isInteger(pageSize) ||
+					pageSize < 1 ||
+					pageSize > 50
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid pagination parameters",
+					});
+				}
+
+				const statusRaw = query.status as
+					| "PENDING"
+					| "ACCEPTED"
+					| "REJECTED"
+					| undefined;
+
+				if (
+					statusRaw &&
+					!["PENDING", "ACCEPTED", "REJECTED"].includes(statusRaw)
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Invalid status; accepted: PENDING, ACCEPTED, REJECTED",
+					});
+				}
+
+				try {
+					const result =
+						await this.helpRequestService.getPaginatedOffersForGuestTaskOwner(
+							taskId,
+							guestSession,
+							page,
+							pageSize,
+							statusRaw,
+						);
+
+					return sendApiResponse(c, result);
+				} catch (error) {
+					if (error instanceof NotFoundError) {
+						return sendApiResponse(c, null, {
+							kind: "notFound",
+							message: "Task not found",
+						});
+					}
+
+					if (error instanceof ForbiddenError) {
+						return sendApiResponse(c, null, {
+							statusCode: 403,
+							message: "Forbidden: X-Guest-Session does not match task owner",
+						});
+					}
+
+					console.error("[GuestController GET /tasks/:id/offers]:", error);
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
 		// Delete endpoint for a guest to delete his task
 		.delete(
 			"/tasks/:id",
