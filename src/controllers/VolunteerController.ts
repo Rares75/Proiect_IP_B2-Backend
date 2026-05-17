@@ -108,6 +108,30 @@ const volunteerResponseSchema = z
 		ref: "VolunteerResponse",
 	});
 
+const currentVolunteerSchema = z
+	.object({
+		id: z.number().int().positive(),
+		userId: z.string(),
+		availability: z.boolean(),
+		trustScore: z.number(),
+		completedTasks: z.number().int(),
+		createdAt: z.union([z.string().datetime(), z.date()]).optional(),
+		updatedAt: z.union([z.string().datetime(), z.date()]).optional(),
+	})
+	.meta({ ref: "CurrentVolunteer" });
+
+const currentVolunteerProfileResponseSchema = z
+	.object({
+		volunteer: currentVolunteerSchema,
+		profile: volunteerProfileSchema
+			.extend({
+				id: z.number().int().positive(),
+				volunteerId: z.number().int().positive(),
+			})
+			.nullable(),
+	})
+	.meta({ ref: "CurrentVolunteerProfileResponse" });
+
 const apiEnvelopeSchema = z.object({
 	message: z.string(),
 	notFound: z.boolean(),
@@ -126,6 +150,12 @@ const volunteerResponseEnvelopeSchema = apiEnvelopeSchema
 		data: volunteerResponseSchema,
 	})
 	.meta({ ref: "VolunteerResponseEnvelope" });
+
+const currentVolunteerProfileResponseEnvelopeSchema = apiEnvelopeSchema
+	.extend({
+		data: currentVolunteerProfileResponseSchema,
+	})
+	.meta({ ref: "CurrentVolunteerProfileResponseEnvelope" });
 
 const emptyResponseEnvelopeSchema = apiEnvelopeSchema
 	.extend({
@@ -297,89 +327,248 @@ export class VolunteerController {
 			},
 		)
 		.use(authMiddlware)
-		.get("/me/profile", async (c) => {
-			const session = c.get("session");
-			if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
-
-			try {
-				const result = await this.volunteerService.getVolunteerProfile(
-					session.userId,
-				);
-				return sendApiResponse(c, buildCurrentVolunteerProfileResponse(result));
-			} catch (err) {
-				if (err instanceof NotFoundError)
-					return sendApiResponse(c, null, { kind: "notFound" });
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		})
-
-		.post("/me/profile", async (c) => {
-			const session = c.get("session");
-			if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
-
-			const body = await c.req.json();
-			const parsed = volunteerProfileInputSchema.safeParse(body);
-			if (!parsed.success)
-				return sendApiResponse(c, null, {
-					kind: "clientError",
-					message: "Failed to validate input",
-				});
-
-			try {
-				await this.volunteerService.createVolunteerProfile(
-					session.userId,
-					parsed.data,
-				);
-				const result = await this.volunteerService.getVolunteerProfile(
-					session.userId,
-				);
-				return sendApiResponse(
-					c,
-					buildCurrentVolunteerProfileResponse(result),
-					{
-						kind: "created",
+		.get(
+			"/me/profile",
+			describeRoute({
+				summary: "Get current volunteer profile",
+				description:
+					"Returns the authenticated volunteer record together with the editable volunteer profile settings, including maxDistanceKm, currentLocation and knownLocations.",
+				tags: ["Volunteers"],
+				responses: {
+					200: {
+						description: "Current volunteer profile returned successfully",
+						content: {
+							"application/json": {
+								schema: resolver(currentVolunteerProfileResponseEnvelopeSchema),
+							},
+						},
 					},
-				);
-			} catch (err) {
-				if (
-					err instanceof Error &&
-					err.message === "Volunteer profile already exists"
-				)
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					404: {
+						description: "Volunteer not found",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+				},
+			}),
+			async (c) => {
+				const session = c.get("session");
+				if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
+
+				try {
+					const result = await this.volunteerService.getVolunteerProfile(
+						session.userId,
+					);
+					return sendApiResponse(
+						c,
+						buildCurrentVolunteerProfileResponse(result),
+					);
+				} catch (err) {
+					if (err instanceof NotFoundError)
+						return sendApiResponse(c, null, { kind: "notFound" });
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
+
+		.post(
+			"/me/profile",
+			describeRoute({
+				summary: "Create current volunteer profile",
+				description:
+					"Creates the editable volunteer profile for the authenticated user. Supports skills, maxDistanceKm, currentLocation, knownLocations and availability.",
+				tags: ["Volunteers"],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: resolver(volunteerProfileInputSchema),
+						},
+					},
+				},
+				responses: {
+					201: {
+						description: "Current volunteer profile created successfully",
+						content: {
+							"application/json": {
+								schema: resolver(currentVolunteerProfileResponseEnvelopeSchema),
+							},
+						},
+					},
+					400: {
+						description: "Invalid input or profile already exists",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+				},
+			}),
+			async (c) => {
+				const session = c.get("session");
+				if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
+
+				const body = await c.req.json();
+				const parsed = volunteerProfileInputSchema.safeParse(body);
+				if (!parsed.success)
 					return sendApiResponse(c, null, {
 						kind: "clientError",
-						message: err.message,
+						message: "Failed to validate input",
 					});
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		})
 
-		.put("/me/profile", async (c) => {
-			const session = c.get("session");
-			if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
+				try {
+					await this.volunteerService.createVolunteerProfile(
+						session.userId,
+						parsed.data,
+					);
+					const result = await this.volunteerService.getVolunteerProfile(
+						session.userId,
+					);
+					return sendApiResponse(
+						c,
+						buildCurrentVolunteerProfileResponse(result),
+						{
+							kind: "created",
+						},
+					);
+				} catch (err) {
+					if (
+						err instanceof Error &&
+						err.message === "Volunteer profile already exists"
+					)
+						return sendApiResponse(c, null, {
+							kind: "clientError",
+							message: err.message,
+						});
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
 
-			const body = await c.req.json();
-			const parsed = volunteerProfileInputSchema.safeParse(body);
-			if (!parsed.success)
-				return sendApiResponse(c, null, {
-					kind: "clientError",
-					message: "Failed to validate input",
-				});
+		.put(
+			"/me/profile",
+			describeRoute({
+				summary: "Update current volunteer profile",
+				description:
+					"Updates the editable volunteer profile for the authenticated user. If knownLocations is provided, it replaces the full saved list.",
+				tags: ["Volunteers"],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: resolver(volunteerProfileInputSchema),
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "Current volunteer profile updated successfully",
+						content: {
+							"application/json": {
+								schema: resolver(currentVolunteerProfileResponseEnvelopeSchema),
+							},
+						},
+					},
+					400: {
+						description: "Invalid input",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					401: {
+						description: "Unauthorized",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					404: {
+						description: "Volunteer or volunteer profile not found",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+					500: {
+						description: "Internal server error",
+						content: {
+							"application/json": {
+								schema: resolver(emptyResponseEnvelopeSchema),
+							},
+						},
+					},
+				},
+			}),
+			async (c) => {
+				const session = c.get("session");
+				if (!session) return sendApiResponse(c, null, { kind: "unauthorized" });
 
-			try {
-				await this.volunteerService.updateVolunteerProfile(
-					session.userId,
-					parsed.data,
-				);
-				const result = await this.volunteerService.getVolunteerProfile(
-					session.userId,
-				);
-				return sendApiResponse(c, buildCurrentVolunteerProfileResponse(result));
-			} catch (err) {
-				if (err instanceof NotFoundError)
-					return sendApiResponse(c, null, { kind: "notFound" });
-				return sendApiResponse(c, null, { kind: "serverError" });
-			}
-		})
+				const body = await c.req.json();
+				const parsed = volunteerProfileInputSchema.safeParse(body);
+				if (!parsed.success)
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Failed to validate input",
+					});
+
+				try {
+					await this.volunteerService.updateVolunteerProfile(
+						session.userId,
+						parsed.data,
+					);
+					const result = await this.volunteerService.getVolunteerProfile(
+						session.userId,
+					);
+					return sendApiResponse(
+						c,
+						buildCurrentVolunteerProfileResponse(result),
+					);
+				} catch (err) {
+					if (err instanceof NotFoundError)
+						return sendApiResponse(c, null, { kind: "notFound" });
+					return sendApiResponse(c, null, { kind: "serverError" });
+				}
+			},
+		)
 
 		.post("/me/skills", async (c) => {
 			const session = c.get("session");
