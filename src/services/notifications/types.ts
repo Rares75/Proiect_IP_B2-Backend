@@ -3,7 +3,12 @@ import type { HelpRequest } from "../../db/repositories/helpRequest.repository";
 
 export type NotificationDbClient = DatabaseClient;
 
-export type NewRequestNotificationContext = Pick<HelpRequest, "id" | "title">;
+export type NewRequestNotificationContext = Pick<
+	HelpRequest,
+	"id" | "title" | "skillsNeeded"
+> & {
+	location?: { x: number; y: number } | null;
+};
 
 export type OfferReceivedNotificationContext = {
 	helpRequestId: number;

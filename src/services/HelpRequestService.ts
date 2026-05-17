@@ -100,9 +100,10 @@ export class HelpRequestService {
 			});
 
 			try {
-				await this.notificationService.notifyEligibleVolunteersForNewRequest(
-					createdRequest,
-				);
+				await this.notificationService.notifyEligibleVolunteersForNewRequest({
+					...createdRequest,
+					location: data.location ?? null,
+				});
 			} catch (notificationError) {
 				console.error(
 					"Failed to notify eligible volunteers for new help request:",
