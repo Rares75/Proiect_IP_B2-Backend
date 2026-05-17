@@ -1,7 +1,7 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../";
 import { repository } from "../../di/decorators/repository";
-import { userAccesses, volunteers } from "../profile";
+import { userAccesses, volunteers, volunteerProfiles } from "../profile";
 import { notifications } from "../social";
 import type { DatabaseClient } from "./databaseClient";
 
@@ -14,21 +14,50 @@ export type NewRequestNotificationRecipient = {
 
 @repository()
 export class NotificationRepository {
-	async findEligibleNewRequestRecipients(): Promise<
-		NewRequestNotificationRecipient[]
-	> {
-		// TODO: add skill matching using volunteer_profiles.skills and helpRequests.skillsNeeded
-		// TODO: add distance matching using volunteer_known_locations, request_locations and ST_DWithin
+	async findEligibleNewRequestRecipients(
+		skillsNeeded: string[],
+		requestLocation: { x: number; y: number } | null,
+	): Promise<NewRequestNotificationRecipient[]> {
+		const skillCondition =
+			skillsNeeded.length > 0
+				? sql`EXISTS (
+						SELECT 1
+						FROM jsonb_array_elements_text(${volunteerProfiles.skills}) AS s
+						WHERE lower(s) = ANY(ARRAY[${sql.join(
+							skillsNeeded.map((sk) => sql`${sk.toLowerCase()}`),
+							sql`, `,
+						)}]::text[])
+					)`
+				: undefined;
+
+		const distanceCondition = requestLocation
+			? sql`EXISTS (
+					SELECT 1
+					FROM volunteer_known_locations vkl
+					WHERE vkl.volunteer_id = ${volunteers.id}
+					AND ${volunteerProfiles.maxDistanceKm} IS NOT NULL
+					AND ST_DWithin(
+						vkl.location::geography,
+						ST_SetSRID(ST_MakePoint(${requestLocation.x}, ${requestLocation.y}), 4326)::geography,
+						${volunteerProfiles.maxDistanceKm} * 1000
+					)
+				)`
+			: undefined;
+
 		return db
-			.select({
-				userId: volunteers.userId,
-			})
+			.select({ userId: volunteers.userId })
 			.from(volunteers)
 			.innerJoin(userAccesses, eq(userAccesses.userId, volunteers.userId))
+			.leftJoin(
+				volunteerProfiles,
+				eq(volunteerProfiles.volunteerId, volunteers.id),
+			)
 			.where(
 				and(
 					eq(volunteers.availability, true),
 					eq(userAccesses.status, "ACTIVE"),
+					skillCondition,
+					distanceCondition,
 				),
 			);
 	}
