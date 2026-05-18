@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { logger } from "./utils/logger";
 //import { websocket } from "hono/bun";
 import * as Sentry from "@sentry/bun";
+import { redis } from "./db/redis";
 
 Sentry.init({
 	dsn: Bun.env.SENTRY_DSN,
