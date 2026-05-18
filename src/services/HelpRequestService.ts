@@ -59,7 +59,7 @@ export class HelpRequestService {
 		@inject(HelpRequestDetailsRepository)
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
-		private readonly moderationService: ModerationService = new ModerationService(),
+		private readonly moderationService: ModerationService,
 		@inject(NotificationService)
 		private readonly notificationService: NotificationService = {
 			notifyEligibleVolunteersForNewRequest: async () => {},

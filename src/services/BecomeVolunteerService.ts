@@ -5,8 +5,9 @@ import { user, volunteers } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { UserRepository } from "../db/repositories/user.repository";
-import { NotFoundError } from "../utils/Errors";
+import { NotFoundError as NotFoundException } from "../utils/Errors";
 import { logger } from "../utils/logger";
+import { VolunteerException } from "../exceptions/volunteer/VolunteerException";
 @Service()
 export class BecomeVolunteerService {
 	constructor(
@@ -28,14 +29,14 @@ export class BecomeVolunteerService {
 		const existingUser = await this.userRepository.findById(userId);
 		if (!existingUser) {
 			logger.error(`User '${userId}' not found`);
-			throw new NotFoundError("User", userId);
+			throw new NotFoundException("User", userId);
 		}
 
 		const existingVolunteer =
 			await this.volunteerRepository.findByUserId(userId);
 		if (existingVolunteer) {
 			logger.error(`User '${userId}' is already a volunteer`);
-			throw new Error("User is already a volunteer");
+			throw new VolunteerException("User is already a volunteer");
 		}
 
 		return await db.transaction(async (tx) => {

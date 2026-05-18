@@ -3,7 +3,6 @@ import auth from "../auth";
 import type { AppEnv } from "../app";
 import { inject } from "../di";
 import { authMiddleware } from "../middlware/authMiddleware";
-import { describeRoute, resolver } from "hono-openapi";
 import { Controller } from "../utils/controller";
 import {
 	ForbiddenError,
@@ -12,11 +11,17 @@ import {
 	ValidationError,
 } from "../utils/Errors";
 import { OfferService } from "../services/OfferService";
-import { z } from "zod";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
-import { validateOffersQuery } from "../utils/validators/queryValidator";
 import { sendApiResponse } from "../utils/apiReponse";
 import { logger } from "../utils/logger";
+import {
+	deleteOfferDocs,
+	getVolunteerOffersDocs,
+	updateOfferStatusDocs,
+} from "../docs/offer.docs";
+import { offerStatusTransitionSchema } from "../utils/validators/offers/schemas";
+import z from "zod";
+import { validator } from "../utils/validators/honoValidator";
 
 //Type definitions for offers response
 export interface OfferWithTaskData {
@@ -53,97 +58,43 @@ const parsePositiveId = (value: string): number | undefined => {
 	return Number.isInteger(id) && id > 0 ? id : undefined;
 };
 
-const offerStatusTransitionSchema = z
-	.object({
-		status: z.enum(["ACCEPTED", "REJECTED", "PENDING"]),
-	})
-	.strict();
+const validOfferStatuses = ["PENDING", "ACCEPTED", "REJECTED"] as const;
 
-//schemas for documentation
-
-const offerWithTaskSchema = z.object({
-	id: z.number(),
-	volunteerId: z.number(),
-	helpRequestId: z.number(),
-	message: z.string().nullable(),
-	status: z.enum(["PENDING", "ACCEPTED", "REJECTED"]),
-	createdAt: z.union([z.string(), z.date()]),
-	task: z.object({
-		id: z.number(),
-		title: z.string(),
-		urgency: z.string(),
-		status: z.string(),
-		city: z.string().nullable(),
-		description: z.string().nullable(),
-	}),
-});
-
-const paginatedOffersResponseSchema = z
-	.object({
-		data: z.array(offerWithTaskSchema),
-		meta: z.object({
-			currentPage: z.number(),
-			pageSize: z.number(),
-			totalItems: z.number(),
-			totalPages: z.number(),
-			hasNextPage: z.boolean(),
-			hasPreviousPage: z.boolean(),
-		}),
-	})
-	.meta({
-		ref: "PaginatedOffersResponse",
-		example: {
-			data: [
-				{
-					id: 101,
-					volunteerId: 42,
-					helpRequestId: 2005,
-					message: "I have a car and can deliver the supplies this afternoon.",
-					status: "PENDING",
-					createdAt: "2023-11-01T14:32:00Z",
-					task: {
-						id: 2005,
-						title: "Deliver winter clothes",
-						urgency: "HIGH",
-						status: "OPEN",
-						city: "Iasi",
-						description:
-							"Looking for someone to transport 5 boxes of winter clothes.",
-					},
-				},
-			],
-			meta: {
-				currentPage: 1,
-				pageSize: 10,
-				totalItems: 24,
-				totalPages: 3,
-				hasNextPage: true,
-				hasPreviousPage: false,
+const payloadSchema = z.object({
+	page: z
+		.string()
+		.optional()
+		.transform((value) => (value ? Number(value) : 1))
+		.pipe(z.number().int().min(1, "Error: 'page' trebuie sa fie minim 1")),
+	pageSize: z
+		.string()
+		.optional()
+		.transform((value) => (value ? Number(value) : 10))
+		.pipe(
+			z
+				.number()
+				.int()
+				.min(1, "Error: 'pageSize' trebuie sa fie intre 1 si 50")
+				.max(50, "Error: 'pageSize' trebuie sa fie intre 1 si 50"),
+		),
+	status: z
+		.string()
+		.optional()
+		.transform((value) => value?.toUpperCase())
+		.refine(
+			(value) =>
+				value === undefined ||
+				validOfferStatuses.includes(
+					value as (typeof validOfferStatuses)[number],
+				),
+			{
+				message: `Error: 'status' accepta doar: ${validOfferStatuses.join(", ")}`,
 			},
-		},
-	});
-
-// Empty/Error Response Schema
-const emptyApiResponseSchema = z
-	.object({
-		data: z.null(),
-		message: z.string().optional(),
-		notFound: z.boolean().optional(),
-		isUnauthorized: z.boolean().optional(),
-		isServerError: z.boolean().optional(),
-		isClientError: z.boolean().optional(),
-		app: z.object({ url: z.string().optional() }).optional(),
-		statusCode: z.number().optional(),
-	})
-	.meta({
-		ref: "EmptyApiResponse",
-		example: {
-			data: null,
-			message: "An error occurred",
-			isClientError: true,
-			statusCode: 400,
-		},
-	});
+		)
+		.transform(
+			(value) => value as (typeof validOfferStatuses)[number] | undefined,
+		),
+});
 
 @Controller("/offers")
 export class OfferController {
@@ -157,46 +108,14 @@ export class OfferController {
 
 		.get(
 			"/",
-			describeRoute({
-				summary: "Retrieve volunteer offers",
-				description:
-					"Fetches a paginated list of help offers made by the currently authenticated volunteer.",
-				tags: ["Offers"],
-				// Note: If you have a query validation middleware, you can also define `request: { query: resolver(...) }`
-				responses: {
-					200: {
-						description: "Successfully retrieved the paginated list of offers",
-						content: {
-							"application/json": {
-								schema: resolver(paginatedOffersResponseSchema),
-							},
-						},
-					},
-					400: {
-						description: "Invalid query parameters",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					401: {
-						description: "Unauthorized",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					403: {
-						description: "Forbidden - Volunteer profile not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
+			getVolunteerOffersDocs,
+			validator("query", payloadSchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: result.error[0]?.message ?? "Invalid query parameters",
+					});
+				}
 			}),
 			authMiddleware,
 			async (c) => {
@@ -213,22 +132,9 @@ export class OfferController {
 					});
 				}
 
-				// parse and validate query parameters
-				const query = {
-					page: c.req.query("page"),
-					pageSize: c.req.query("pageSize"),
-					status: c.req.query("status"),
-				};
+				const query = c.req.valid("query");
 
-				const validation = validateOffersQuery(query);
-				if (validation.error) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: validation.error,
-					});
-				}
-
-				const { page, pageSize, status } = validation.validData as any;
+				const { page, pageSize, status } = query;
 
 				// fetch offers with pagination and filters
 				try {
@@ -265,19 +171,14 @@ export class OfferController {
 
 		.patch(
 			"/:id/status",
-			describeRoute({
-				summary: "Accept offer status",
-				description:
-					"Updates an offer status to ACCEPTED for the authenticated task owner.",
-				tags: ["Offers"],
-				responses: {
-					200: { description: "Offer accepted successfully" },
-					400: { description: "Invalid id or invalid status value" },
-					401: { description: "Unauthorized" },
-					403: { description: "Forbidden" },
-					404: { description: "Offer not found" },
-					409: { description: "Invalid status transition" },
-				},
+			updateOfferStatusDocs,
+			validator("json", offerStatusTransitionSchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Request body must contain a valid status",
+					});
+				}
 			}),
 			async (c) => {
 				const offerId = parsePositiveId(c.req.param("id"));
@@ -288,26 +189,18 @@ export class OfferController {
 					});
 				}
 
-				const body = await c.req.json().catch(() => null);
-				const parsedBody = offerStatusTransitionSchema.safeParse(body);
-				if (!parsedBody.success) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: "Request body must contain a valid status",
-					});
-				}
-
 				try {
 					const sessionData = await auth.api.getSession({
 						headers: c.req.raw.headers,
 					});
 					const guestSessionId = c.req.header("X-Guest-Session");
+					const { status } = c.req.valid("json");
 
 					if (sessionData?.session?.userId) {
 						const result = await this.offerService.updateOfferStatus(
 							offerId,
 							sessionData.session.userId,
-							parsedBody.data.status,
+							status,
 						);
 
 						return sendApiResponse(c, result, { kind: "success" });
@@ -320,7 +213,7 @@ export class OfferController {
 					const result = await this.offerService.updateGuestOfferStatus(
 						offerId,
 						guestSessionId,
-						parsedBody.data.status,
+						status,
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
@@ -354,65 +247,47 @@ export class OfferController {
 			},
 		)
 		//BE1-26
-		.delete(
-			"/:id",
-			describeRoute({
-				summary: "Withdraw an offer",
-				description:
-					"Allows a volunteer to withdraw their PENDING offer. Performs a hard delete.",
-				tags: ["Offers"],
-				responses: {
-					204: { description: "Offer deleted successfully" },
-					400: { description: "Invalid id" },
-					401: { description: "Unauthorized" },
-					403: { description: "Forbidden" },
-					404: { description: "Offer not found" },
-					409: { description: "Offer is not PENDING" },
-				},
-			}),
-			authMiddleware,
-			async (c) => {
-				const offerId = parsePositiveId(c.req.param("id"));
-				if (!offerId) {
+		.delete("/:id", deleteOfferDocs, authMiddleware, async (c) => {
+			const offerId = parsePositiveId(c.req.param("id"));
+			if (!offerId) {
+				return sendApiResponse(c, null, {
+					kind: "clientError",
+					message: "'id' must be a positive integer",
+				});
+			}
+
+			try {
+				const session = c.get("session");
+				if (!session?.userId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				await this.offerService.deleteOffer(offerId, session.userId);
+
+				return c.body(null, 204);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
 					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: "'id' must be a positive integer",
+						kind: "notFound",
+						message: error.message,
 					});
 				}
 
-				try {
-					const session = c.get("session");
-					if (!session?.userId) {
-						return sendApiResponse(c, null, { kind: "unauthorized" });
-					}
-
-					await this.offerService.deleteOffer(offerId, session.userId);
-
-					return c.body(null, 204);
-				} catch (error) {
-					if (error instanceof NotFoundError) {
-						return sendApiResponse(c, null, {
-							kind: "notFound",
-							message: error.message,
-						});
-					}
-
-					if (error instanceof ForbiddenError) {
-						return sendApiResponse(c, null, {
-							statusCode: 403,
-							message: error.message,
-						});
-					}
-
-					if (error instanceof ValidationError) {
-						return sendApiResponse(c, null, {
-							statusCode: 409,
-							message: error.message,
-						});
-					}
-
-					throw error;
+				if (error instanceof ForbiddenError) {
+					return sendApiResponse(c, null, {
+						statusCode: 403,
+						message: error.message,
+					});
 				}
-			},
-		);
+
+				if (error instanceof ValidationError) {
+					return sendApiResponse(c, null, {
+						statusCode: 409,
+						message: error.message,
+					});
+				}
+
+				throw error;
+			}
+		});
 }

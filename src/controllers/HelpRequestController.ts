@@ -5,7 +5,6 @@ import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { HelpRequestService } from "../services/HelpRequestService";
 import { ModerationError } from "../services/ModerationService";
-import { requestStatusEnum } from "../db/enums";
 import type { CreateHelpRequestDTO } from "../db/repositories/helpRequest.repository";
 import { authMiddlware, authMiddleware } from "../middlware/authMiddleware";
 import auth from "../auth";
@@ -17,15 +16,24 @@ import {
 } from "../utils/Errors";
 import { validateTasksQuery } from "../utils/validators/queryValidator";
 import {
-	createValidationMiddleware,
+	helpRequestStatusUpdateErrorMessage,
 	helpRequestCreateInputSchema,
+	helpRequestStatusUpdateSchema,
 	queryValidationMiddleware,
 	wsMessageSchema,
 } from "../validation";
+import {
+	createTaskDocs,
+	createTaskOfferDocs,
+	deleteTaskDocs,
+	getPaginatedTasksDocs,
+	getTaskByIdDocs,
+	getTaskMessagesDocs,
+	getTaskOffersDocs,
+	updateTaskStatusDocs,
+} from "../docs/help-request.docs";
 import { logger } from "../utils/logger";
 import { sendApiResponse } from "../utils/apiReponse";
-import { describeRoute, resolver } from "hono-openapi";
-import { z } from "zod";
 import { RadiusRequiredError } from "../services/helpRequestDistance";
 import {
 	HelpOfferDuplicatePendingError,
@@ -38,102 +46,10 @@ import { MessageService } from "../services/MessageService";
 import { helpOfferInputSchema as helpOfferCreateInputSchema } from "../validation";
 import { sanitizeAnonymousTask } from "../utils/taskMapper";
 import { taskConversationConnections } from "../websockets/taskConversationConnections";
-
-// Zod Schemas for Swagger documentation
-const emptyApiResponseSchema = z
-	.object({
-		data: z.null(),
-		message: z.string().optional(),
-		notFound: z.boolean().optional(),
-		isUnauthorized: z.boolean().optional(),
-		isServerError: z.boolean().optional(),
-		isClientError: z.boolean().optional(),
-		app: z
-			.object({
-				url: z.string().optional(),
-			})
-			.optional(),
-		statusCode: z.number().optional(),
-	})
-	.meta({
-		ref: "EmptyApiResponse",
-		example: {
-			data: null,
-			message: "An error occurred",
-			notFound: false,
-			isUnauthorized: false,
-			isServerError: false,
-			isClientError: true,
-			app: { url: "http://localhost:3000" },
-			statusCode: 400,
-		},
-	});
-
-const successDetailsSchema = z
-	.object({
-		data: z.any(),
-		message: z.string().optional(),
-		notFound: z.boolean().optional(),
-		isUnauthorized: z.boolean().optional(),
-		isServerError: z.boolean().optional(),
-		isClientError: z.boolean().optional(),
-		app: z
-			.object({
-				url: z.string().optional(),
-			})
-			.optional(),
-		statusCode: z.number().optional(),
-	})
-	.meta({
-		ref: "SuccessDetailsResponse",
-		example: {
-			data: {},
-			message: "Request completed successfully",
-			notFound: false,
-			isUnauthorized: false,
-			isServerError: false,
-			isClientError: false,
-			app: { url: "http://localhost:3000" },
-			statusCode: 200,
-		},
-	});
-
-const moderationResponseSchema = z
-	.object({
-		data: z.object({
-			level: z.literal("BLOCKED"),
-			reason: z.string(),
-		}),
-		message: z.string(),
-		notFound: z.boolean(),
-		isUnauthorized: z.boolean(),
-		isServerError: z.boolean(),
-		isClientError: z.boolean(),
-		app: z.object({
-			url: z.string(),
-		}),
-		statusCode: z.literal(400),
-	})
-	.meta({
-		ref: "ModerationErrorResponse",
-		example: {
-			data: {
-				level: "BLOCKED",
-				reason: "Content violates policies regarding financial scams.",
-			},
-			message: "Inappropriate content detected.",
-			notFound: false,
-			isUnauthorized: false,
-			isServerError: false,
-			isClientError: true,
-			app: { url: "http://localhost:3000" },
-			statusCode: 400,
-		},
-	});
-
-type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
-
-const VALID_STATUSES = new Set<RequestStatus>(requestStatusEnum.enumValues);
+import {
+	buildValidationErrorData,
+	validator,
+} from "../utils/validators/honoValidator";
 
 const requireSession = async (c: any) => {
 	const existingSession = c.get("session");
@@ -248,40 +164,15 @@ export class HelpRequestController {
 	) {}
 
 	controller = new Hono<AppEnv>()
-		.use("/", createValidationMiddleware(helpRequestCreateInputSchema))
-
 		.post(
 			"/",
-			describeRoute({
-				summary: "Create a new task",
-				description:
-					"Creates a new help request/task. Optionally associates it with the authenticated user.",
-				tags: ["Tasks"],
-				responses: {
-					201: {
-						description: "The task was successfully created",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					400: {
-						description:
-							"Invalid input or moderation error (inappropriate content)",
-						content: {
-							"application/json": {
-								schema: resolver(
-									z.union([emptyApiResponseSchema, moderationResponseSchema]),
-								), // support boths
-							},
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
+			createTaskDocs,
+			validator("json", helpRequestCreateInputSchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, buildValidationErrorData(result.error), {
+						statusCode: 400,
+					});
+				}
 			}),
 			async (c) => {
 				let session: any = null;
@@ -290,7 +181,7 @@ export class HelpRequestController {
 					if (session instanceof Response) {
 						return session;
 					}
-					const body = (await c.req.json()) as CreateHelpRequestDTO & {
+					const body = c.req.valid("json") as CreateHelpRequestDTO & {
 						userId?: unknown;
 					};
 					const safeBody = removeClientOwnerFields(body);
@@ -336,97 +227,60 @@ export class HelpRequestController {
 			},
 		)
 
-		.get(
-			"/",
-			queryValidationMiddleware,
-			describeRoute({
-				summary: "Get paginated tasks",
-				description:
-					"Retrieve a paginated, sorted, and filtered list of tasks. Requires authentication.",
-				tags: ["Tasks"],
-				responses: {
-					200: {
-						description: "Successfully retrieved tasks",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					400: {
-						description: "Validation error in query parameters",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					401: {
-						description: "Unauthorized",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
-			}),
-			async (c) => {
-				try {
-					const session = await requireSession(c);
-					if (session instanceof Response) {
-						return session;
-					}
-					if (!session) {
-						//return c.json({ error: "Unauthorized" }, 401);
-						return sendApiResponse(c, null, { kind: "unauthorized" });
-					}
-
-					//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
-					const repeatedSkills = c.req.queries("skill");
-					const validation = validateTasksQuery({
-						...c.req.query(),
-						...(repeatedSkills ? { skill: repeatedSkills } : {}),
-					});
-
-					//Daca validatorul gaseste o problema
-					if (validation.error || !validation.validData) {
-						return sendApiResponse(c, null, {
-							message: validation.error || "Validation Error.",
-							kind: "clientError",
-						});
-					}
-
-					//Extragem parametrii
-					const { page, pageSize, sortBy, order, filters } =
-						validation.validData;
-					const result = await this.helpRequestService.getPaginatedTasks(
-						page,
-						pageSize,
-						sortBy,
-						order,
-						filters,
-						c.get("user")?.id,
-					);
-
-					return sendApiResponse(c, result, { kind: "success" });
-				} catch (error) {
-					if (
-						error instanceof RadiusRequiredError ||
-						(error instanceof Error && error.message === "Radius is required")
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: error.message,
-						});
-					}
-
-					console.error("Eroare la GET /tasks paginat si sortat:", error);
-					//return c.json({ error: "Eroare interna a serverului." }, 500);
-					return sendApiResponse(c, null, { kind: "serverError" });
+		.get("/", queryValidationMiddleware, getPaginatedTasksDocs, async (c) => {
+			try {
+				const session = await requireSession(c);
+				if (session instanceof Response) {
+					return session;
 				}
-			},
-		)
+				if (!session) {
+					//return c.json({ error: "Unauthorized" }, 401);
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				//Apelam validatorul nostru curat, trimitandu-i toti parametrii din URL
+				const repeatedSkills = c.req.queries("skill");
+				const validation = validateTasksQuery({
+					...c.req.query(),
+					...(repeatedSkills ? { skill: repeatedSkills } : {}),
+				});
+
+				//Daca validatorul gaseste o problema
+				if (validation.error || !validation.validData) {
+					return sendApiResponse(c, null, {
+						message: validation.error || "Validation Error.",
+						kind: "clientError",
+					});
+				}
+
+				//Extragem parametrii
+				const { page, pageSize, sortBy, order, filters } = validation.validData;
+				const result = await this.helpRequestService.getPaginatedTasks(
+					page,
+					pageSize,
+					sortBy,
+					order,
+					filters,
+					c.get("user")?.id,
+				);
+
+				return sendApiResponse(c, result, { kind: "success" });
+			} catch (error) {
+				if (
+					error instanceof RadiusRequiredError ||
+					(error instanceof Error && error.message === "Radius is required")
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: error.message,
+					});
+				}
+
+				console.error("Eroare la GET /tasks paginat si sortat:", error);
+				//return c.json({ error: "Eroare interna a serverului." }, 500);
+				return sendApiResponse(c, null, { kind: "serverError" });
+			}
+		})
 
 		.get("/:id/ws", async (c) => {
 			const helpRequestId = Number(c.req.param("id"));
@@ -524,237 +378,134 @@ export class HelpRequestController {
 			});
 		})
 
-		.get(
-			"/:id/messages",
-			describeRoute({
-				summary: "Get task conversation messages",
-				description:
-					"Retrieves paginated messages for the conversation associated with a task. Accepts either an authenticated owner/assigned volunteer or a matching X-Guest-Session header.",
-				tags: ["Tasks"],
-				responses: {
-					200: {
-						description: "Successfully retrieved conversation messages",
-					},
-					400: {
-						description: "Invalid task ID or pagination parameters",
-					},
-					401: {
-						description:
-							"Unauthorized - neither an auth session nor X-Guest-Session was provided",
-					},
-					403: {
-						description:
-							"Forbidden - auth user or guest session does not match the task",
-					},
-					404: {
-						description: "Conversation not found",
-					},
-					500: {
-						description: "Internal server error",
-					},
-				},
-			}),
-			async (c) => {
-				try {
-					const helpRequestId = Number(c.req.param("id"));
-					if (
-						!Number.isInteger(helpRequestId) ||
-						helpRequestId <= 0 ||
-						helpRequestId > Number.MAX_SAFE_INTEGER
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message: "Invalid id",
-						});
-					}
-
-					const pagination = parseMessagesPagination({
-						page: c.req.query("page"),
-						pageSize: c.req.query("pageSize"),
-					});
-					if (!pagination) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message:
-								"Invalid pagination parameters. page must be >= 1 and pageSize must be between 1 and 100.",
-						});
-					}
-
-					const session = await getOptionalSession(c);
-					const guestSessionId = c.req.header("X-Guest-Session");
-
-					if (!session?.userId && !guestSessionId) {
-						return sendApiResponse(c, null, { kind: "unauthorized" });
-					}
-
-					const access = session?.userId
-						? ({ kind: "auth", userId: session.userId } as const)
-						: ({
-								kind: "guest",
-								guestSessionId: guestSessionId as string,
-							} as const);
-
-					const result = await this.messageService.getMessagesForTask(
-						helpRequestId,
-						access,
-						pagination.page,
-						pagination.pageSize,
-					);
-
-					if (result.status === 200) {
-						//return c.json(result.body, 200);
-						return sendApiResponse(c, result.body, { kind: "success" });
-					}
-
+		.get("/:id/messages", getTaskMessagesDocs, async (c) => {
+			try {
+				const helpRequestId = Number(c.req.param("id"));
+				if (
+					!Number.isInteger(helpRequestId) ||
+					helpRequestId <= 0 ||
+					helpRequestId > Number.MAX_SAFE_INTEGER
+				) {
 					return sendApiResponse(c, null, {
-						statusCode: result.status,
-						message: result.message,
-					});
-				} catch (error) {
-					console.error("Could not retrieve task messages:", error);
-					return sendApiResponse(c, null, { kind: "serverError" });
-				}
-			},
-		)
-
-		.get(
-			"/:id",
-			describeRoute({
-				summary: "Get task by ID",
-				description:
-					"Retrieves a specific task by its ID. Applies anonymous mode sanitization if needed.",
-				tags: ["Tasks"],
-				responses: {
-					200: {
-						description: "Successfully retrieved the task",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					400: {
-						description: "Invalid ID provided",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					404: {
-						description: "Task not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
-			}),
-			async (c) => {
-				try {
-					const session = await requireSession(c);
-					if (session instanceof Response) {
-						return session;
-					}
-
-					const idParam = c.req.param("id");
-					const requestedId = Number(idParam);
-
-					if (
-						!Number.isInteger(requestedId) ||
-						requestedId <= 0 ||
-						requestedId > Number.MAX_SAFE_INTEGER
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message:
-								"Error: The ID provided is invalid. It must be a positive integer.",
-						});
-					}
-
-					const foundTask =
-						await this.helpRequestService.getHelpRequestById(requestedId);
-
-					if (
-						!foundTask ||
-						(Array.isArray(foundTask) && foundTask.length === 0)
-					) {
-						return sendApiResponse(c, null, {
-							kind: "notFound",
-							message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu exista in sistem.`,
-						});
-					}
-
-					const dataToReturn = Array.isArray(foundTask)
-						? foundTask[0]
-						: foundTask;
-					//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
-					return sendApiResponse(
-						c,
-						sanitizeAnonymousTask(dataToReturn, session?.userId),
-						{ kind: "success" },
-					);
-				} catch (error) {
-					console.error(
-						`Eroare critica la GET /tasks/${c.req.param("id")} :`,
-						error,
-					);
-					return sendApiResponse(c, null, {
-						kind: "serverError",
-						message: "Internal server error. Please try again later.",
+						kind: "clientError",
+						message: "Invalid id",
 					});
 				}
-			},
-		)
+
+				const pagination = parseMessagesPagination({
+					page: c.req.query("page"),
+					pageSize: c.req.query("pageSize"),
+				});
+				if (!pagination) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message:
+							"Invalid pagination parameters. page must be >= 1 and pageSize must be between 1 and 100.",
+					});
+				}
+
+				const session = await getOptionalSession(c);
+				const guestSessionId = c.req.header("X-Guest-Session");
+
+				if (!session?.userId && !guestSessionId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				const access = session?.userId
+					? ({ kind: "auth", userId: session.userId } as const)
+					: ({
+							kind: "guest",
+							guestSessionId: guestSessionId as string,
+						} as const);
+
+				const result = await this.messageService.getMessagesForTask(
+					helpRequestId,
+					access,
+					pagination.page,
+					pagination.pageSize,
+				);
+
+				if (result.status === 200) {
+					//return c.json(result.body, 200);
+					return sendApiResponse(c, result.body, { kind: "success" });
+				}
+
+				return sendApiResponse(c, null, {
+					statusCode: result.status,
+					message: result.message,
+				});
+			} catch (error) {
+				console.error("Could not retrieve task messages:", error);
+				return sendApiResponse(c, null, { kind: "serverError" });
+			}
+		})
+
+		.get("/:id", getTaskByIdDocs, async (c) => {
+			try {
+				const session = await requireSession(c);
+				if (session instanceof Response) {
+					return session;
+				}
+
+				const idParam = c.req.param("id");
+				const requestedId = Number(idParam);
+
+				if (
+					!Number.isInteger(requestedId) ||
+					requestedId <= 0 ||
+					requestedId > Number.MAX_SAFE_INTEGER
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message:
+							"Error: The ID provided is invalid. It must be a positive integer.",
+					});
+				}
+
+				const foundTask =
+					await this.helpRequestService.getHelpRequestById(requestedId);
+
+				if (
+					!foundTask ||
+					(Array.isArray(foundTask) && foundTask.length === 0)
+				) {
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: `Eroare: Task-ul cu ID-ul '${requestedId}' nu exista in sistem.`,
+					});
+				}
+
+				const dataToReturn = Array.isArray(foundTask)
+					? foundTask[0]
+					: foundTask;
+				//return c.json(sanitizeAnonymousTask(dataToReturn), 200);
+				return sendApiResponse(
+					c,
+					sanitizeAnonymousTask(dataToReturn, session?.userId),
+					{ kind: "success" },
+				);
+			} catch (error) {
+				console.error(
+					`Eroare critica la GET /tasks/${c.req.param("id")} :`,
+					error,
+				);
+				return sendApiResponse(c, null, {
+					kind: "serverError",
+					message: "Internal server error. Please try again later.",
+				});
+			}
+		})
 
 		.patch(
 			"/:id/status",
-			describeRoute({
-				summary: "Update task status",
-				description:
-					"Changes the status of a specific task. Validates permissions and correct status transitions.",
-				tags: ["Tasks"],
-				responses: {
-					200: {
-						description: "Status updated successfully",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					400: {
-						description:
-							"Invalid request ID, invalid JSON, or invalid status value",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					403: {
-						description:
-							"Forbidden. User does not have permission to update this task",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					404: {
-						description: "Task not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					409: {
-						description: "Invalid status transition (Conflict)",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
+			updateTaskStatusDocs,
+			validator("json", helpRequestStatusUpdateSchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: helpRequestStatusUpdateErrorMessage,
+					});
+				}
 			}),
 			async (c) => {
 				const requestId = Number(c.req.param("id"));
@@ -765,34 +516,12 @@ export class HelpRequestController {
 					});
 				}
 
-				let body: { status?: unknown };
-				try {
-					body = await c.req.json();
-				} catch {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: "Request body must be valid JSON",
-					});
-					//return c.json({ error: "Request body must be valid JSON" }, 400);
-				}
-
-				const { status } = body;
-
-				if (
-					typeof status !== "string" ||
-					!VALID_STATUSES.has(status as RequestStatus)
-				) {
-					return sendApiResponse(c, null, {
-						kind: "clientError",
-						message: `'status' must be one of: ${[...VALID_STATUSES].join(", ")}`,
-					});
-				}
-
 				try {
 					const session = await requireSession(c);
 					if (session instanceof Response) {
 						return session;
 					}
+					const { status } = c.req.valid("json");
 					const task =
 						await this.helpRequestService.getHelpRequestForAuthorization(
 							requestId,
@@ -831,7 +560,7 @@ export class HelpRequestController {
 
 					const updated = await this.helpRequestService.updateHelpRequestStatus(
 						requestId,
-						status as RequestStatus,
+						status,
 					);
 					//return c.json(updated, 200);
 					return sendApiResponse(c, updated, { kind: "success" });
@@ -857,251 +586,150 @@ export class HelpRequestController {
 			},
 		)
 
-		.delete(
-			"/:id",
-			authMiddleware,
-			describeRoute({
-				summary: "Delete a task",
-				description:
-					"Deletes a task owned by the authenticated user. Only tasks with OPEN or CANCELLED status can be deleted. All pending offers are automatically rejected, and volunteers are notified.",
-				tags: ["Tasks"],
-				responses: {
-					204: {
-						description: "Task successfully deleted",
-					},
-					400: {
-						description: "Invalid task ID provided",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					401: {
-						description: "Unauthorized - User is not authenticated",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					403: {
-						description: "Forbidden - User is not the task owner",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					404: {
-						description: "Task not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					409: {
-						description:
-							"Conflict - Task cannot be deleted due to invalid status (MATCHED, IN_PROGRESS, COMPLETED, or REJECTED)",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
-			}),
-			async (c) => {
-				try {
-					// Get the authenticated session from middleware
-					const session = c.get("session");
-					if (!session?.userId) {
-						return sendApiResponse(c, null, { kind: "unauthorized" });
-					}
+		.delete("/:id", authMiddleware, deleteTaskDocs, async (c) => {
+			try {
+				// Get the authenticated session from middleware
+				const session = c.get("session");
+				if (!session?.userId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
 
-					// Extract and validate the task ID
-					const taskIdParam = c.req.param("id");
-					const taskId = Number(taskIdParam);
+				// Extract and validate the task ID
+				const taskIdParam = c.req.param("id");
+				const taskId = Number(taskIdParam);
 
-					if (
-						!Number.isInteger(taskId) ||
-						taskId <= 0 ||
-						taskId > Number.MAX_SAFE_INTEGER
-					) {
-						return sendApiResponse(c, null, {
-							kind: "clientError",
-							message:
-								"Error: The ID provided is invalid. It must be a positive integer.",
-						});
-					}
+				if (
+					!Number.isInteger(taskId) ||
+					taskId <= 0 ||
+					taskId > Number.MAX_SAFE_INTEGER
+				) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message:
+							"Error: The ID provided is invalid. It must be a positive integer.",
+					});
+				}
 
-					// Attempt to delete the task
-					await this.helpRequestService.deleteHelpRequestByOwner(
-						taskId,
-						session.userId,
+				// Attempt to delete the task
+				await this.helpRequestService.deleteHelpRequestByOwner(
+					taskId,
+					session.userId,
+				);
+
+				// Return 204 No Content on successful deletion
+				//return c.body(null, 204);
+				return sendApiResponse(c, null, { statusCode: 204 });
+			} catch (error) {
+				// Handle ownership error
+				if (error instanceof ForbiddenError) {
+					return sendApiResponse(c, null, {
+						statusCode: 403,
+						message: error.message,
+					});
+				}
+
+				// Handle task not found error
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: error.message,
+					});
+				}
+
+				// Handle invalid status error (conflict)
+				if (error instanceof ConflictError) {
+					return sendApiResponse(c, null, {
+						statusCode: 409,
+						message: error.message,
+					});
+				}
+
+				console.error("Error deleting task:", error);
+				return sendApiResponse(c, null, { kind: "serverError" });
+			}
+		})
+
+		.get("/:id/offers", authMiddleware, getTaskOffersDocs, async (c) => {
+			try {
+				// Extragem user-ul curent pus de middleware-ul de auth
+				const session = c.get("session");
+				if (!session?.userId) {
+					return sendApiResponse(c, null, { kind: "unauthorized" });
+				}
+
+				const taskId = Number(c.req.param("id"));
+				if (!Number.isInteger(taskId) || taskId <= 0) {
+					return sendApiResponse(c, null, {
+						kind: "clientError",
+						message: "Provide a real number",
+					});
+				}
+
+				// Extragem și validăm query params cu defaults
+				const query = c.req.query();
+				const page = query.page ? Number(query.page) : 1;
+				const pageSize = query.pageSize ? Number(query.pageSize) : 10;
+
+				if (
+					!Number.isInteger(page) ||
+					page < 1 ||
+					!Number.isInteger(pageSize) ||
+					pageSize < 1 ||
+					pageSize > 50
+				) {
+					return sendApiResponse(c, null, { kind: "clientError" });
+				}
+
+				const statusRaw = query.status;
+
+				if (statusRaw) {
+					const isValidStatus = Object.values(OfferStatus).includes(
+						statusRaw as OfferStatus,
 					);
 
-					// Return 204 No Content on successful deletion
-					//return c.body(null, 204);
-					return sendApiResponse(c, null, { statusCode: 204 });
-				} catch (error) {
-					// Handle ownership error
-					if (error instanceof ForbiddenError) {
-						return sendApiResponse(c, null, {
-							statusCode: 403,
-							message: error.message,
-						});
-					}
-
-					// Handle task not found error
-					if (error instanceof NotFoundError) {
-						return sendApiResponse(c, null, {
-							kind: "notFound",
-							message: error.message,
-						});
-					}
-
-					// Handle invalid status error (conflict)
-					if (error instanceof ConflictError) {
-						return sendApiResponse(c, null, {
-							statusCode: 409,
-							message: error.message,
-						});
-					}
-
-					console.error("Error deleting task:", error);
-					return sendApiResponse(c, null, { kind: "serverError" });
-				}
-			},
-		)
-
-		.get(
-			"/:id/offers",
-			authMiddleware,
-			describeRoute({
-				summary: "Get offers for a specific task",
-				description:
-					"Retrieves a paginated list of offers for a task. Only the task owner can access this information.",
-				tags: ["Tasks"],
-				responses: {
-					200: {
-						description: "Successfully retrieved offers",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					400: {
-						description:
-							"Invalid task ID, pagination parameters, or status filter",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					401: {
-						description: "Unauthorized - User is not authenticated",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					403: {
-						description: "Forbidden - User is not the owner of this task",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					404: {
-						description: "Task not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
-			}),
-			async (c) => {
-				try {
-					// Extragem user-ul curent pus de middleware-ul de auth
-					const session = c.get("session");
-					if (!session?.userId) {
-						return sendApiResponse(c, null, { kind: "unauthorized" });
-					}
-
-					const taskId = Number(c.req.param("id"));
-					if (!Number.isInteger(taskId) || taskId <= 0) {
+					if (!isValidStatus) {
 						return sendApiResponse(c, null, {
 							kind: "clientError",
-							message: "Provide a real number",
+							message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
 						});
 					}
-
-					// Extragem și validăm query params cu defaults
-					const query = c.req.query();
-					const page = query.page ? Number(query.page) : 1;
-					const pageSize = query.pageSize ? Number(query.pageSize) : 10;
-
-					if (
-						!Number.isInteger(page) ||
-						page < 1 ||
-						!Number.isInteger(pageSize) ||
-						pageSize < 1 ||
-						pageSize > 50
-					) {
-						return sendApiResponse(c, null, { kind: "clientError" });
-					}
-
-					const statusRaw = query.status;
-
-					if (statusRaw) {
-						const isValidStatus = Object.values(OfferStatus).includes(
-							statusRaw as OfferStatus,
-						);
-
-						if (!isValidStatus) {
-							return sendApiResponse(c, null, {
-								kind: "clientError",
-								message: `invalid status; accepted: ${Object.values(OfferStatus).join(", ")}`,
-							});
-						}
-					}
-
-					const status = statusRaw as
-						| "PENDING"
-						| "ACCEPTED"
-						| "REJECTED"
-						| undefined;
-
-					const result =
-						await this.helpRequestService.getPaginatedOffersForTaskOwner(
-							taskId,
-							session.userId,
-							page,
-							pageSize,
-							status,
-						);
-
-					return sendApiResponse(c, result);
-				} catch (error) {
-					if (error instanceof NotFoundError) {
-						return sendApiResponse(c, null, {
-							kind: "notFound",
-							message: "the task does not exist",
-						});
-					}
-
-					if (error instanceof ForbiddenError) {
-						return sendApiResponse(c, null, {
-							kind: "forbidden",
-							message: error.message,
-						});
-					}
-
-					console.error("Could not get task offers:", error);
-					return sendApiResponse(c, null, { kind: "serverError" });
 				}
-			},
-		)
+
+				const status = statusRaw as
+					| "PENDING"
+					| "ACCEPTED"
+					| "REJECTED"
+					| undefined;
+
+				const result =
+					await this.helpRequestService.getPaginatedOffersForTaskOwner(
+						taskId,
+						session.userId,
+						page,
+						pageSize,
+						status,
+					);
+
+				return sendApiResponse(c, result);
+			} catch (error) {
+				if (error instanceof NotFoundError) {
+					return sendApiResponse(c, null, {
+						kind: "notFound",
+						message: "the task does not exist",
+					});
+				}
+
+				if (error instanceof ForbiddenError) {
+					return sendApiResponse(c, null, {
+						kind: "forbidden",
+						message: error.message,
+					});
+				}
+
+				console.error("Could not get task offers:", error);
+				return sendApiResponse(c, null, { kind: "serverError" });
+			}
+		})
 
 		// Offer-specific endpoint kept here temporarily by team decision.
 		// Constraints enforced for POST /tasks/:id/offers:
@@ -1112,55 +740,13 @@ export class HelpRequestController {
 		//   and duplicate pending offers
 		.post(
 			"/:id/offers",
-			describeRoute({
-				summary: "Create a task offer",
-				description:
-					"Creates a volunteer offer for a task. This endpoint is currently kept in HelpRequestController for routing consistency.",
-				tags: ["Tasks"],
-				responses: {
-					201: {
-						description: "The offer was successfully created",
-						content: {
-							"application/json": { schema: resolver(successDetailsSchema) },
-						},
-					},
-					401: {
-						description: "Unauthorized",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					400: {
-						description: "Invalid task id or invalid request body",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					403: {
-						description: "Forbidden. The session user cannot submit this offer",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					404: {
-						description: "Task not found",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					409: {
-						description: "Task status conflict or duplicate pending offer",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-					500: {
-						description: "Internal server error",
-						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
-						},
-					},
-				},
+			createTaskOfferDocs,
+			validator("json", helpOfferCreateInputSchema, (result, c) => {
+				if (!result.success) {
+					return sendApiResponse(c, buildValidationErrorData(result.error), {
+						statusCode: 400,
+					});
+				}
 			}),
 			async (c) => {
 				const session = await requireSession(c);
@@ -1176,28 +762,11 @@ export class HelpRequestController {
 					});
 				}
 
-				const body = await c.req.json().catch(() => null);
-				const parsedBody = helpOfferCreateInputSchema.safeParse(body);
-				if (!parsedBody.success) {
-					return sendApiResponse(
-						c,
-						{
-							errors: parsedBody.error.issues.map((issue) => ({
-								field: issue.path.length === 0 ? "body" : issue.path.join("."),
-								message: issue.message,
-							})),
-						},
-						{
-							statusCode: 400,
-						},
-					);
-				}
-
 				try {
 					const createdOffer = await this.helpOfferService.createOffer(
 						helpRequestId,
 						session.userId,
-						parsedBody.data,
+						c.req.valid("json"),
 					);
 
 					return sendApiResponse(c, createdOffer, { kind: "created" });

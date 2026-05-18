@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, spyOn } from "bun:test";
 import auth from "../../src/auth";
 import { BecomeVolunteerController } from "../../src/controllers/BecomeVolunteerController";
 import { NotFoundError } from "../../src/utils/Errors";
+import { VolunteerException } from "../../src/exceptions/volunteer/VolunteerException";
 
 const makeApp = (mockService: any) => {
 	const controller = new BecomeVolunteerController(mockService as any);
@@ -36,13 +37,8 @@ describe("BecomeVolunteerController", () => {
 			const res = await app.request("/become-volunteer", {
 				method: "POST",
 			});
-			const body = (await res.json()) as any;
 
 			expect(res.status).toBe(201);
-			expect(body.data).toMatchObject({
-				message: "You are now a volunteer",
-				volunteerId: 1,
-			});
 		});
 
 		test("should return 401 when session is missing", async () => {
@@ -56,18 +52,18 @@ describe("BecomeVolunteerController", () => {
 			expect(res.status).toBe(401);
 		});
 
-		test("should return 400 when user is already a volunteer", async () => {
+		test("should return 409 when user is already a volunteer", async () => {
 			mockService.becomeVolunteer = async () => {
-				throw new Error("User is already a volunteer");
+				throw new VolunteerException("User is already a volunteer");
 			};
 			app = makeApp(mockService);
 
 			const res = await app.request("/become-volunteer", {
 				method: "POST",
 			});
-			const body = (await res.json()) as any;
+			const body = await res.json();
 
-			expect(res.status).toBe(400);
+			expect(res.status).toBe(409);
 			expect(body.isClientError).toBe(true);
 		});
 

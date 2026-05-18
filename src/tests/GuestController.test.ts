@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import app from "../app";
 import { loadControllers } from "../utils/controller";
+import type { ApiResponseType } from "../utils/apiReponse";
 
 type GuestSessionResponse = {
 	sessionId: string;
@@ -21,12 +22,12 @@ describe("GuestController", () => {
 			method: "POST",
 		});
 
-		const payload = (await response.json()) as GuestSessionResponse &
-			Record<string, unknown>;
+		const payload =
+			(await response.json()) as ApiResponseType<GuestSessionResponse>;
 
 		expect(response.status).toBe(201);
 		expect(payload.data).toHaveProperty("sessionId");
-		expect(payload.data.sessionId).toMatch(uuidV4Pattern);
+		expect(payload.data?.sessionId).toMatch(uuidV4Pattern);
 	});
 
 	test("POST /guest/session returns different ids for consecutive requests", async () => {

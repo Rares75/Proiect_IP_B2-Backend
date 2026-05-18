@@ -5,20 +5,17 @@ import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { NotificationRepository } from "../db/repositories/notification.repository";
 import { NotificationService } from "../services/NotificationService";
-import { z } from "zod";
-import { describeRoute, validator as zValidator } from "hono-openapi";
-
-// --- SCHEME PENTRU DOCUMENTAȚIA SWAGGER ---
-
-const notificationsQuerySchema = z.object({
-	page: z.coerce.number().int().positive().optional().default(1),
-	pageSize: z.coerce.number().int().positive().max(50).optional().default(20),
-	unreadOnly: z.enum(["true", "false"]).optional(),
-});
-
-const notificationParamSchema = z.object({
-	id: z.coerce.number().int().positive("ID-ul trebuie să fie un număr pozitiv"),
-});
+import { validator as zValidator } from "hono-openapi";
+import {
+	getNotificationsDocs,
+	markAllNotificationsReadDocs,
+	markNotificationReadDocs,
+	notificationWebsocketDocs,
+} from "../docs/notification.docs";
+import {
+	notificationParamSchema,
+	notificationsQuerySchema,
+} from "../utils/validators/notifications/schemas";
 
 @Controller("/notifications")
 export class NotificationController {
@@ -43,18 +40,7 @@ export class NotificationController {
 		// 1. GET /api/notifications - Listare paginată
 		.get(
 			"/",
-			describeRoute({
-				summary: "Listează notificările utilizatorului sau guest-ului",
-				description:
-					"Returnează notificările paginate. Suportă filtrare după unreadOnly.",
-				tags: ["Notifications"],
-				responses: {
-					200: { description: "Lista paginată de notificări și unreadCount" },
-					401: {
-						description: "Neautorizat (lipsește sesiunea sau X-Guest-Session)",
-					},
-				},
-			}),
+			getNotificationsDocs,
 			zValidator("query", notificationsQuerySchema),
 			async (c) => {
 				const { userId, guestSessionId } = this.getIdentity(c);
@@ -93,49 +79,24 @@ export class NotificationController {
 		)
 
 		// 2. PATCH /api/notifications/read-all - Marchează toate ca citite
-		.patch(
-			"/read-all",
-			describeRoute({
-				summary: "Marchează toate notificările ca citite",
-				description:
-					"Setează readAt la momentul curent pentru toate notificările necitite.",
-				tags: ["Notifications"],
-				responses: {
-					200: { description: "Numărul de notificări actualizate" },
-					401: { description: "Neautorizat" },
-				},
-			}),
-			async (c) => {
-				const { userId, guestSessionId } = this.getIdentity(c);
+		.patch("/read-all", markAllNotificationsReadDocs, async (c) => {
+			const { userId, guestSessionId } = this.getIdentity(c);
 
-				if (!userId && !guestSessionId) {
-					return c.json({ error: "Unauthorized" }, 401);
-				}
+			if (!userId && !guestSessionId) {
+				return c.json({ error: "Unauthorized" }, 401);
+			}
 
-				const count = await this.notificationRepo.markAllAsRead({
-					userId,
-					guestSessionId,
-				});
-				return c.json({ updatedCount: count }, 200);
-			},
-		)
+			const count = await this.notificationRepo.markAllAsRead({
+				userId,
+				guestSessionId,
+			});
+			return c.json({ updatedCount: count }, 200);
+		})
 
 		// 3. PATCH /api/notifications/:id/read - Marchează una ca citită
 		.patch(
 			"/:id/read",
-			describeRoute({
-				summary: "Marchează o singură notificare ca citită",
-				description:
-					"Setează readAt la momentul curent pentru notificarea specificată.",
-				tags: ["Notifications"],
-				responses: {
-					200: { description: "Notificarea a fost actualizată" },
-					400: { description: "ID invalid" },
-					401: { description: "Neautorizat" },
-					403: { description: "Interzis - nu deții această notificare" },
-					404: { description: "Notificarea nu a fost găsită" },
-				},
-			}),
+			markNotificationReadDocs,
 			zValidator("param", notificationParamSchema),
 			async (c) => {
 				const { userId, guestSessionId } = this.getIdentity(c);
@@ -170,17 +131,12 @@ export class NotificationController {
 		// 4. GET /api/notifications/ws - Conexiunea WebSocket
 		.get(
 			"/ws",
-			describeRoute({
-				summary: "Conexiune WebSocket pentru notificări real-time",
-				description:
-					"Nu se apelează via REST (Swagger). Conectați-vă cu un client WS. Dacă sunteți guest, folosiți parametrul de query ?guestSessionId=...",
-				tags: ["Notifications"],
-			}),
+			notificationWebsocketDocs,
 			upgradeWebSocket((c) => {
 				return {
 					onOpen: async (_event, ws) => {
 						const session = c.get("session") as any;
-						const userId = session?.user?.id || session?.userId || session?.id;
+						const userId = session?.user?.id || session?.userId;
 						const guestSessionId = c.req.query("guestSessionId");
 
 						const key = userId || guestSessionId;
@@ -208,7 +164,7 @@ export class NotificationController {
 					},
 					onClose: (_event, _ws) => {
 						const session = c.get("session") as any;
-						const userId = session?.user?.id || session?.userId || session?.id;
+						const userId = session?.user?.id || session?.userId;
 						const guestSessionId = c.req.query("guestSessionId");
 						const key = userId || guestSessionId;
 

@@ -5,7 +5,6 @@ import { loadDiModules } from "./di/loadModules";
 import { loadControllers } from "./utils/controller";
 import { join } from "node:path";
 import { logger } from "./utils/logger";
-//import { websocket } from "hono/bun";
 import * as Sentry from "@sentry/bun";
 
 Sentry.init({
@@ -26,8 +25,8 @@ parseEnv();
 
 const server = Bun.serve({
 	port: Bun.env.PORT || 3000,
-	hostname: "::",
-	fetch: (request, server) => app.fetch(request, { server }),
+	hostname: "0.0.0.0",
+	fetch: app.fetch,
 	websocket,
 });
 

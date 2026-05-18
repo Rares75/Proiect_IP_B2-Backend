@@ -71,6 +71,17 @@ export const helpRequestInputSchema = baseHelpRequestInputSchema.refine(
 
 export const helpRequestCreateInputSchema = helpRequestInputSchema;
 
+export const helpRequestStatusUpdateErrorMessage =
+	"'status' must be one of: OPEN, MATCHED, IN_PROGRESS, COMPLETED, CANCELLED, REJECTED";
+
+export const helpRequestStatusUpdateSchema = z
+	.object({
+		status: z.enum(requestStatusEnum.enumValues, {
+			error: helpRequestStatusUpdateErrorMessage,
+		}),
+	})
+	.strict();
+
 export const HelpRequestSchema = helpRequestInputSchema;
 export type HelpRequestInput = z.infer<typeof helpRequestInputSchema>;
 
@@ -104,6 +115,12 @@ export const guestHelpRequestInputSchema = baseHelpRequestInputSchema
 			.describe(
 				"Avertismente de siguranță (ex: 'Câine în curte', 'Zonă greu accesibilă')",
 			),
+		description: z
+			.string()
+			.min(1)
+			.max(256)
+			.optional()
+			.describe("Descrierea cererii de ajutor a guest-ului"),
 	})
 	.strict()
 	.refine((data) => data.description || data.audioUrl, {

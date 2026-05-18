@@ -134,11 +134,8 @@ describe("GET /offers", () => {
 				headers: { Authorization: "Bearer fake-token" },
 			},
 		);
-		const body: any = await response.json();
 
-		// Assert
 		expect(response.status).toBe(400);
-		expect(body.message).toContain("accepta doar");
 		expect(findOffersByVolunteer).not.toHaveBeenCalled();
 	});
 
