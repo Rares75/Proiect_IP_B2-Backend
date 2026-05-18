@@ -1,9 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import type { OpenAPIV3_1 } from "openapi-types";
-import {
-	helpRequestCategoryEnum,
-	requestStatusEnum,
-} from "../db/enums";
+import { helpRequestCategoryEnum, requestStatusEnum } from "../db/enums";
 import {
 	emptyTaskApiResponseSchema,
 	helpRequestCreateBodySchema,
@@ -89,7 +86,8 @@ const taskListParameters: OpenAPIV3_1.ParameterObject[] = [
 		name: "skill",
 		in: "query",
 		required: false,
-		description: "Filter tasks by skill. The parameter may be repeated multiple times.",
+		description:
+			"Filter tasks by skill. The parameter may be repeated multiple times.",
 		schema: {
 			type: "array",
 			items: { type: "string" },
@@ -101,14 +99,16 @@ const taskListParameters: OpenAPIV3_1.ParameterObject[] = [
 		name: "lat",
 		in: "query",
 		required: false,
-		description: "Latitude used together with lng and radius for distance filtering",
+		description:
+			"Latitude used together with lng and radius for distance filtering",
 		schema: { type: "number", minimum: -90, maximum: 90 },
 	},
 	{
 		name: "lng",
 		in: "query",
 		required: false,
-		description: "Longitude used together with lat and radius for distance filtering",
+		description:
+			"Longitude used together with lat and radius for distance filtering",
 		schema: { type: "number", minimum: -180, maximum: 180 },
 	},
 	{
@@ -362,7 +362,8 @@ export const updateTaskStatusDocs = describeRoute({
 			},
 		},
 		403: {
-			description: "Forbidden. User does not have permission to update this task",
+			description:
+				"Forbidden. User does not have permission to update this task",
 			content: {
 				"application/json": { schema: resolver(emptyTaskApiResponseSchema) },
 			},
