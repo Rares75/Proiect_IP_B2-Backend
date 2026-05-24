@@ -7,6 +7,7 @@ import { NotificationRepository } from "../db/repositories/notification.reposito
 import { NotificationService } from "../services/NotificationService";
 import { z } from "zod";
 import { describeRoute, validator as zValidator } from "hono-openapi";
+import auth from "../auth";
 
 // --- SCHEME PENTRU DOCUMENTAȚIA SWAGGER ---
 
@@ -20,6 +21,11 @@ const notificationParamSchema = z.object({
 	id: z.coerce.number().int().positive("ID-ul trebuie să fie un număr pozitiv"),
 });
 
+type Variables = {
+	wsUserId: string | undefined;
+	wsGuestId: string | undefined | null;
+};
+
 @Controller("/notifications")
 export class NotificationController {
 	constructor(
@@ -32,14 +38,22 @@ export class NotificationController {
 	/**
 	 * Extrage userId sau guestSessionId din request.
 	 */
-	private getIdentity(c: Context) {
-		const session = c.get("session") as any;
-		const userId = session?.user?.id || session?.userId || session?.id;
-		const guestSessionId = c.req.header("X-Guest-Session");
+	/**
+	 * Extrage userId (via better-auth) sau guestSessionId din request.
+	 */
+	private async getIdentity(c: Context) {
+		// 1. Verificăm manual cookie-ul folosind better-auth
+		const session = await auth.api.getSession({ headers: c.req.raw });
+		const userId = session?.user?.id;
+
+		// 2. Extragem guest-ul (din header pentru REST, din query pentru WS)
+		const guestSessionId =
+			c.req.header("X-Guest-Session") || c.req.query("guestSessionId");
+
 		return { userId, guestSessionId };
 	}
 
-	controller = new Hono()
+	controller = new Hono<{ Variables: Variables }>()
 		// 1. GET /api/notifications - Listare paginată
 		.get(
 			"/",
@@ -57,13 +71,12 @@ export class NotificationController {
 			}),
 			zValidator("query", notificationsQuerySchema),
 			async (c) => {
-				const { userId, guestSessionId } = this.getIdentity(c);
+				const { userId, guestSessionId } = await this.getIdentity(c);
 
 				if (!userId && !guestSessionId) {
 					return c.json({ error: "Unauthorized" }, 401);
 				}
 
-				// Extragem datele validate de Zod
 				const { page, pageSize, unreadOnly } = c.req.valid("query");
 				const isUnread = unreadOnly === "true";
 
@@ -106,7 +119,7 @@ export class NotificationController {
 				},
 			}),
 			async (c) => {
-				const { userId, guestSessionId } = this.getIdentity(c);
+				const { userId, guestSessionId } = await this.getIdentity(c);
 
 				if (!userId && !guestSessionId) {
 					return c.json({ error: "Unauthorized" }, 401);
@@ -138,7 +151,7 @@ export class NotificationController {
 			}),
 			zValidator("param", notificationParamSchema),
 			async (c) => {
-				const { userId, guestSessionId } = this.getIdentity(c);
+				const { userId, guestSessionId } = await this.getIdentity(c);
 
 				if (!userId && !guestSessionId) {
 					return c.json({ error: "Unauthorized" }, 401);
@@ -173,17 +186,23 @@ export class NotificationController {
 			describeRoute({
 				summary: "Conexiune WebSocket pentru notificări real-time",
 				description:
-					"Nu se apelează via REST (Swagger). Conectați-vă cu un client WS. Dacă sunteți guest, folosiți parametrul de query ?guestSessionId=...",
+					"Conectați-vă cu un client WS. Guest-ii folosesc ?guestSessionId=...",
 				tags: ["Notifications"],
 			}),
+			// Aflăm cine e userul chiar la conectare și îl punem în context
+			async (c, next) => {
+				const { userId, guestSessionId } = await this.getIdentity(c);
+				c.set("wsUserId", userId);
+				c.set("wsGuestId", guestSessionId);
+				return next();
+			},
 			upgradeWebSocket((c) => {
+				const userId = c.get("wsUserId");
+				const guestSessionId = c.get("wsGuestId");
+				const key = userId || guestSessionId;
+
 				return {
 					onOpen: async (_event, ws) => {
-						const session = c.get("session") as any;
-						const userId = session?.user?.id || session?.userId || session?.id;
-						const guestSessionId = c.req.query("guestSessionId");
-
-						const key = userId || guestSessionId;
 						if (!key) {
 							ws.close(1008, "Unauthorized");
 							return;
@@ -207,11 +226,6 @@ export class NotificationController {
 						}
 					},
 					onClose: (_event, _ws) => {
-						const session = c.get("session") as any;
-						const userId = session?.user?.id || session?.userId || session?.id;
-						const guestSessionId = c.req.query("guestSessionId");
-						const key = userId || guestSessionId;
-
 						if (key) this.notificationService.notificationSockets.delete(key);
 					},
 				};
