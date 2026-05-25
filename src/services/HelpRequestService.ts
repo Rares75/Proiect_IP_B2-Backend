@@ -28,8 +28,8 @@ import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.
 import { NotificationService } from "./NotificationService";
 import type { HelpOfferInput } from "../validation";
 import type { TaskFilterParams } from "../filters";
-
-//import type { TaskFilterParams } from "../filters";
+import { resolveTaskDistanceFilter } from "./helpRequestDistance";
+import { sanitizeAnonymousTask } from "../utils/taskMapper";
 
 // State machine
 type RequestStatus = (typeof requestStatusEnum.enumValues)[number];
@@ -39,6 +39,13 @@ const VALID_TRANSITIONS: Partial<Record<RequestStatus, RequestStatus[]>> = {
 	MATCHED: ["IN_PROGRESS", "CANCELLED", "REJECTED"],
 	IN_PROGRESS: ["COMPLETED", "CANCELLED"],
 };
+
+export class HelpRequestOffersForbiddenError extends Error {
+	constructor() {
+		super("You don't have permission to see this task.");
+		this.name = "HelpRequestOffersForbiddenError";
+	}
+}
 
 @Service()
 export class HelpRequestService {
@@ -120,6 +127,29 @@ export class HelpRequestService {
 		}
 	}
 
+	async getHelpRequests(limit?: number, offset?: number) {
+		return this.helpRequestRepo.findMany(limit, offset);
+	}
+
+	async getHelpRequestForAuthorization(id: number) {
+		return this.helpRequestRepo.findById(id);
+	}
+
+	async getAssignmentAuthorization(
+		helpRequestId: number,
+	): Promise<HelpRequestAssignmentAuthorization | undefined> {
+		if (
+			typeof this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId !==
+			"function"
+		) {
+			return undefined;
+		}
+
+		return this.helpRequestRepo.findAssignmentAuthorizationByHelpRequestId(
+			helpRequestId,
+		);
+	}
+
 	/**
 	 * Retrieves a task with the specified ID and includes the associated details (if any)
 	 *
@@ -187,23 +217,76 @@ export class HelpRequestService {
 		return updated;
 	}
 
+	async createOfferForTask(
+		helpRequestId: number,
+		userId: string,
+		input: HelpOfferInput,
+	): Promise<HelpOffer> {
+		const helpRequest = await this.helpRequestRepo.findById(helpRequestId);
+		if (!helpRequest) {
+			throw new NotFoundError("HelpRequest", String(helpRequestId));
+		}
+
+		if (helpRequest.status !== "OPEN") {
+			throw new ConflictError("HelpRequest is not OPEN");
+		}
+
+		const volunteer = await this.volunteerRepo.findByUserId(userId);
+		if (!volunteer) {
+			throw new ForbiddenError("Only volunteers can create offers");
+		}
+
+		if (helpRequest.requestedByUserId === userId) {
+			throw new ForbiddenError("Task owner cannot create offers");
+		}
+
+		const existingPendingOffer =
+			await this.helpOfferRepo.findPendingByHelpRequestIdAndVolunteerId(
+				helpRequestId,
+				volunteer.id,
+			);
+
+		if (existingPendingOffer) {
+			throw new ConflictError(
+				"Volunteer already has a pending offer for this task",
+			);
+		}
+
+		return this.helpOfferRepo.create({
+			helpRequestId,
+			volunteerId: volunteer.id,
+			message: input.message ?? null,
+			status: "PENDING",
+		});
+	}
+
 	//BE1-12
-	async getPaginatedTasks(page: number, pageSize: number, filters?: any) {
+	async getPaginatedTasks(
+		page: number,
+		pageSize: number,
+		sortBy: "createdAt" | "urgency" = "createdAt",
+		order: "ASC" | "DESC" = "DESC",
+		filters?: TaskFilterParams,
+		userId?: string,
+	) {
+		const resolvedFilters = await resolveTaskDistanceFilter(
+			filters,
+			userId,
+			this.volunteerRepo,
+		);
 		const { data, total } = await this.helpRequestRepo.findPaginatedWithDetails(
 			page,
 			pageSize,
-			filters,
+			sortBy,
+			order,
+			resolvedFilters,
 		);
 
 		const totalPages = Math.ceil(total / pageSize);
 
-		const formattedData = data.map((task) => {
-			if (task.anonymousMode) {
-				const { requestedByUserId, ...restOfTask } = task;
-				return restOfTask;
-			}
-			return task;
-		});
+		const formattedData = data.map((task) =>
+			sanitizeAnonymousTask(task, userId),
+		);
 
 		return {
 			data: formattedData,
@@ -215,22 +298,26 @@ export class HelpRequestService {
 			},
 		};
 	}
-	async getPaginatedOffersForGuestTaskOwner(
+
+	async getPaginatedOffersForTaskOwner(
 		taskId: number,
-		guestSessionId: string,
+		requesterUserId: string,
 		page: number,
 		pageSize: number,
 		status?: "PENDING" | "ACCEPTED" | "REJECTED",
 	) {
+		// verif existența task-ului și ownership-ul
 		const task = await this.helpRequestRepo.findById(taskId);
 		if (!task) {
 			throw new NotFoundError("HelpRequest", String(taskId));
 		}
 
-		if (task.guestSessionId !== guestSessionId) {
+		if (task.requestedByUserId !== requesterUserId) {
+			//console.log(task.requestedByUserId + " " + requesterUserId);
 			throw new ForbiddenError("You don't have permission to see this task.");
 		}
 
+		// 2. ofertele
 		const { data, total } =
 			await this.helpOfferRepo.findPaginatedOffersByTaskId(
 				taskId,
@@ -239,7 +326,9 @@ export class HelpRequestService {
 				status,
 			);
 
+		// răspunsul cerut
 		const formattedOffers = data.map((offer) => {
+			//datele vizibile garantat
 			const volunteerInfo: any = {
 				username: offer.username,
 				trustScore: offer.trustScore,
@@ -266,17 +355,16 @@ export class HelpRequestService {
 		return {
 			data: formattedOffers,
 			meta: {
-				page,
-				pageSize,
-				total,
-				totalPages,
+				page: page,
+				pageSize: pageSize,
+				total: total,
+				totalPages: totalPages,
 			},
 		};
 	}
-
-	async getPaginatedOffersForTaskOwner(
+	async getPaginatedOffersForGuestTaskOwner(
 		taskId: number,
-		userId: string,
+		guestSessionId: string,
 		page: number,
 		pageSize: number,
 		status?: "PENDING" | "ACCEPTED" | "REJECTED",
@@ -286,7 +374,7 @@ export class HelpRequestService {
 			throw new NotFoundError("HelpRequest", String(taskId));
 		}
 
-		if (task.requestedByUserId !== userId) {
+		if (task.guestSessionId !== guestSessionId) {
 			throw new ForbiddenError("You don't have permission to see this task.");
 		}
 
