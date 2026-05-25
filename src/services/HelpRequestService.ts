@@ -128,7 +128,7 @@ export class HelpRequestService {
 	 */
 	async getHelpRequestById(id: number) {
 		//fetch the main task
-		const helpRequest = await this.helpRequestRepo.findById(id);
+		const helpRequest = await this.helpRequestRepo.findByIdWithUser(id);
 
 		//if the task doesn't exist, I return `undefined` (the controller will handle the 404)
 		if (!helpRequest) {
