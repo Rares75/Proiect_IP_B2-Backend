@@ -24,15 +24,15 @@ describe("sanitizeAnonymousTask", () => {
 		expect(result.isIdentityHidden).toBe(true);
 	});
 
-	test("uses a non-identifiable alias for anonymousMode", () => {
+	test("shows the owner username for anonymousMode when available", () => {
 		const result = sanitizeAnonymousTask(
 			{ ...task, anonymousMode: true, ownerHiddenIdentity: false },
 			{ userId: "other-user" },
 		);
 
 		expect(result.requestedByUserId).toBeUndefined();
-		expect(result.displayName).toBe(createAnonymousAlias("owner-1"));
-		expect(result.displayName).not.toBe("maria");
+		expect(result.displayName).toBe("maria");
+		expect(result.displayName).not.toBe(createAnonymousAlias("owner-1"));
 		expect(result.isIdentityHidden).toBe(true);
 	});
 

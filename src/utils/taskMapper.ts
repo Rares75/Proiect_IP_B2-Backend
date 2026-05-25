@@ -17,8 +17,7 @@ export const sanitizeAnonymousTask = (
 	const isGuestTask = baseTask.requestedByUserId === null;
 	const isOwner = !isGuestTask && baseTask.requestedByUserId === viewer?.userId;
 	const isAdmin = viewer?.role === "admin";
-	const shouldHideOwnerIdentity =
-		Boolean(task.anonymousMode) || Boolean(ownerHiddenIdentity);
+	const shouldHideOwnerIdentity = Boolean(ownerHiddenIdentity);
 	const ownerAlias = createAnonymousAlias(baseTask.requestedByUserId);
 	const ownerIdentity = {
 		userId: baseTask.requestedByUserId,
@@ -43,6 +42,16 @@ export const sanitizeAnonymousTask = (
 	if (isGuestTask) {
 		const { requestedByUserId, ...restOfTask } = baseTask;
 		return { ...restOfTask, displayName: null };
+	}
+
+	if (task.anonymousMode) {
+		const { requestedByUserId, ...restOfTask } = baseTask;
+		return {
+			...restOfTask,
+			displayName: ownerUsername ?? ownerAlias,
+			ownerAlias,
+			isIdentityHidden: true,
+		};
 	}
 
 	if (shouldHideOwnerIdentity) {
