@@ -5,11 +5,15 @@ import { z } from "zod";
 import { Controller } from "../utils/controller";
 import { inject } from "../di";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import auth from "../auth";
+import { mapUserIdentity } from "../utils/identityMapper";
 import { VolunteerService } from "../services/VolunteerService";
 import { authMiddlware } from "../middlware/authMiddleware";
 import { sendApiResponse } from "../utils/apiReponse";
 import { NotFoundError } from "../utils/Errors";
 import { logger } from "../utils/logger";
+
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
 const ratingItemSchema = z
 	.object({
@@ -28,6 +32,8 @@ const volunteerUserSchema = z
 		email: z.string().nullable(),
 		phone: z.string().nullable(),
 		image: z.string().nullable(),
+		alias: z.string(),
+		isIdentityHidden: z.boolean(),
 	})
 	.meta({ ref: "VolunteerUser" });
 
@@ -239,41 +245,6 @@ const parseVolunteerId = (idParam: string): number | null => {
 	return volunteerId;
 };
 
-const buildVolunteerResponse = (
-	volunteer: NonNullable<
-		Awaited<ReturnType<VolunteerRepository["findProfileById"]>>
-	>,
-	ratingData: Awaited<ReturnType<VolunteerRepository["findRatingsById"]>>,
-) => {
-	const ratings = ratingData?.ratings ?? [];
-	const averageStars = ratingData?.averageStars ?? null;
-
-	return {
-		id: volunteer.volunteerId,
-		availability: volunteer.availability,
-		trustScore: volunteer.trustScore,
-		completedTasks: volunteer.completedTasks,
-		user: {
-			id: volunteer.userId,
-			name: volunteer.hiddenIdentity ? null : (volunteer.name ?? null),
-			email: volunteer.hiddenIdentity ? null : (volunteer.email ?? null),
-			phone: volunteer.hiddenIdentity ? null : (volunteer.phone ?? null),
-			image: volunteer.image ?? null,
-		},
-		profile: {
-			bio: volunteer.bio ?? null,
-			languages: volunteer.languages ?? [],
-			skills: volunteer.skills ?? [],
-			maxDistanceKm: volunteer.maxDistanceKm ?? null,
-		},
-		ratingInfo: {
-			averageStars,
-			totalRatings: ratings.length,
-			ratings,
-		},
-	};
-};
-
 const buildCurrentVolunteerProfileResponse = (
 	result: Awaited<ReturnType<VolunteerService["getVolunteerProfile"]>>,
 ) => {
@@ -377,11 +348,55 @@ export class VolunteerController {
 						});
 					}
 
-					const ratingData =
+					const { ratings, averageStars } =
 						await this.volunteerRepository.findRatingsById(volunteerId);
-					const response = buildVolunteerResponse(volunteer, ratingData);
+					const sessionData = await auth.api.getSession({
+						headers: c.req.raw.headers,
+					});
+					const viewer = sessionData?.user
+						? {
+								userId: sessionData.user.id,
+								role: (sessionData.user as any).role,
+							}
+						: undefined;
+					const identity = mapUserIdentity(
+						{
+							userId: volunteer.userId,
+							name: volunteer.name,
+							email: volunteer.email,
+							phone: volunteer.phone,
+							image: volunteer.image,
+							hiddenIdentity: volunteer.hiddenIdentity,
+						},
+						viewer,
+					);
 
-					return sendApiResponse(c, response);
+					return sendApiResponse(c, {
+						id: volunteer.volunteerId,
+						availability: volunteer.availability,
+						trustScore: volunteer.trustScore,
+						completedTasks: volunteer.completedTasks,
+						user: {
+							id: identity.id,
+							name: identity.name,
+							email: identity.email,
+							phone: identity.phone,
+							image: identity.image,
+							alias: identity.alias,
+							isIdentityHidden: identity.isIdentityHidden,
+						},
+						profile: {
+							bio: volunteer.bio ?? null,
+							languages: volunteer.languages ?? [],
+							skills: volunteer.skills ?? [],
+							maxDistanceKm: volunteer.maxDistanceKm ?? null,
+						},
+						ratingInfo: {
+							averageStars,
+							totalRatings: ratings.length,
+							ratings,
+						},
+					});
 				} catch (err) {
 					logger.exception(err);
 					return sendApiResponse(c, null, { kind: "serverError" });

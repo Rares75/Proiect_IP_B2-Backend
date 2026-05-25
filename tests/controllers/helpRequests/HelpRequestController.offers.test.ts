@@ -1,4 +1,5 @@
 import {
+	afterAll,
 	afterEach,
 	beforeEach,
 	describe,
@@ -25,6 +26,10 @@ const { HelpRequestController } = await import(
 	"../../../src/controllers/HelpRequestController"
 );
 
+afterAll(() => {
+	mock.restore();
+});
+
 describe("GET /api/tasks/:id/offers", () => {
 	let app: Hono;
 	let authSpy: ReturnType<typeof spyOn> | undefined;
@@ -37,6 +42,7 @@ describe("GET /api/tasks/:id/offers", () => {
 			{
 				getPaginatedOffersForTaskOwner,
 			} as any,
+			{} as any,
 			{} as any,
 		);
 

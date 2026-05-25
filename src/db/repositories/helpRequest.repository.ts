@@ -11,7 +11,7 @@ import { db } from "../";
 import type { DatabaseClient } from "./databaseClient";
 import { repository } from "../../di/decorators/repository";
 import { user } from "../auth-schema";
-import { volunteers } from "../profile";
+import { userProfiles, volunteers } from "../profile";
 import {
 	helpRequests,
 	requestDetails,
@@ -97,10 +97,12 @@ export class HelpRequestRepository
 		return found;
 	}
 
-	async findByIdWithUser(
-		id: number,
-	): Promise<
-		| (HelpRequest & { ownerName: string | null; ownerUsername: string | null })
+	async findByIdWithUser(id: number): Promise<
+		| (HelpRequest & {
+				ownerName: string | null;
+				ownerUsername: string | null;
+				ownerHiddenIdentity: boolean | null;
+		  })
 		| undefined
 	> {
 		const [found] = await db
@@ -108,9 +110,11 @@ export class HelpRequestRepository
 				...getTableColumns(helpRequests),
 				ownerName: user.name,
 				ownerUsername: user.username,
+				ownerHiddenIdentity: userProfiles.hiddenIdentity,
 			})
 			.from(helpRequests)
 			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
+			.leftJoin(userProfiles, eq(userProfiles.userId, user.id))
 			.where(eq(helpRequests.id, id));
 		return found;
 	}
@@ -368,6 +372,7 @@ export class HelpRequestRepository
 				requestLocation: requestLocations,
 				ownerName: user.name,
 				ownerUsername: user.username,
+				ownerHiddenIdentity: userProfiles.hiddenIdentity,
 			})
 			.from(helpRequests)
 			.leftJoin(
@@ -379,6 +384,7 @@ export class HelpRequestRepository
 				eq(requestLocations.helpRequestId, helpRequests.id),
 			)
 			.leftJoin(user, eq(user.id, helpRequests.requestedByUserId))
+			.leftJoin(userProfiles, eq(userProfiles.userId, user.id))
 			.where(composedWhere)
 			.orderBy(...orderBy);
 
@@ -403,6 +409,7 @@ export class HelpRequestRepository
 				requestLocation,
 				ownerName,
 				ownerUsername,
+				ownerHiddenIdentity,
 			}) => ({
 				...helpRequest,
 				requestDetails,
@@ -411,6 +418,7 @@ export class HelpRequestRepository
 				location: requestLocation?.location ?? null,
 				ownerName,
 				ownerUsername,
+				ownerHiddenIdentity,
 			}),
 		);
 
@@ -440,6 +448,7 @@ export class HelpRequestRepository
 			requestLocation: typeof requestLocations.$inferSelect | null;
 			ownerName: string | null;
 			ownerUsername: string | null;
+			ownerHiddenIdentity: boolean | null;
 		}>,
 		requestedSkills: string[] | undefined,
 	) {
@@ -450,6 +459,7 @@ export class HelpRequestRepository
 				requestLocation,
 				ownerName,
 				ownerUsername,
+				ownerHiddenIdentity,
 			}) => ({
 				...helpRequest,
 				requestDetails,
@@ -458,6 +468,7 @@ export class HelpRequestRepository
 				location: requestLocation?.location ?? null,
 				ownerName,
 				ownerUsername,
+				ownerHiddenIdentity,
 				skillScore: calculateSkillMachScore(
 					requestedSkills,
 					helpRequest?.skillsNeeded,
