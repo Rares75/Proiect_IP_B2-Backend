@@ -12,8 +12,11 @@ import {
 } from "./ModerationService";
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
-import { InvalidStatusTransitionError, NotFoundError } from "../utils/Errors";
+import { InvalidStatusTransitionError, NotFoundError, ForbiddenError } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
+import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
+
+
 //import type { TaskFilterParams } from "../filters";
 
 // State machine
@@ -34,6 +37,8 @@ export class HelpRequestService {
 		private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
 		@inject(ModerationService)
 		private readonly moderationService: ModerationService,
+		@inject(HelpOfferRepository)
+		private readonly helpOfferRepo: HelpOfferRepository,
 	) {}
 
 	async createHelpRequest(data: CreateHelpRequestDTO) {
