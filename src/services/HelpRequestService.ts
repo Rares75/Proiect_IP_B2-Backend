@@ -2,7 +2,13 @@ import {
   HelpRequestRepository,
   type CreateHelpRequestDTO,
   type HelpRequest,
+  type HelpRequestAssignmentAuthorization,
 } from "../db/repositories/helpRequest.repository";
+import {
+  HelpOfferRepository,
+  type HelpOffer,
+} from "../db/repositories/helpOffer.repository";
+import { VolunteerRepository } from "../db/repositories/volunteer.repository";
 import { inject } from "../di";
 import { Service } from "../di/decorators/service";
 import {
@@ -13,13 +19,15 @@ import {
 import { logger } from "../utils/logger";
 import type { requestStatusEnum } from "../db/enums";
 import {
+  ConflictError,
+  ForbiddenError,
   InvalidStatusTransitionError,
   NotFoundError,
-  ForbiddenError,
 } from "../utils/Errors";
 import { HelpRequestDetailsRepository } from "../db/repositories/requestDetails.repository";
-import { HelpOfferRepository } from "../db/repositories/helpOffer.repository";
-import { VolunteerRepository } from "../db/repositories/volunteer.repository";
+import { NotificationService } from "./NotificationService";
+import type { HelpOfferInput } from "../validation";
+import type { TaskFilterParams } from "../filters";
 
 //import type { TaskFilterParams } from "../filters";
 
@@ -44,7 +52,11 @@ export class HelpRequestService {
     @inject(HelpRequestDetailsRepository)
     private readonly helpRequestDetailsRepo: HelpRequestDetailsRepository,
     @inject(ModerationService)
-    private readonly moderationService: ModerationService,
+    private readonly moderationService: ModerationService = new ModerationService(),
+    @inject(NotificationService)
+    private readonly notificationService: NotificationService = {
+      notifyEligibleVolunteersForNewRequest: async () => {},
+    } as unknown as NotificationService,
   ) {}
 
   async createHelpRequest(data: CreateHelpRequestDTO) {
