@@ -5,6 +5,13 @@ import { RatingsRepository } from "../db/repositories/ratings.repository";
 import type { RatingSummaryType } from "../types";
 import { logger } from "../utils/logger";
 import { inject } from "../di";
+
+const DEMO_ALLOWED_RATING_STATUSES = new Set([
+	"ASSIGNED",
+	"IN_PROGRESS",
+	"COMPLETED",
+]);
+
 export type CreateRatingInput = {
 	taskAssignmentId: number;
 	writtenByUserId: string;
@@ -43,7 +50,10 @@ export class RatingsService {
 				return null;
 			}
 
-			if (taskData.status !== "COMPLETED") {
+			// Local demo patch:
+			// allow ratings after assignment even if the full task-completion flow
+			// is not yet wired end-to-end in the current backend/frontend combo.
+			if (!DEMO_ALLOWED_RATING_STATUSES.has(taskData.status)) {
 				logger.exception(
 					new RatingException(
 						"Rating can only be given after task completion.",
