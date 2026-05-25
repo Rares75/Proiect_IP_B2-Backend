@@ -58,7 +58,7 @@ export class HelpRequestService {
 			}
 		}
 		try {
-			return await this.helpRequestRepo.create({
+			const createdRequest = await this.helpRequestRepo.create({
 				...data,
 				status: "OPEN",
 			});
