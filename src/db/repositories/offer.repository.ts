@@ -32,6 +32,8 @@ export type AcceptedOfferResult = {
 	taskAssignment: TaskAssignment;
 };
 
+export type AcceptedHelpOffer = HelpOffer & { taskAssignmentId: number };
+
 @repository()
 export class OfferRepository {
 	constructor(

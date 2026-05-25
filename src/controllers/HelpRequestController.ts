@@ -22,6 +22,7 @@ import {
 	queryValidationMiddleware,
 	wsMessageSchema,
 } from "../validation";
+import { logger } from "../utils/logger";
 import { sendApiResponse } from "../utils/apiReponse";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
@@ -94,6 +95,39 @@ const successDetailsSchema = z
 			isClientError: false,
 			app: { url: "http://localhost:3000" },
 			statusCode: 200,
+		},
+	});
+
+const moderationResponseSchema = z
+	.object({
+		data: z.object({
+			level: z.literal("BLOCKED"),
+			reason: z.string(),
+		}),
+		message: z.string(),
+		notFound: z.boolean(),
+		isUnauthorized: z.boolean(),
+		isServerError: z.boolean(),
+		isClientError: z.boolean(),
+		app: z.object({
+			url: z.string(),
+		}),
+		statusCode: z.literal(400),
+	})
+	.meta({
+		ref: "ModerationErrorResponse",
+		example: {
+			data: {
+				level: "BLOCKED",
+				reason: "Content violates policies regarding financial scams.",
+			},
+			message: "Inappropriate content detected.",
+			notFound: false,
+			isUnauthorized: false,
+			isServerError: false,
+			isClientError: true,
+			app: { url: "http://localhost:3000" },
+			statusCode: 400,
 		},
 	});
 
@@ -236,7 +270,11 @@ export class HelpRequestController {
 						description:
 							"Invalid input or moderation error (inappropriate content)",
 						content: {
-							"application/json": { schema: resolver(emptyApiResponseSchema) },
+							"application/json": {
+								schema: resolver(
+									z.union([emptyApiResponseSchema, moderationResponseSchema]),
+								), // support boths
+							},
 						},
 					},
 					500: {
@@ -248,8 +286,9 @@ export class HelpRequestController {
 				},
 			}),
 			async (c) => {
+				let session: any = null;
 				try {
-					const session = await requireSession(c);
+					session = await requireSession(c);
 					if (session instanceof Response) {
 						return session;
 					}
@@ -266,20 +305,34 @@ export class HelpRequestController {
 					const result = await this.helpRequestService.createHelpRequest(
 						createData as CreateHelpRequestDTO,
 					);
-					//return c.json(result, 201);
-					return sendApiResponse(c, result, { kind: "created" });
-				} catch (error: any) {
-					// check if error comes from inappropriate request
-					if (error instanceof ModerationError) {
-						//return c.json({ error: error.message }, 400);
-						return sendApiResponse(c, null, {
-							message: error.message,
-							kind: "clientError",
+
+					// FLAGGED = override message in api response
+					if (result.moderationWarning) {
+						return sendApiResponse(c, result, {
+							kind: "created" as const,
+							message: `Task created with warning: ${result.moderationWarning}`,
 						});
 					}
 
-					console.error(error);
-					//return c.json({ error: "Internal server error" }, 500);
+					// CLEAN = send result
+					return sendApiResponse(c, result, { kind: "created" as const });
+				} catch (error: any) {
+					// check if error comes from inappropriate request
+					// BLOCKED = data becomes the moderation result level and the reason
+					if (error instanceof ModerationError) {
+						const logMsg = `[MODERATION] User ${session?.userId || "anonymous"} rejected. Reason: ${error.reason}`;
+						logger.warn(logMsg);
+						return sendApiResponse(
+							c,
+							{ level: error.level, reason: error.reason },
+							{ message: error.message, kind: "clientError" },
+						);
+					}
+
+					logger.error(
+						`[HelpRequestController] Unhandled error: ${error instanceof Error ? error.message : String(error)}`,
+					);
+					// return c.json({ error: "Internal server error" }, 500);
 					return sendApiResponse(c, null, { kind: "serverError" });
 				}
 			},

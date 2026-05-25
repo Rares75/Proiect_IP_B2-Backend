@@ -4,6 +4,7 @@ import {
 	type AcceptableOfferNotificationContext,
 	OfferRepository,
 	type AcceptedOfferResult,
+	type AcceptedHelpOffer,
 	type HelpOffer,
 } from "../db/repositories/offer.repository";
 import { VolunteerRepository } from "../db/repositories/volunteer.repository";
@@ -91,7 +92,7 @@ export class OfferService {
 		offerId: number,
 		userId: string,
 		status: "ACCEPTED" | "REJECTED" | "PENDING",
-	): Promise<HelpOffer> {
+	): Promise<HelpOffer | AcceptedHelpOffer> {
 		const context = await this.offerRepo.findNotificationContextById(offerId);
 
 		if (!context) {
@@ -171,7 +172,10 @@ export class OfferService {
 				tx,
 			);
 
-			return accepted.offer;
+			return {
+				...accepted.offer,
+				taskAssignmentId: accepted.taskAssignment.id,
+			};
 		});
 	}
 
@@ -179,7 +183,7 @@ export class OfferService {
 		offerId: number,
 		guestSessionId: string,
 		status: "ACCEPTED" | "REJECTED" | "PENDING",
-	): Promise<HelpOffer> {
+	): Promise<HelpOffer | AcceptedHelpOffer> {
 		const context = await this.offerRepo.findNotificationContextById(offerId);
 
 		if (!context) {
@@ -244,7 +248,10 @@ export class OfferService {
 				tx,
 			);
 
-			return accepted.offer;
+			return {
+				...accepted.offer,
+				taskAssignmentId: accepted.taskAssignment.id,
+			};
 		});
 	}
 

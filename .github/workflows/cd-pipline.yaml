@@ -40,8 +40,14 @@ jobs:
       - name: Install Railway CLI
         run: bun install -g @railway/cli
 
-      #Deployment
+      #1. Deploy BE service
       - name: Deploy to Railway
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --detach
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      
+      #2. Redeploy NGINX service for fresh BE intern URL
+      - name: Redeploy Nginx Proxy
+        run: railway redeploy --service ${{ secrets.RAILWAY_NGINX_SERVICE_ID }} --yes
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

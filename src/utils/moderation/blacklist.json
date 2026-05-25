@@ -1,11 +1,19 @@
 {
-	"keywords": [
-		{ "term": "scam", "severity": "BLOCKED" },
-		{ "term": "crypto", "severity": "FLAGGED" },
-		{ "term": "call me", "severity": "FLAGGED" }
-	],
-	"patterns": [
-		{ "regex": "click.*link", "severity": "FLAGGED" },
-		{ "regex": "buy.*followers", "severity": "BLOCKED" }
+	"reasons": [
+		{
+			"id": "financial_scam",
+			"message": "Content violates policies regarding financial scams.",
+			"keywords": [
+				{ "term": "scam", "severity": "BLOCKED" },
+				{ "term": "crypto", "severity": "FLAGGED" }
+			],
+			"patterns": [{ "regex": "click.*link", "severity": "FLAGGED" }]
+		},
+		{
+			"id": "violence_threats",
+			"message": "Content violates safety policies regarding violence.",
+			"keywords": [{ "term": "kill", "severity": "BLOCKED" }],
+			"patterns": []
+		}
 	]
 }
