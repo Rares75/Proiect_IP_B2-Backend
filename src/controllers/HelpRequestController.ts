@@ -409,7 +409,6 @@ export class HelpRequestController {
 						order,
 						filters,
 						c.get("user")?.id,
-						getViewerRole(c),
 					);
 
 					return sendApiResponse(c, result, { kind: "success" });
@@ -1085,7 +1084,6 @@ export class HelpRequestController {
 							page,
 							pageSize,
 							status,
-							{ userId: session.userId, role: getViewerRole(c) },
 						);
 
 					return sendApiResponse(c, result);

@@ -1,14 +1,23 @@
 /// <reference types="bun-types" />
 import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { join } from "node:path";
-import app from "../../../src/app";
+import { Hono } from "hono";
 import auth from "../../../src/auth";
+import { HelpRequestController } from "../../../src/controllers/HelpRequestController";
+import { HelpOfferService } from "../../../src/services/HelpOfferService";
 import { HelpRequestService } from "../../../src/services/HelpRequestService";
-import { loadControllers } from "../../../src/utils/controller";
 import { expectSuccessApiResponse } from "../apiResponseAssertions";
 
-beforeAll(async () => {
-	await loadControllers(join(process.cwd(), "/src/controllers"));
+let app: Hono;
+
+beforeAll(() => {
+	const controller = new HelpRequestController(
+		HelpRequestService.prototype as any,
+		HelpOfferService.prototype as any,
+		{} as any,
+	);
+
+	app = new Hono().basePath("/api");
+	app.route("/tasks", controller.controller);
 });
 
 describe("GET /api/tasks language filter", () => {

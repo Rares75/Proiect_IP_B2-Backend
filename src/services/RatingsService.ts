@@ -44,7 +44,7 @@ export class RatingsService {
 		private readonly ratingRepo: RatingsRepository,
 	) {}
 
-	async createRating(input: CreateRatingInput): Promise<SafeRatingDto | null> {
+	async createRating(input: CreateRatingInput): Promise<RatingType | null> {
 		try {
 			const {
 				taskAssignmentId,
@@ -122,7 +122,7 @@ export class RatingsService {
 				comment: comment.trim(),
 			});
 
-			return createdRating ? mapRatingToSafeDto(createdRating) : null;
+			return createdRating ?? null;
 		} catch (error) {
 			logger.exception(
 				new RatingException(
